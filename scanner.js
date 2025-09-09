@@ -47,6 +47,18 @@ function clearDexWatchdogs(keys){
     (Array.isArray(keys) ? keys : [keys]).forEach(k => clearDexWatchdog(k));
 }
 
+// Ticker countdown per-sel DEX (untuk menampilkan sisa waktu "Check")
+function clearDexTickerById(id){
+    try {
+        window._DEX_TICKERS = window._DEX_TICKERS || new Map();
+        const key = String(id) + ':ticker';
+        if (window._DEX_TICKERS.has(key)) {
+            clearInterval(window._DEX_TICKERS.get(key));
+            window._DEX_TICKERS.delete(key);
+        }
+    } catch(_) {}
+}
+
 let animationFrameId;
 let isScanRunning = false;
 
@@ -540,8 +552,32 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                     const dexConfig = CONFIG_DEXS[dex.toLowerCase()];
                                     if (dexConfig && dexConfig.allowFallback) {
                                         updateDexCellStatus('fallback', dex, initialError?.pesanDEX);
+                                        // Mulai countdown untuk SWOOP fallback (5 detik)
+                                        try {
+                                            window._DEX_TICKERS = window._DEX_TICKERS || new Map();
+                                            clearDexTickerById(idCELL);
+                                            const endAtFB = Date.now() + 5000;
+                                            const tickFB = () => {
+                                                const rem = endAtFB - Date.now();
+                                                const secs = Math.max(0, Math.ceil(rem / 1000));
+                                                const cell = document.getElementById(idCELL);
+                                                if (!cell) { clearDexTickerById(idCELL); return; }
+                                                if (cell.dataset && cell.dataset.final === '1') { clearDexTickerById(idCELL); return; }
+                                                const span = ensureDexStatusSpan(cell);
+                                                span.innerHTML = `<span class=\\"uk-margin-small-right\\" uk-spinner=\\"ratio: 0.5\\"></span>Check SWOOP (${secs}s)`;
+                                                try { if (window.UIkit && UIkit.update) UIkit.update(cell); } catch(_) {}
+                                                if (rem <= 0) {
+                                                    clearDexTickerById(idCELL);
+                                                    try { updateDexCellStatus('fallback_error', dex, 'SWOOP: Request Timeout'); } catch(_) {}
+                                                }
+                                            };
+                                            const intIdFB = setInterval(tickFB, 1000);
+                                            window._DEX_TICKERS.set(idCELL + ':ticker', intIdFB);
+                                            tickFB();
+                                        } catch(_) {}
                                         setDexWatchdog(wdKeyFallback, () => {
                                             const msg = (initialError?.pesanDEX ? `Initial: ${initialError.pesanDEX} | ` : '') + 'SWOOP: Request Timeout';
+                                            try { clearDexTickerById(idCELL); } catch(_) {}
                                             updateDexCellStatus('fallback_error', dex, msg);
                                         }, 5000);
                                         getPriceSWOOP(
@@ -553,11 +589,13 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                         )
                                         .then((fallbackRes) => {
                                             clearDexWatchdog(wdKeyFallback);
+                                            try { clearDexTickerById(idCELL); } catch(_) {}
                                             handleSuccess(fallbackRes, true);
                                         })
                                         .catch((fallbackErr) => {
                                             if (window._DEX_WATCHDOGS.has(wdKeyFallback)) clearTimeout(window._DEX_WATCHDOGS.get(wdKeyFallback));
                                             const finalMessage = `Initial: ${initialError?.pesanDEX || 'N/A'} | Fallback: ${fallbackErr?.pesanDEX || 'Unknown'}`;
+                                            try { clearDexTickerById(idCELL); } catch(_) {}
                                             updateDexCellStatus('fallback_error', dex, finalMessage);
                                             try {
                                                 const pairLine = `${String(isKiri ? token.symbol_in : token.symbol_out).toUpperCase()}->${String(isKiri ? token.symbol_out : token.symbol_in).toUpperCase()} on ${String(token.chain).toUpperCase()}`;
@@ -605,6 +643,31 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                 updateDexCellStatus('checking', dex, cexSummary);
                                 const dexTimeoutWindow = getJedaDex(dex) + Math.max(speedScan, 4500) + 300;
                                 setDexWatchdog(wdKeyCheck, () => { updateDexCellStatus('error', dex, `${dex.toUpperCase()}: Request Timeout`); }, dexTimeoutWindow);
+                                // Mulai ticker countdown untuk menampilkan sisa detik pada label "Check"
+                                try {
+                                    window._DEX_TICKERS = window._DEX_TICKERS || new Map();
+                                    const tickerKey = idCELL + ':ticker';
+                                    if (window._DEX_TICKERS.has(tickerKey)) { clearInterval(window._DEX_TICKERS.get(tickerKey)); window._DEX_TICKERS.delete(tickerKey); }
+                                    const endAt = Date.now() + dexTimeoutWindow;
+                                    const tick = () => {
+                                        const rem = endAt - Date.now();
+                                        const secs = Math.max(0, Math.ceil(rem / 1000));
+                                        const cell = document.getElementById(idCELL);
+                                        if (!cell) { clearDexTickerById(idCELL); return; }
+                                        if (cell.dataset && cell.dataset.final === '1') { clearDexTickerById(idCELL); return; }
+                                        const span = ensureDexStatusSpan(cell);
+                                        span.innerHTML = `<span class=\"uk-margin-small-right\" uk-spinner=\"ratio: 0.5\"></span>Check ${String(dex||'').toUpperCase()} (${secs}s)`;
+                                        try { if (window.UIkit && UIkit.update) UIkit.update(cell); } catch(_) {}
+                                        if (rem <= 0) {
+                                            clearDexTickerById(idCELL);
+                                            // Paksa transisi ke ERROR (timeout) bila watchdog belum mengeksekusi
+                                            try { updateDexCellStatus('error', dex, `${String(dex||'').toUpperCase()}: Request Timeout`); } catch(_) {}
+                                        }
+                                    };
+                                    const intId = setInterval(tick, 1000);
+                                    window._DEX_TICKERS.set(tickerKey, intId);
+                                    tick();
+                                } catch(_) {}
 
                                 setTimeout(() => {
                                     getPriceDEX(

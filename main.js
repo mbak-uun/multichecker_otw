@@ -513,7 +513,8 @@ async function deferredInit() {
             Object.keys(CONFIG_DEXS||{}).forEach(dx=>{
                 const key = String(dx).toLowerCase();
                 const id=`fc-dex-${key}`; const cnt=byDex[key]||0; if (cnt===0) return; const checked=dexSel.includes(key);
-                $secDex.append(chipHtml('fc-dex',id,dx.toUpperCase(),'#333',cnt,checked, key, false));
+                const col = (CONFIG_DEXS[key] && (CONFIG_DEXS[key].warna || CONFIG_DEXS[key].WARNA)) || '#333';
+                $secDex.append(chipHtml('fc-dex',id,dx.toUpperCase(),col,cnt,checked, key, false));
             });
             if ($headLabels.length)
             $wrap.append($secChain).append($('<div class=\"uk-text-muted\">|</div>')).append($secCex).append($('<div class=\"uk-text-muted\">|</div>')).append($secDex);
@@ -625,7 +626,8 @@ async function deferredInit() {
             },{});
             dexAllowed.forEach(dx => {
                 const id=`sc-dex-${dx}`; const cnt=byDex[dx]||0; if (cnt===0) return; const checked=dexSel.includes(dx);
-                $secDex.append(chipHtml('sc-dex',id,dx.toUpperCase(),'#333',cnt,checked, dx, false));
+                const col = (CONFIG_DEXS[dx] && (CONFIG_DEXS[dx].warna || CONFIG_DEXS[dx].WARNA)) || '#333';
+                $secDex.append(chipHtml('sc-dex',id,dx.toUpperCase(),col,cnt,checked, dx, false));
             });
             if ($headLabels.length)
             $wrap.append($secCex).append($('<div class=\"uk-text-muted\">|</div>')).append($secPair).append($('<div class=\"uk-text-muted\">|</div>')).append($secDex);

@@ -852,9 +852,27 @@ function DisplayPNL(data) {
   // Fee & info (WD/DP sesuai arah) — FEE SWAP PISAH BARIS
   const wdUrl = cexLinks.withdraw;
   const dpUrl = cexLinks.deposit;
-
-  const wdLine   = `<a class="uk-text-primary" href="${wdUrl}" target="_blank" rel="noopener" title="FEE WITHDRAW">🈳 WD: ${n(FeeWD).toFixed(4)}$</a>`;
-  const dpLine   = `<a class="uk-text-primary" href="${dpUrl}" target="_blank" rel="noopener">🈷️ DP[${Name_out}]</a>`;
+  // Tentukan status WD/DP dari token aktif (lihat data tersimpan)
+  let wdFlag, dpFlag;
+  try {
+    const list = (Array.isArray(window.singleChainTokensCurrent) && window.singleChainTokensCurrent.length)
+      ? window.singleChainTokensCurrent
+      : (Array.isArray(window.currentListOrderMulti) ? window.currentListOrderMulti : []);
+    const hit = (list || []).find(t => String(t.cex).toUpperCase() === upper(cex)
+      && String(t.symbol_in).toUpperCase() === upper(Name_in)
+      && String(t.symbol_out).toUpperCase() === upper(Name_out)
+      && String(t.chain).toLowerCase() === String(nameChain).toLowerCase());
+    if (hit) {
+      wdFlag = hit.withdrawToken; // WD selalu berdasarkan TOKEN
+      dpFlag = (direction === 'tokentopair') ? hit.depositPair : hit.depositToken;
+    }
+  } catch(_) {}
+  const wdText = (wdFlag === false) ? '🈳 WX' : '🈳 WD';
+  const dpText = (dpFlag === false) ? '🈷️ DX' : '🈷️ DP';
+  const wdCls  = (wdFlag === false) ? 'uk-text-danger' : 'uk-text-primary';
+  const dpCls  = (dpFlag === false) ? 'uk-text-danger' : 'uk-text-primary';
+  const wdLine   = `<a class="${wdCls}" href="${wdUrl}" target="_blank" rel="noopener" title="FEE WITHDRAW">${wdText}: ${n(FeeWD).toFixed(4)}$</a>`;
+  const dpLine   = `<a class="${dpCls}" href="${dpUrl}" target="_blank" rel="noopener">${dpText}[${Name_out}]</a>`;
   const swapLine = `<span class="monitor-line uk-text-danger" title="FEE SWAP">💸 SW: ${n(FeeSwap).toFixed(4)}$</span>`;
 
   const feeLine  = (direction === 'tokentopair') ? wdLine : dpLine;
