@@ -65,9 +65,13 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
         const id = idPrefix + rawId.replace(/[^A-Z0-9_]/g, '');
         return `
             <td class="td-orderbook" style="color: ${warnaCex}; text-align: center; vertical-align: middle;">
-                <span id="${id}">
-                    <b>${arrow}<br>${data.cex}</b> 🔒
-                </span>
+                <div class="orderbook-wrap">
+                    <div class="orderbook-scroll">
+                        <span id="${id}">
+                            <b>${arrow}<br>${data.cex}</b> 🔒
+                        </span>
+                    </div>
+                </div>
             </td>`;
     }
 
@@ -872,7 +876,7 @@ function DisplayPNL(data) {
   if (shouldHighlight) { try { $mainCell.addClass('dex-cell-highlight'); } catch(_) {}
   } else { try { $mainCell.removeClass('dex-cell-highlight'); } catch(_) {} }
   $mainCell.attr('style', shouldHighlight
-    ? `background-color:${hlBg}!important;font-weight:bolder!important;vertical-align:middle!important;text-align:center!important;`
+    ? `background-color:${hlBg}!important;font-weight:bolder!important;vertical-align:middle!important;text-align:center!important; border:1px solid black !important;`
     : 'text-align:center;vertical-align:middle;');
 
   // Baris utama (SWAP dipisah baris sendiri)

@@ -46,8 +46,8 @@
 </div>
 <div class="uk-container uk-margin-small-top uk-background-a">
  <!-- Card Bagian Header -->
-    <div class="uk-card uk-card-default uk-margin-small header-card">
-        <div class="uk-grid-small uk-flex-middle" uk-grid id="menu-app">
+    <div class="uk-card uk-card-default uk-margin-small header-card" id="menu-app">
+        <div class="uk-grid-small uk-flex-middle" uk-grid >
                 
                 <!-- Kiri: Judul -->
                 <div class="uk-width-expand@s uk-width-1-1">
@@ -55,8 +55,7 @@
                         <h3 id="judul" class="uk-margin-remove" 
                             style="font-size: 18px; line-height: 1.2; color: #000; font-weight: bold;">
                             MULTICHECKER <span id="current-chain-label" style="margin-left:3px;">[ALL]</span>
-                            <span id="tokenCount" class="uk-text-meta" style="margin-left:6px;">(0)</span>
-                            <!-- <img src="https://coopsugar.org/storage/2022/03/new.gif" width="24px" /> -->
+                            <img src="https://coopsugar.org/storage/2022/03/new.gif" width="24px" />
                         </h3>
                         &nbsp;&nbsp;
                         <span>[ <b> 
@@ -199,13 +198,6 @@
      <!-- Bagian untuk menampilkan sinyal DEX -->
     <div class="uk-text uk-text-small uk-margin-small-top" id="sinyal-container">
             <!-- Sinyal DEX akan dimuat di sini -->
-    </div>
-
-    <!-- Header bar placeholder for table context; JS only fills content if needed -->
-    <div id="header-table" class="uk-card uk-card-default uk-card-small uk-card-hover uk-margin-small-top" style="display:none;">
-        <div class="uk-card-body uk-padding-small" id="header-table-content">
-            <!-- Optional header content will be injected by JS -->
-        </div>
     </div>
 
     <div class="uk-overflow-auto uk-margin-small-top" id="monitoring-scroll" style="max-height: calc(100vh - 220px); overflow: auto;">

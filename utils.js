@@ -391,10 +391,8 @@ function applyThemeForMode() {
           body.dark-mode #tabel-monitoring thead { background: #1c1c1e !important; }
           #progress-bar { background-color: var(--theme-accent) !important; }
           #progress-container { border: 1px solid var(--theme-accent) !important; }
-          .header-card { border-color: var(--theme-accent) !important; }
-          /* Cards and panels */
-          #filter-card, #scanner-config, #token-management { border-color: var(--theme-accent) !important; }
-          .uk-overflow-auto { border-color: var(--theme-accent) !important; }
+          /* Cards and panels: keep token-management accent only; borders for #filter-card and #scanner-config unified in CSS */
+          #token-management { border-color: var(--theme-accent) !important; }
           .uk-card.uk-card-default { border-color: var(--theme-accent); }
           /* Modal header accent */
           .uk-modal-header { border-bottom: 2px solid var(--theme-accent) !important; }

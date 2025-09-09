@@ -40,10 +40,17 @@
 
   const PENDING_KEY = '__PENDING_TOASTS__';
 
+  function toUpperText(v){ try { return String(v == null ? '' : v).toUpperCase(); } catch(_) { return String(v||''); } }
+
   function addPendingToast(entry){
     try {
       const arr = JSON.parse(sessionStorage.getItem(PENDING_KEY) || '[]');
-      arr.push(entry);
+      // store as uppercase to ensure consistency across reloads
+      const e = Object.assign({}, entry, {
+        message: toUpperText(entry && entry.message),
+        title: toUpperText(entry && entry.title)
+      });
+      arr.push(e);
       sessionStorage.setItem(PENDING_KEY, JSON.stringify(arr));
     } catch(_) {}
   }
@@ -60,8 +67,10 @@
           const ttl = Number(item.ttlMs) || 10000;
           if (now - Number(item.ts || 0) > ttl) return;
           const t = toToastr(item.type);
+          const msgU = toUpperText(item.message);
+          const titleU = item.title != null ? toUpperText(item.title) : undefined;
           if (hasToastr && window.toastr[t]) {
-            window.toastr[t](String(item.message||''), item.title || undefined, item.opts || undefined);
+            window.toastr[t](msgU, titleU, item.opts || undefined);
           }
         } catch(_) {}
       });
@@ -73,9 +82,11 @@
     try {
       const t = toToastr(type);
       const options = opts || {};
+      const msgU = toUpperText(message);
+      const titleU = title != null ? toUpperText(title) : undefined;
       // Optionally persist across reload
       if (options && (options.persist || options.afterReload)) {
-        addPendingToast({ type: t, message, title, opts: options, ts: Date.now(), ttlMs: options.ttlMs || 12000 });
+        addPendingToast({ type: t, message: msgU, title: titleU, opts: options, ts: Date.now(), ttlMs: options.ttlMs || 12000 });
       }
       // Ensure unified positioning for every call
       if (hasToastr) {
@@ -86,13 +97,13 @@
       }
       if (nativeToastr && nativeToastr[t]) {
         // refactor: always render via nativeToastr to avoid recursive shim
-        nativeToastr[t](String(message||''), title || undefined, options);
+        nativeToastr[t](msgU, titleU, options);
       } else {
         // Fallback to alert for environments without toastr
         if (typeof window !== 'undefined' && typeof window.alert === 'function') {
-          window.alert(String(message||''));
+          window.alert(msgU);
         }
-        try { console[(t==='error'?'error':(t==='warning'?'warn':'log'))](message); } catch(_){}
+        try { console[(t==='error'?'error':(t==='warning'?'warn':'log'))](msgU); } catch(_){}
       }
     } catch(e) { /* debug logs removed */ }
   }
@@ -130,7 +141,7 @@
         try { addPendingToast({ type: toToastr(type), message, title, opts, ts: Date.now(), ttlMs: (opts && opts.ttlMs) || 12000 }); } catch(_) {}
         const d = Number(delayMs);
         if (Number.isFinite(d) && d > 0) {
-          try { if (hasToastr) { const t = toToastr(type); window.toastr[t](String(message||''), title || undefined, opts || undefined); } } catch(_) {}
+          try { if (hasToastr) { const t = toToastr(type); window.toastr[t](toUpperText(message), (title!=null?toUpperText(title):undefined), opts || undefined); } } catch(_) {}
           setTimeout(() => { try { window.location.reload(); } catch(_) {} }, d);
         } else {
           try { window.location.reload(); } catch(_) {}
@@ -143,7 +154,7 @@
       window.alert = function(msg){
         // Show now and also persist briefly in case a reload follows immediately
         try { addPendingToast({ type: 'info', message: String(msg||''), title: undefined, opts: undefined, ts: Date.now(), ttlMs: 10000 }); } catch(_) {}
-        if (hasToastr) { try { toastr.info(String(msg||'')); return; } catch(_){} }
+        if (hasToastr) { try { toastr.info(toUpperText(msg)); return; } catch(_){} }
         if (origAlert) return origAlert(msg);
       };
       // Drain any pending toasts on load

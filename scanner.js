@@ -23,11 +23,9 @@ function ensureDexStatusSpan(cell) {
 }
 
 // refactor: normalized setter for error background honoring dark-mode
-function setDexErrorBackground(cell, fallbackColor) {
+function setDexErrorBackground(cell) {
     if (!cell) return;
-    // refactor: use shared dark-mode helper
-    const isDark = (typeof window !== 'undefined' && window.isDarkMode && window.isDarkMode()) || (typeof document !== 'undefined' && document.body && document.body.classList.contains('dark-mode'));
-    cell.style.backgroundColor = fallbackColor || (isDark ? '#651313' : '#ffcccc');
+    try { cell.classList.add('dex-error'); } catch(_) {}
 }
 
 // refactor: global watchdog helpers to avoid duplicate inline implementations
@@ -52,6 +50,42 @@ function clearDexWatchdogs(keys){
 let animationFrameId;
 let isScanRunning = false;
 
+// Toggle page title to indicate active scan for the current page/tab (single-chain only)
+function setPageTitleForRun(running){
+    try {
+        const m = (typeof getAppMode === 'function') ? getAppMode() : { type: 'multi' };
+        if (String(m.type||'').toLowerCase() !== 'single') return; // only affect per-chain pages
+        if (running) {
+            if (!window.__ORIG_TITLE) window.__ORIG_TITLE = document.title;
+            document.title = 'SCANNING..';
+        } else {
+            if (window.__ORIG_TITLE) { document.title = window.__ORIG_TITLE; }
+            window.__ORIG_TITLE = null;
+        }
+    } catch(_) {}
+}
+
+// Title helpers for DEX cells: maintain a joined title log per cell
+function setCellTitleByEl(cell, text){
+    try {
+        cell.dataset.titleLog = String(text || '');
+        cell.setAttribute('title', cell.dataset.titleLog);
+        const span = cell.querySelector('.dex-status');
+        if (span) span.setAttribute('title', cell.dataset.titleLog);
+    } catch(_) {}
+}
+function appendCellTitleByEl(cell, line){
+    try {
+        const prev = cell.dataset && cell.dataset.titleLog ? String(cell.dataset.titleLog) : '';
+        const next = prev ? (prev + '\n' + String(line||'')) : String(line||'');
+        setCellTitleByEl(cell, next);
+    } catch(_) {}
+}
+function appendCellTitleById(id, line){
+    const cell = document.getElementById(id);
+    if (!cell) return;
+    appendCellTitleByEl(cell, line);
+}
 /**
  * Start the scanning process for a flattened list of tokens.
  * - Batches tokens per group (scanPerKoin)
@@ -113,6 +147,8 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
     } catch(_) {}
 
     setAppState({ run: 'YES' });
+    // Update page title to indicate active scanning (single-chain view only)
+    setPageTitleForRun(true);
     try {
         if (typeof window.updateRunStateCache === 'function') {
             try { window.updateRunStateCache(getActiveFilterKey(), { run: 'YES' }); } catch(_) {}
@@ -224,6 +260,32 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
             const prices = [DataCEX.priceBuyToken, DataCEX.priceSellToken, DataCEX.priceBuyPair, DataCEX.priceSellPair];
             if (prices.some(p => !isFinite(p) || p <= 0)) {
                 if (typeof toast !== 'undefined' && toast.error) toast.error(`CEK MANUAL ${token.symbol_in} di ${token.cex}`);
+                // Inform all DEX cells for this token that CEX prices are invalid
+                try {
+                    if (Array.isArray(token.dexs)) {
+                        token.dexs.forEach((dd) => {
+                            try { if (!allowedDexs.includes(String(dd.dex||'').toLowerCase())) return; } catch(_) {}
+                            const dex = String(dd.dex||'').toLowerCase();
+                            ['TokentoPair','PairtoToken'].forEach(dir => {
+                                const isKiri = dir === 'TokentoPair';
+                                const baseIdRaw = `${String(token.cex).toUpperCase()}_${String(dex).toUpperCase()}_`
+                                  + `${String(isKiri ? token.symbol_in : token.symbol_out).toUpperCase()}_`
+                                  + `${String(isKiri ? token.symbol_out : token.symbol_in).toUpperCase()}_`
+                                  + `${String(token.chain).toUpperCase()}_`
+                                  + `${String(token.id||'').toUpperCase()}`;
+                                const idCELL = tableBodyId + '_' + baseIdRaw.replace(/[^A-Z0-9_]/g,'');
+                                const cell = document.getElementById(idCELL);
+                                if (!cell) return;
+                                setDexErrorBackground(cell);
+                                const span = ensureDexStatusSpan(cell);
+                                span.className = 'dex-status uk-text-danger';
+                                span.innerHTML = `<span class=\"uk-label uk-label-danger\">ERROR</span>`;
+                                appendCellTitleByEl(cell, '[CEX] INVALID PRICES');
+                                try { if (cell.dataset) cell.dataset.final = '1'; } catch(_) {}
+                            });
+                        });
+                    }
+                } catch(_) {}
                 return;
             }
 
@@ -273,7 +335,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                     // Do not overwrite if cell already finalized by a prior UPDATE/ERROR
                                     try { if (cell.dataset && cell.dataset.final === '1') return; } catch(_) {}
                                     // Presentation only: spinner for checking, badge for error
-                                    cell.style.backgroundColor = '';
+                                    try { cell.classList.remove('dex-error'); } catch(_) {}
                                     let statusSpan = ensureDexStatusSpan(cell);
                                     statusSpan.removeAttribute('title');
                                     statusSpan.classList.remove('uk-text-muted', 'uk-text-warning', 'uk-text-danger');
@@ -281,17 +343,47 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                         statusSpan.classList.add('uk-text-warning');
                                         statusSpan.innerHTML = `<span class=\"uk-margin-small-right\" uk-spinner=\"ratio: 0.5\"></span>Check ${String(dexName||'').toUpperCase()}`;
                                         try { if (window.UIkit && UIkit.update) UIkit.update(cell); } catch(_) {}
+                                        // Build rich header log like example
+                                        try {
+                                            const chainCfg = (window.CONFIG_CHAINS||{})[String(token.chain).toLowerCase()] || {};
+                                            const chainName = (chainCfg.Nama_Chain || token.chain || '').toString().toUpperCase();
+                                            const nameIn  = String(isKiri ? token.symbol_in  : token.symbol_out).toUpperCase();
+                                            const nameOut = String(isKiri ? token.symbol_out : token.symbol_in ).toUpperCase();
+                                            const ce  = String(token.cex||'').toUpperCase();
+                                            const dx  = String(dexName||dex||'').toUpperCase();
+                                            const proc = isKiri ? `${ce} → ${dx}` : `${dx} → ${ce}`;
+                                            const modal = Number(isKiri ? modalKiri : modalKanan) || 0;
+                                            const header = [
+                                                `✅ [LOG ${isKiri? 'CEX → DEX':'DEX → CEX'}] ${nameIn} → ${nameOut} on ${chainName}`,
+                                                `    🔄 [${proc}]`,
+                                                '',
+                                                `    🪙 Modal: $${modal.toFixed(2)}`,
+                                               // message ? `    💹 CEX SUMMARY: ${message}` : ''
+                                            ].filter(Boolean).join('\n');
+                                            setCellTitleByEl(cell, header);
+                                        } catch(_) {}
                                     } else if (status === 'fallback') {
                                         statusSpan.classList.add('uk-text-warning');
                                         statusSpan.innerHTML = `<span class=\"uk-margin-small-right\" uk-spinner=\"ratio: 0.5\"></span>Check SWOOP`;
                                         if (message) statusSpan.title = `Initial Error: ${message}`;
                                         try { if (window.UIkit && UIkit.update) UIkit.update(cell); } catch(_) {}
+                                        if (message) { appendCellTitleByEl(cell, `    🔁 FALLBACK: ${message}`); }
                                     } else if (status === 'fallback_error') {
                                         setDexErrorBackground(cell);
                                         statusSpan.classList.remove('uk-text-warning');
                                         statusSpan.classList.add('uk-text-danger');
                                         statusSpan.innerHTML = `<span class=\"uk-label uk-label-warning\">TIMEOUT</span>`;
                                         if (message) statusSpan.title = message;
+                                        appendCellTitleByEl(cell, `    ⏲️ TIMEOUT: ${message || 'Request Timeout'}`);
+                                        try { if (cell.dataset) cell.dataset.final = '1'; } catch(_) {}
+                                    } else if (status === 'failed') {
+                                        // Validation failed before DEX call (e.g., modal/contract/chain code)
+                                        setDexErrorBackground(cell);
+                                        statusSpan.classList.remove('uk-text-warning');
+                                        statusSpan.classList.add('uk-text-danger');
+                                        statusSpan.innerHTML = `<span class=\"uk-label uk-label-failed\">FAILED</span>`;
+                                        if (message) statusSpan.title = message;
+                                        appendCellTitleByEl(cell, `    ❌ VALIDATION FAILED: ${message || 'Invalid prerequisites'}`);
                                         try { if (cell.dataset) cell.dataset.final = '1'; } catch(_) {}
                                     } else if (status === 'error') {
                                         setDexErrorBackground(cell);
@@ -299,6 +391,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                         statusSpan.classList.add('uk-text-danger');
                                         statusSpan.innerHTML = `<span class=\"uk-label uk-label-danger\">ERROR</span>`;
                                         if (message) statusSpan.title = message;
+                                        if (message) { appendCellTitleByEl(cell, `    ⛔ ERROR: ${message}`); }
                                         try { if (cell.dataset) cell.dataset.final = '1'; } catch(_) {}
                                     }
                                 };
@@ -320,7 +413,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                 };
 
                                 const ready = validateDexReadiness();
-                                if (!ready.ok) { updateDexCellStatus('error', dex, ready.reason); return; }
+                                if (!ready.ok) { updateDexCellStatus('failed', dex, ready.reason); return; }
 
                                 const wdKeyCheck = idCELL + ':check';
                                 const wdKeyFallback = idCELL + ':fallback';
@@ -375,6 +468,68 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
 
                                         // refactor: removed unused local debug variables (buy/sell/pnl lines)
                                         
+                                    } catch(_) {}
+                                    // Append success details (rich format)
+                                    try {
+                                        const chainCfg = (window.CONFIG_CHAINS||{})[String(token.chain).toLowerCase()] || {};
+                                        const chainName = (chainCfg.Nama_Chain || token.chain || '').toString().toUpperCase();
+                                        const ce  = String(token.cex||'').toUpperCase();
+                                        const dx  = String((finalDexRes?.dexTitle)||dex||'').toUpperCase();
+                                        const nameIn  = String(isKiri ? token.symbol_in  : token.symbol_out).toUpperCase();
+                                        const nameOut = String(isKiri ? token.symbol_out : token.symbol_in ).toUpperCase();
+                                        const modal = Number(isKiri ? modalKiri : modalKanan) || 0;
+                                        const amtIn  = Number(isKiri ? amount_in_token : amount_in_pair) || 0;
+                                        const outAmt = Number(finalDexRes.amount_out)||0;
+                                        const feeSwap = Number(finalDexRes.FeeSwap||0);
+                                        const feeWD   = Number(isKiri ? DataCEX.feeWDToken : DataCEX.feeWDPair) || 0;
+                                        const feeTrade = 0.0014 * modal;
+                                        // Harga efektif DEX (USDT/token)
+                                        let effDexPerToken = 0;
+                                        if (isKiri) {
+                                            if (nameOut === 'USDT') effDexPerToken = (amtIn>0)? (outAmt/amtIn) : 0;
+                                            else effDexPerToken = (amtIn>0)? (outAmt/amtIn) * Number(DataCEX.priceSellPair||0) : 0;
+                                        } else {
+                                            if (nameIn === 'USDT') effDexPerToken = (outAmt>0)? (amtIn/outAmt) : 0;
+                                            else effDexPerToken = (outAmt>0)? (amtIn/outAmt) * Number(DataCEX.priceBuyPair||0) : 0;
+                                        }
+                                        // Total value hasil (USDT)
+                                        const totalValue = isKiri
+                                          ? outAmt * Number(DataCEX.priceSellPair||0)
+                                          : outAmt * Number(DataCEX.priceSellToken||0);
+                                        const bruto = totalValue - modal;
+                                        const totalFee = feeSwap + feeWD + feeTrade;
+                                        const profitLoss = totalValue - (modal + totalFee);
+                                        const pnlPct = modal>0 ? (bruto/modal)*100 : 0;
+                                        const toIDR = (v)=>{ try{ return (typeof formatIDRfromUSDT==='function')? formatIDRfromUSDT(Number(v)||0):'';}catch(_){return '';} };
+                                        const buyPriceCEX = Number(DataCEX.priceBuyToken||0);
+                                        const buyLine = isKiri
+                                          ? `    🛒 Beli di ${ce} @ $${buyPriceCEX.toFixed(6)} → ${amtIn.toFixed(6)} ${nameIn}`
+                                          : `    🛒 Beli di ${dx} @ ~$${effDexPerToken.toFixed(6)} / ${nameOut}`;
+                                        const buyIdrLine = isKiri
+                                          ? `    💱 Harga Beli (${ce}) dalam IDR: ${toIDR(buyPriceCEX)}`
+                                          : `    💱 Harga Beli (${dx}) dalam IDR: ${toIDR(effDexPerToken)}`;
+                                        const sellIdrLine = isKiri
+                                          ? `    💱 Harga Jual (${dx}) dalam IDR: ${toIDR(effDexPerToken)}`
+                                          : `    💱 Harga Jual (${ce}) dalam IDR: ${toIDR(Number(DataCEX.priceSellToken||0))}`;
+                                        const lines = [
+                                            '',
+                                            `    🪙 Modal: $${modal.toFixed(2)}`,
+                                            buyLine,
+                                            buyIdrLine,
+                                            '',
+                                            `    💰 Swap di ${dx}:`,
+                                            `    - Harga Swap Efektif: ~$${effDexPerToken.toFixed(6)} / ${nameIn}`,
+                                            `    - Hasil: $${Number(totalValue||0).toFixed(6)}`,
+                                            sellIdrLine,
+                                            '',
+                                            `    💸 Fee WD: $${feeWD.toFixed(2)}`,
+                                            `    🛒 Fee Swap: $${feeSwap.toFixed(2)}`,
+                                            `    🧾 Total Fee: ~$${totalFee.toFixed(2)}`,
+                                            '',
+                                            `    📈 PNL: ${bruto>=0?'+':''}${bruto.toFixed(2)} USDT (${pnlPct.toFixed(2)}%)`,
+                                            `    🚀 PROFIT : ${profitLoss>=0?'+':''}${profitLoss.toFixed(2)} USDT`
+                                        ].join('\n');
+                                        appendCellTitleById(idCELL, lines);
                                     } catch(_) {}
                                     uiUpdateQueue.push(update);
                                 };
@@ -444,7 +599,10 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                 };
 
                                 // debug logs removed
-                                updateDexCellStatus('checking', dex);
+                                // Include CEX summary in title while checking
+                                const fmt6 = v => (Number.isFinite(+v) ? (+v).toFixed(6) : String(v));
+                                const cexSummary = `CEX READY BT=${fmt6(DataCEX.priceBuyToken)} ST=${fmt6(DataCEX.priceSellToken)} BP=${fmt6(DataCEX.priceBuyPair)} SP=${fmt6(DataCEX.priceSellPair)}`;
+                                updateDexCellStatus('checking', dex, cexSummary);
                                 const dexTimeoutWindow = getJedaDex(dex) + Math.max(speedScan, 4500) + 300;
                                 setDexWatchdog(wdKeyCheck, () => { updateDexCellStatus('error', dex, `${dex.toUpperCase()}: Request Timeout`); }, dexTimeoutWindow);
 
@@ -543,6 +701,8 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
         updateProgress(tokensToProcess.length, tokensToProcess.length, startTime, 'SELESAI');
         isScanRunning = false;
         cancelAnimationFrame(animationFrameId);
+        // Restore page title after scan completes
+        setPageTitleForRun(false);
         form_on();
         $("#stopSCAN").hide().prop("disabled", true);
         $('#startSCAN').prop('disabled', false).text('Start').removeClass('uk-button-disabled');
@@ -609,6 +769,8 @@ async function stopScanner() {
     try { cancelAnimationFrame(animationFrameId); } catch(_) {}
     clearInterval(window.__autoRunInterval); // REFACTORED
     window.__autoRunInterval = null;
+    // Restore page title if user stops the scan
+    setPageTitleForRun(false);
     if (typeof form_on === 'function') form_on(); // REFACTORED
     try { sessionStorage.setItem('APP_FORCE_RUN_NO', '1'); } catch(_) {}
     // Persist run=NO before reloading to avoid stale run state after refresh

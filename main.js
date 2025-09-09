@@ -206,8 +206,6 @@ function refreshTokensTable() {
 
     filteredTokens = [...filteredByChain];
     originalTokens = [...filteredByChain];
-
-    try { updateTokenCount(filteredTokens); } catch(_) {}
     loadKointoTable(filteredTokens, 'dataTableBody');
     try { window.currentListOrderMulti = Array.isArray(filteredTokens) ? [...filteredTokens] : []; } catch(_) {}
     try { applySortToggleState(); } catch(_) {}
@@ -1784,11 +1782,6 @@ $(document).ready(function() {
 
     // Apply themed background + dark mode per state
     if (typeof applyThemeForMode === 'function') applyThemeForMode();
-
-    // $('#namachain').text("MULTICHECKER");
-    $('#sinyal-container').css('color', 'black');
-
-    // --- Defer heavy initialization ---
     // applyThemeForMode already executed above to paint early
     setTimeout(deferredInit, 0);
 
