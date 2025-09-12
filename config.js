@@ -443,9 +443,13 @@ const CONFIG_DEXS = {
             primary: {
                 tokentopair: 'okx',
                 pairtotoken: 'okx'
+            },
+            alternative: {
+                tokentopair: 'swoop',
+                pairtotoken: 'lifi'
             }
         },
-        allowFallback: false,
+        allowFallback: true,
     },
     '1inch': {
         proxy: true,

@@ -396,6 +396,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                   + `${String(token.id||'').toUpperCase()}`;
                                 const baseId = baseIdRaw.replace(/[^A-Z0-9_]/g,'');
                                 const idCELL = tableBodyId + '_' + baseId;
+                                let lastPrimaryError = null;
 
                                 // Resolve safe token addresses/decimals especially for NON pair
                                 const chainCfgSafe = (window.CONFIG_CHAINS || {})[String(token.chain).toLowerCase()] || {};
@@ -628,13 +629,44 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                         const sellIdrLine = isKiri
                                           ? `    💱 Harga Jual (${dx}) dalam IDR: ${toIDR(effDexPerToken)}`
                                           : `    💱 Harga Jual (${ce}) dalam IDR: ${toIDR(Number(DataCEX.priceSellToken||0))}`;
+                                        // Header block (selalu tampil di awal tooltip)
+                                        const nowStr = (new Date()).toLocaleTimeString();
+                                        const viaName = (function(){
+                                            try {
+                                                if (isFallback === true) {
+                                                    if (finalDexRes && (typeof finalDexRes.routeTool !== 'undefined' || typeof finalDexRes.routeOverrideDex !== 'undefined')) return 'LIFI';
+                                                    return 'SWOOP';
+                                                }
+                                            } catch(_) {}
+                                            return dx;
+                                        })();
+                                        const prosesLine = isKiri
+                                          ? `PROSES : ${ce} => ${dx} (VIA ${viaName})`
+                                          : `PROSES : ${dx} => ${ce} (VIA ${viaName})`;
+                                        let statusLine = 'STATUS DEX : OK';
+                                        if (isFallback === true && lastPrimaryError) {
+                                            let s = 'FAILED';
+                                            try {
+                                                const ts = String(lastPrimaryError.textStatus||'').toLowerCase();
+                                                if (ts === 'timeout' || /timeout/i.test(String(lastPrimaryError.pesanDEX||''))) s = 'TIMEOUT';
+                                            } catch(_) { s = 'FAILED'; }
+                                            const codeNum = Number(lastPrimaryError.statusCode);
+                                            statusLine = `STATUS DEX : ${s} (KODE ERROR : ${Number.isFinite(codeNum)?codeNum:'NA'})`;
+                                        }
+                                        const headerBlock = [
+                                            '======================================',
+                                            `Time: ${nowStr}`,
+                                           // `ID CELL: ${idCELL}`,
+                                            prosesLine,
+                                            statusLine
+                                        ].join('\n');
                                         const lines = [
-                                            '',
+                                            headerBlock,
                                             `    🪙 Modal: $${modal.toFixed(2)}`,
                                             buyLine,
                                             buyIdrLine,
                                             '',
-                                            `    💰 Swap di ${dx}${viaText}:`,
+                                            `    💰 Swap di ${dx}:`,
                                             `    - Harga Swap Efektif: ~$${effDexPerToken.toFixed(6)} / ${nameIn}`,
                                             `    - Hasil: $${Number(totalValue||0).toFixed(6)}`,
                                             sellIdrLine,
@@ -647,11 +679,13 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                             `    🚀 PROFIT : ${profitLoss>=0?'+':''}${profitLoss.toFixed(2)} USDT`
                                         ].join('\n');
                                         appendCellTitleById(idCELL, lines);
+                                        try { if (window.SCAN_LOG_ENABLED) console.log(lines); } catch(_) {}
                                     } catch(_) {}
                                     uiUpdateQueue.push(update);
                                 };
 
                                 const handleError = (initialError) => {
+                                    try { lastPrimaryError = initialError; } catch(_) {}
                                     clearAllWatchdogs();
                                     // debug logs removed
                                     const dexConfig = CONFIG_DEXS[dex.toLowerCase()];
@@ -769,6 +803,33 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                             } catch(_) {}
                                             return m;
                                         })());
+                                        // Tambahkan header block ke tooltip + console (jika Log ON)
+                                        try {
+                                            const nowStr = (new Date()).toLocaleTimeString();
+                                            const dxName = String(dex||'').toUpperCase();
+                                            const ceName = String(token.cex||'').toUpperCase();
+                                            // PROSES mengikuti arah
+                                            const prosesLine = (direction === 'TokentoPair')
+                                                ? `PROSES : ${ceName} => ${dxName} (VIA ${dxName})`
+                                                : `PROSES : ${dxName} => ${ceName} (VIA ${dxName})`;
+                                            // STATUS
+                                            let s = 'FAILED';
+                                            try {
+                                                const ts = String(initialError && initialError.textStatus || '').toLowerCase();
+                                                if (ts === 'timeout' || /timeout/i.test(String(initialError && initialError.pesanDEX||''))) s = 'TIMEOUT';
+                                            } catch(_) { s = 'FAILED'; }
+                                            const codeNum = Number(initialError && initialError.statusCode);
+                                            const statusLine = `STATUS DEX : ${s} (KODE ERROR : ${Number.isFinite(codeNum)?codeNum:'NA'})`;
+                                            const headerBlock = [
+                                                '======================================',
+                                                `Time: ${nowStr}`,
+                                               // `ID CELL: ${idCELL}`,
+                                                prosesLine,
+                                                statusLine
+                                            ].join('\n');
+                                            appendCellTitleById(idCELL, headerBlock);
+                                            try { if (window.SCAN_LOG_ENABLED) console.log(headerBlock); } catch(_) {}
+                                        } catch(_) {}
                                         try {
                                             // Align console info with requested orderbook logic (logs removed)
                                         } catch(_) {}

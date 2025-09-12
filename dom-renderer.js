@@ -861,25 +861,9 @@ function DisplayPNL(data) {
     const tokenSym = (direction === 'tokentopair') ? upper(Name_in)  : upper(Name_out);
     const pairSym  = (direction === 'tokentopair') ? upper(Name_out) : upper(Name_in);
 
-    const lines = [
-      sep,
-      `Time: ${new Date().toLocaleTimeString()}`,
-      `ID CELL: ${elementId}`,
-      `PROSES : ${procLine}`,
-      `KOIN : ${coinLine}`,
-      `MODAL : ${n(Modal).toFixed(2)}$`,
-      // `Buy [${tokenSym}]: ${Number(buyPrice)}$`,
-      // `Sell [${pairSym}]: ${Number(sellPrice)}$`,
-      `BUY ${tokenSym} : ${n(buyPrice).toFixed(10)}$`,
-      `SELL ${tokenSym} : ${n(sellPrice).toFixed(10)}$`,
-      `PNL & TOTAL FEE : ${n(pnl).toFixed(2)}$ & ${n(feeAll).toFixed(2)}$`,
-      // Selalu tampilkan FeeWD dalam USDT (hasil konversi di services/cex.js), bukan fee mentah per koin
-      `FEE WD & FEE SWAP : ${n(FeeWD).toFixed(2)}$ & ${n(FeeSwap).toFixed(2)}$`,
-      // Status detail WD/DP per Token & Pair agar tidak ambigu
-      `${tokenSym}: WD[${f(wdTokenFlag)}] | DP[${f(dpTokenFlag)}]`,
-      `${pairSym}: WD[${f(wdPairFlag)} | DP[${f(dpPairFlag)}]`
-    ];
-    console.log(lines.join('\n'));
+    // Console logging (Time/ID Cell/Proses/PNL dsb.) dipindahkan ke layer scanner untuk
+    // menambahkan informasi status DEX dan sumber (VIA LIFI/SWOOP/DEX). Bagian ini
+    // dihapus agar tidak terjadi duplikasi log dan agar informasi tetap konsisten.
   } catch(_) {}
 
   // Fee & info (WD/DP sesuai arah) — FEE SWAP PISAH BARIS
