@@ -947,19 +947,56 @@ function DisplayPNL(data) {
     InfoSinyal(lower(dextype), NameX, pnl, feeAll, upper(cex), Name_in, Name_out, profitLossPercent, Modal, nameChain, codeChain, trx, idPrefix, baseId);
   }
 
+    // --- Ambil status WD/DP detail untuk TOKEN & PAIR (sekali saja)
+  let wdTokenFlag, wdPairFlag, dpTokenFlag, dpPairFlag;
+  try {
+    const list = (Array.isArray(window.singleChainTokensCurrent) && window.singleChainTokensCurrent.length)
+      ? window.singleChainTokensCurrent
+      : (Array.isArray(window.currentListOrderMulti) ? window.currentListOrderMulti : []);
+    // TOKEN selalu = Name_in saat tokentopair, dan = Name_out saat pairtotoken
+    const keyToken = (direction === 'tokentopair') ? upper(Name_in) : upper(Name_out);
+    const keyPair  = (direction === 'tokentopair') ? upper(Name_out) : upper(Name_in);
+    const hit = (list || []).find(t => String(t.cex).toUpperCase() === upper(cex)
+      && String(t.symbol_in).toUpperCase() === keyToken
+      && String(t.symbol_out).toUpperCase() === keyPair
+      && String(t.chain).toLowerCase() === String(nameChain).toLowerCase());
+    if (hit) {
+      wdTokenFlag = hit.withdrawToken;
+      wdPairFlag  = hit.withdrawPair;
+      dpTokenFlag = hit.depositToken;
+      dpPairFlag  = hit.depositPair;
+    }
+  } catch(_) {}
+
   // Telegram alert mengikuti kondisi yang sama agar konsisten // REFACTORED
-  if (typeof MultisendMessage === 'function' && passSignal) {
+    if (typeof MultisendMessage === 'function' && passSignal) {
     const directionMsg = (direction === 'tokentopair') ? 'cex_to_dex' : 'dex_to_cex';
-    const tokenData = { chain: nameChain, symbol: Name_in, pairSymbol: Name_out, contractAddress: sc_input, pairContractAddress: sc_output };
+    const tokenData = {
+      chain: nameChain,
+      symbol: Name_in,
+      pairSymbol: Name_out,
+      contractAddress: sc_input,
+      pairContractAddress: sc_output
+    };
     const nickname = (typeof getFromLocalStorage === 'function')
       ? (getFromLocalStorage('SETTING_SCANNER', {})?.nickname || '')
       : (typeof SavedSettingData !== 'undefined' ? (SavedSettingData?.nickname || '') : '');
 
+    // Kirim status yang sama agar Telegram = Kolom
+    const statusOverrides = {
+      depositToken : dpTokenFlag,
+      withdrawToken: wdTokenFlag,
+      depositPair  : dpPairFlag,
+      withdrawPair : wdPairFlag,
+    };
+
     MultisendMessage(
       upper(cex), dextype, tokenData, Modal, pnl,
-      n(buyPrice), n(sellPrice), n(FeeSwap), n(FeeWD), feeAll, nickname, directionMsg
+      n(buyPrice), n(sellPrice), n(FeeSwap), n(FeeWD), feeAll, nickname, directionMsg,
+      statusOverrides // ← tambahan baru
     );
   }
+
 
   // Render akhir
   const dexNameAndModal = ($mainCell.find('strong').first().prop('outerHTML')) || '';

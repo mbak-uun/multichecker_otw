@@ -156,96 +156,106 @@ function sendStatusTELE(user, status) {
  * Send a detailed arbitrage signal message to Telegram.
  * Links include CEX trade pages and DEX aggregator swap link.
  */
-function MultisendMessage(cex, dex, tokenData, modal, PNL, priceBUY, priceSELL, FeeSwap, FeeWD, totalFee, nickname, direction) {
-    const chainConfig = CONFIG_CHAINS[String(tokenData.chain || '').toLowerCase()];
-    if (!chainConfig) return;
+function MultisendMessage(
+  cex, dex, tokenData, modal, PNL, priceBUY, priceSELL, FeeSwap, FeeWD, totalFee, nickname, direction,
+  statusOverrides /* ← { depositToken, withdrawToken, depositPair, withdrawPair } opsional */
+) {
+  const chainConfig = CONFIG_CHAINS[String(tokenData.chain || '').toLowerCase()];
+  if (!chainConfig) return;
 
-    // Symbols and contracts oriented by route direction
-    const fromSymbol = direction === 'cex_to_dex' ? tokenData.symbol : tokenData.pairSymbol; // input
-    const toSymbol   = direction === 'cex_to_dex' ? tokenData.pairSymbol : tokenData.symbol; // output
-    const scIn  = direction === 'cex_to_dex' ? tokenData.contractAddress      : tokenData.pairContractAddress;
-    const scOut = direction === 'cex_to_dex' ? tokenData.pairContractAddress  : tokenData.contractAddress;
+  // Symbols & contracts mengikuti arah
+  const fromSymbol = direction === 'cex_to_dex' ? tokenData.symbol : tokenData.pairSymbol; // input
+  const toSymbol   = direction === 'cex_to_dex' ? tokenData.pairSymbol : tokenData.symbol; // output
+  const scIn  = direction === 'cex_to_dex' ? tokenData.contractAddress      : tokenData.pairContractAddress;
+  const scOut = direction === 'cex_to_dex' ? tokenData.pairContractAddress  : tokenData.contractAddress;
 
-    // Useful links
-    const urls = GeturlExchanger(String(cex).toUpperCase(), fromSymbol, toSymbol) || {};
-    const linkCexTradeToken = urls.tradeToken || '#';
-    const linkCexTradePair  = urls.tradePair  || '#';
-    // WD/DP URLs
-    const wdTokenUrl = urls.withdrawTokenUrl || urls.withdrawUrl || '#';
-    const dpTokenUrl = urls.depositTokenUrl  || urls.depositUrl  || '#';
-    const wdPairUrl  = urls.withdrawPairUrl  || urls.withdrawUrl || '#';
-    const dpPairUrl  = urls.depositPairUrl   || urls.depositUrl  || '#';
-    const linkCexTrade = direction === 'cex_to_dex' ? linkCexTradeToken : linkCexTradePair;
-    const linkDefillama = `https://swap.defillama.com/?chain=${chainConfig.Nama_Chain}&from=${scIn}&to=${scOut}`;
-    const linkScToken = `${chainConfig.URL_Chain}/token/${tokenData.contractAddress}`;
-    const linkScPair  = `${chainConfig.URL_Chain}/token/${tokenData.pairContractAddress}`;
+  // Links
+  const urls = GeturlExchanger(String(cex).toUpperCase(), fromSymbol, toSymbol) || {};
+  const linkCexTradeToken = urls.tradeToken || '#';
+  const linkCexTradePair  = urls.tradePair  || '#';
+  const wdTokenUrl = urls.withdrawTokenUrl || urls.withdrawUrl || '#';
+  const dpTokenUrl = urls.depositTokenUrl  || urls.depositUrl  || '#';
+  const wdPairUrl  = urls.withdrawPairUrl  || urls.withdrawUrl || '#';
+  const dpPairUrl  = urls.depositPairUrl   || urls.depositUrl  || '#';
+  const linkCexTrade = direction === 'cex_to_dex' ? linkCexTradeToken : linkCexTradePair;
+  const linkDefillama = `https://swap.defillama.com/?chain=${chainConfig.Nama_Chain}&from=${scIn}&to=${scOut}`;
+  const linkScToken = `${chainConfig.URL_Chain}/token/${tokenData.contractAddress}`;
+  const linkScPair  = `${chainConfig.URL_Chain}/token/${tokenData.pairContractAddress}`;
 
-    // Resolve deposit/withdraw statuses for both token and pair
-    const chainKey = String(tokenData.chain||'').toLowerCase();
-    let depTok, wdTok, depPair, wdPair;
-    let stockLink = '#';
-    try {
-        const listChain = (typeof getTokensChain === 'function') ? getTokensChain(chainKey) : [];
-        const listMulti = (typeof getTokensMulti === 'function') ? getTokensMulti() : [];
-        const flat = ([])
-            .concat(Array.isArray(listChain)? listChain : [])
-            .concat(Array.isArray(listMulti)? listMulti : []);
-        const flatAll = (typeof flattenDataKoin === 'function') ? flattenDataKoin(flat) : [];
-        const match = (flatAll || []).find(e =>
-            String(e.cex||'').toUpperCase() === String(cex||'').toUpperCase() &&
-            String(e.chain||'').toLowerCase() === chainKey &&
-            String(e.symbol_in||'').toUpperCase() === String(tokenData.symbol||'').toUpperCase() &&
-            String(e.symbol_out||'').toUpperCase() === String(tokenData.pairSymbol||'').toUpperCase()
-        );
-        if (match) {
-            depTok = match.depositToken; wdTok = match.withdrawToken; depPair = match.depositPair; wdPair = match.withdrawPair;
-        }
+  const chainKey = String(tokenData.chain||'').toLowerCase();
 
-        // Build STOK link like detail column (#1 link stok)
-        const chainData = getChainData(chainKey);
-        const walletObj = chainData?.CEXCHAIN?.[String(cex).toUpperCase()] || {};
-        const firstAddr = Object.entries(walletObj)
-            .filter(([k,v]) => /address/i.test(String(k)) && v && v !== '#')
-            .map(([,v]) => String(v))[0];
-        if (firstAddr) {
-            // use input token contract for stock inspection, aligned with direction
-            const scForStock = (direction === 'cex_to_dex') ? tokenData.contractAddress : tokenData.pairContractAddress;
-            stockLink = `${chainConfig.URL_Chain}/token/${scForStock}?a=${firstAddr}`;
-        }
-    } catch(_) {}
-    const emo = (v) => (v===true ? '✅' : (v===false ? '❌' : '❓'));
+  // --- STATUS WD/DP: gunakan override jika dikirim; jika tidak, fallback ke auto-resolve lama
+  let depTok, wdTok, depPair, wdPair;
+  let stockLink = '#';
+  try {
+    // 1) Fallback autodetect (seperti sebelumnya)
+    const listChain = (typeof getTokensChain === 'function') ? getTokensChain(chainKey) : [];
+    const listMulti = (typeof getTokensMulti === 'function') ? getTokensMulti() : [];
+    const flat = ([]).concat(Array.isArray(listChain)? listChain : []).concat(Array.isArray(listMulti)? listMulti : []);
+    const flatAll = (typeof flattenDataKoin === 'function') ? flattenDataKoin(flat) : [];
+    const match = (flatAll || []).find(e =>
+      String(e.cex||'').toUpperCase() === String(cex||'').toUpperCase() &&
+      String(e.chain||'').toLowerCase() === chainKey &&
+      String(e.symbol_in||'').toUpperCase() === String(tokenData.symbol||'').toUpperCase() &&
+      String(e.symbol_out||'').toUpperCase() === String(tokenData.pairSymbol||'').toUpperCase()
+    );
+    if (match) {
+      depTok = match.depositToken; wdTok = match.withdrawToken; depPair = match.depositPair; wdPair = match.withdrawPair;
+    }
 
-    // Header and process line (respect direction)
-    const procLeft  = (direction === 'cex_to_dex') ? String(cex).toUpperCase() : String(dex).toUpperCase();
-    const procRight = (direction === 'cex_to_dex') ? String(dex).toUpperCase() : String(cex).toUpperCase();
+    // 2) Override bila tersedia dari pemanggil (menang)
+    if (statusOverrides && typeof statusOverrides === 'object') {
+      if ('depositToken'  in statusOverrides) depTok  = statusOverrides.depositToken;
+      if ('withdrawToken' in statusOverrides) wdTok   = statusOverrides.withdrawToken;
+      if ('depositPair'   in statusOverrides) depPair = statusOverrides.depositPair;
+      if ('withdrawPair'  in statusOverrides) wdPair  = statusOverrides.withdrawPair;
+    }
 
-    // Compose message in requested plain format
-    const lines = [];
-    lines.push('---------------------------------------------------');
-    lines.push(`#MULTICECKER #${String(chainConfig.Nama_Chain||'').toUpperCase()}`);
-    lines.push(`#INFO_USER : #${String(nickname||'').trim()||'-'}`);
-    lines.push('---------------------------------------------------');
-    lines.push(`<b>PROSES :</b> ${procLeft} => ${procRight}`);
-    // TRANSAKSI: symbol text is clickable (links to SC explorer)
-    lines.push(`<b>TRANSAKSI :</b> <a href="${linkScToken}">${String(fromSymbol).toUpperCase()}</a> => <a href="${linkScPair}">${String(toSymbol).toUpperCase()}</a>`);
-    // STOK: clickable text
-    lines.push(`<b>MODAL & STOK :</b> ${Number(modal||0).toFixed(2)}$ | <a href="${stockLink}">STOK</a>`);
-    // BUY/SELL link depends on direction
-    const buyLinkText  = (direction === 'cex_to_dex') ? linkCexTradeToken : linkDefillama;
-    const sellLinkText = (direction === 'cex_to_dex') ? linkDefillama : linkCexTradePair;
-    // Token text itself is the clickable link to the proper BUY/SELL destination
-    lines.push(`<b>BUY</b> <a href="${buyLinkText}">${String(tokenData.symbol||'').toUpperCase()}</a> : ${Number(priceBUY||0).toFixed(10)}$`);
-    lines.push(`<b>SELL</b> <a href="${sellLinkText}">${String(tokenData.symbol||'').toUpperCase()}</a> : ${Number(priceSELL||0).toFixed(10)}$`);
-    lines.push(`<b>PNL & TOTAL FEE :</b> ${Number(PNL||0).toFixed(2)}$ & ${Number(totalFee||0).toFixed(2)}$`);
-    lines.push(`<b>FEE WD & FEE SWAP :</b> ${Number(FeeWD||0).toFixed(2)}$ & ${Number(FeeSwap||0).toFixed(2)}$`);
-    // Status + links WD/DP (emoji ON/OFF)
-    const tokenSym = String(tokenData.symbol||'').toUpperCase();
-    const pairSym  = String(tokenData.pairSymbol||'').toUpperCase();
-    lines.push(`<b>${tokenSym}:</b> <a href="${wdTokenUrl}">WD</a>${emo(wdTok)} | <a href="${dpTokenUrl}">DP</a>${emo(depTok)}`);
-    lines.push(`<b>${pairSym}:</b> <a href="${wdPairUrl}">WD</a>${emo(wdPair)} | <a href="${dpPairUrl}">DP</a>${emo(depPair)}`);
-    lines.push('---------------------------------------------------');
-    sendTelegramHTML(lines.join('\n'));
+    // STOK link (wallet explorer)
+    const chainData = getChainData(chainKey);
+    const walletObj = chainData?.CEXCHAIN?.[String(cex).toUpperCase()] || {};
+    const firstAddr = Object.entries(walletObj)
+      .filter(([k,v]) => /address/i.test(String(k)) && v && v !== '#')
+      .map(([,v]) => String(v))[0];
+    if (firstAddr) {
+      const scForStock = (direction === 'cex_to_dex') ? tokenData.contractAddress : tokenData.pairContractAddress;
+      stockLink = `${chainConfig.URL_Chain}/token/${scForStock}?a=${firstAddr}`;
+    }
+  } catch(_) {}
+
+  const emo = (v) => (v===true ? '✅' : (v===false ? '❌' : '❓'));
+
+  // Header & proses
+  const procLeft  = (direction === 'cex_to_dex') ? String(cex).toUpperCase() : String(dex).toUpperCase();
+  const procRight = (direction === 'cex_to_dex') ? String(dex).toUpperCase() : String(cex).toUpperCase();
+
+  // Compose message
+  const lines = [];
+  lines.push('---------------------------------------------------');
+  lines.push(`#MULTICECKER #${String(chainConfig.Nama_Chain||'').toUpperCase()}`);
+  lines.push(`#INFO_USER : #${String(nickname||'').trim()||'-'}`);
+  lines.push('---------------------------------------------------');
+  lines.push(`<b>PROSES :</b> ${procLeft} => ${procRight}`);
+  lines.push(`<b>TRANSAKSI :</b> <a href="${linkScToken}">${String(fromSymbol).toUpperCase()}</a> => <a href="${linkScPair}">${String(toSymbol).toUpperCase()}</a>`);
+  lines.push(`<b>MODAL & STOK :</b> ${Number(modal||0).toFixed(2)}$ | <a href="${stockLink}">STOK</a>`);
+
+  const buyLinkText  = (direction === 'cex_to_dex') ? linkCexTradeToken : linkDefillama;
+  const sellLinkText = (direction === 'cex_to_dex') ? linkDefillama : linkCexTradePair;
+  lines.push(`<b>BUY</b> <a href="${buyLinkText}">${String(tokenData.symbol||'').toUpperCase()}</a> : ${Number(priceBUY||0).toFixed(10)}$`);
+  lines.push(`<b>SELL</b> <a href="${sellLinkText}">${String(tokenData.symbol||'').toUpperCase()}</a> : ${Number(priceSELL||0).toFixed(10)}$`);
+  lines.push(`<b>PROFIT & TOTAL FEE :</b> ${Number(PNL||0).toFixed(2)}$ & ${Number(totalFee||0).toFixed(2)}$`);
+  lines.push(`<b>FEE WD & FEE SWAP :</b> ${Number(FeeWD||0).toFixed(2)}$ & ${Number(FeeSwap||0).toFixed(2)}$`);
+
+  // Status + links (TOKEN & PAIR) — gunakan status hasil override/autodetect
+  const tokenSym = String(tokenData.symbol||'').toUpperCase();
+  const pairSym  = String(tokenData.pairSymbol||'').toUpperCase();
+  lines.push(`<b>${tokenSym}:</b> <a href="${wdTokenUrl}">WD</a>${emo(wdTok)} | <a href="${dpTokenUrl}">DP</a>${emo(depTok)}`);
+  lines.push(`<b>${pairSym}:</b> <a href="${wdPairUrl}">WD</a>${emo(wdPair)} | <a href="${dpPairUrl}">DP</a>${emo(depPair)}`);
+  lines.push('---------------------------------------------------');
+
+  sendTelegramHTML(lines.join('\n'));
 }
+
 // [moved later] CEX Shims will be appended at end of file to override earlier defs
 // =================================================================================
 // Helpers
