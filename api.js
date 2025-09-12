@@ -157,53 +157,77 @@ function sendStatusTELE(user, status) {
  * Links include CEX trade pages and DEX aggregator swap link.
  */
 function MultisendMessage(
-  cex, dex, tokenData, modal, PNL, priceBUY, priceSELL, FeeSwap, FeeWD, totalFee, nickname, direction,
-  statusOverrides /* ← { depositToken, withdrawToken, depositPair, withdrawPair } opsional */
+  cex, dex, tokenData, modal, PNL, priceBUY, priceSELL,
+  FeeSwap, FeeWD, totalFee, nickname, direction,
+  statusOverrides /* { depositToken, withdrawToken, depositPair, withdrawPair } opsional */
 ) {
-  const chainConfig = CONFIG_CHAINS[String(tokenData.chain || '').toLowerCase()];
+  const chainKey = String(tokenData.chain || '').toLowerCase();
+  const chainConfig = CONFIG_CHAINS[chainKey];
   if (!chainConfig) return;
 
-  // Symbols & contracts mengikuti arah
-  const fromSymbol = direction === 'cex_to_dex' ? tokenData.symbol : tokenData.pairSymbol; // input
-  const toSymbol   = direction === 'cex_to_dex' ? tokenData.pairSymbol : tokenData.symbol; // output
-  const scIn  = direction === 'cex_to_dex' ? tokenData.contractAddress      : tokenData.pairContractAddress;
-  const scOut = direction === 'cex_to_dex' ? tokenData.pairContractAddress  : tokenData.contractAddress;
+  // === NORMALISASI INPUT ===
+  // Canonicalize agar TOKEN = coin yg dimaksud "token" (bukan quote/pair) dan PAIR = pasangannya,
+  // terlepas dari bagaimana caller mengisi tokenData.
+  const isC2D = (direction === 'cex_to_dex');     // token -> pair
+  const isD2C = (direction === 'dex_to_cex');     // pair -> token
 
-  // Links
-  const urls = GeturlExchanger(String(cex).toUpperCase(), fromSymbol, toSymbol) || {};
+  // Data mentah (apa adanya dari caller)
+  const rawSym     = String(tokenData.symbol || '');
+  const rawPairSym = String(tokenData.pairSymbol || '');
+  const rawSc      = String(tokenData.contractAddress || '');        // address utk "symbol"
+  const rawScPair  = String(tokenData.pairContractAddress || '');    // address utk "pairSymbol"
+
+  // Canonical TOKEN/PAIR
+  // - saat cex_to_dex: symbol=TOKEN, pairSymbol=PAIR (sudah pas)
+  // - saat dex_to_cex: symbol=PAIR,  pairSymbol=TOKEN (perlu dibalik)
+  const TOKEN_SYM = isC2D ? rawSym     : rawPairSym;
+  const PAIR_SYM  = isC2D ? rawPairSym : rawSym;
+  const SC_TOKEN  = isC2D ? rawSc      : rawScPair;
+  const SC_PAIR   = isC2D ? rawScPair  : rawSc;
+
+  // Arah transaksi (from → to)
+  const fromSymbol = isC2D ? TOKEN_SYM : PAIR_SYM;
+  const toSymbol   = isC2D ? PAIR_SYM  : TOKEN_SYM;
+  const scIn       = isC2D ? SC_TOKEN  : SC_PAIR;
+  const scOut      = isC2D ? SC_PAIR   : SC_TOKEN;
+
+  // Links dasar (pakai symbol yg sesuai arah current view)
+  const urls = (typeof GeturlExchanger === 'function')
+    ? GeturlExchanger(String(cex).toUpperCase(), fromSymbol, toSymbol) || {}
+    : {};
+
   const linkCexTradeToken = urls.tradeToken || '#';
   const linkCexTradePair  = urls.tradePair  || '#';
   const wdTokenUrl = urls.withdrawTokenUrl || urls.withdrawUrl || '#';
   const dpTokenUrl = urls.depositTokenUrl  || urls.depositUrl  || '#';
   const wdPairUrl  = urls.withdrawPairUrl  || urls.withdrawUrl || '#';
   const dpPairUrl  = urls.depositPairUrl   || urls.depositUrl  || '#';
-  const linkCexTrade = direction === 'cex_to_dex' ? linkCexTradeToken : linkCexTradePair;
+
   const linkDefillama = `https://swap.defillama.com/?chain=${chainConfig.Nama_Chain}&from=${scIn}&to=${scOut}`;
-  const linkScToken = `${chainConfig.URL_Chain}/token/${tokenData.contractAddress}`;
-  const linkScPair  = `${chainConfig.URL_Chain}/token/${tokenData.pairContractAddress}`;
+  const linkScFrom = `${chainConfig.URL_Chain}/token/${scIn}`;
+  const linkScTo   = `${chainConfig.URL_Chain}/token/${scOut}`;
 
-  const chainKey = String(tokenData.chain||'').toLowerCase();
-
-  // --- STATUS WD/DP: gunakan override jika dikirim; jika tidak, fallback ke auto-resolve lama
+  // === STATUS WD/DP ===
   let depTok, wdTok, depPair, wdPair;
   let stockLink = '#';
   try {
-    // 1) Fallback autodetect (seperti sebelumnya)
+    // Fallback autodetect
     const listChain = (typeof getTokensChain === 'function') ? getTokensChain(chainKey) : [];
     const listMulti = (typeof getTokensMulti === 'function') ? getTokensMulti() : [];
     const flat = ([]).concat(Array.isArray(listChain)? listChain : []).concat(Array.isArray(listMulti)? listMulti : []);
     const flatAll = (typeof flattenDataKoin === 'function') ? flattenDataKoin(flat) : [];
     const match = (flatAll || []).find(e =>
-      String(e.cex||'').toUpperCase() === String(cex||'').toUpperCase() &&
+      String(e.cex||'').toUpperCase()   === String(cex||'').toUpperCase() &&
       String(e.chain||'').toLowerCase() === chainKey &&
-      String(e.symbol_in||'').toUpperCase() === String(tokenData.symbol||'').toUpperCase() &&
-      String(e.symbol_out||'').toUpperCase() === String(tokenData.pairSymbol||'').toUpperCase()
+      String(e.symbol_in||'').toUpperCase()  === String(TOKEN_SYM||'').toUpperCase() &&
+      String(e.symbol_out||'').toUpperCase() === String(PAIR_SYM||'').toUpperCase()
     );
     if (match) {
-      depTok = match.depositToken; wdTok = match.withdrawToken; depPair = match.depositPair; wdPair = match.withdrawPair;
+      depTok = match.depositToken; wdTok = match.withdrawToken;
+      depPair = match.depositPair; wdPair = match.withdrawPair;
     }
 
-    // 2) Override bila tersedia dari pemanggil (menang)
+    // Override dari caller (jika ada) — menang
     if (statusOverrides && typeof statusOverrides === 'object') {
       if ('depositToken'  in statusOverrides) depTok  = statusOverrides.depositToken;
       if ('withdrawToken' in statusOverrides) wdTok   = statusOverrides.withdrawToken;
@@ -211,50 +235,49 @@ function MultisendMessage(
       if ('withdrawPair'  in statusOverrides) wdPair  = statusOverrides.withdrawPair;
     }
 
-    // STOK link (wallet explorer)
-    const chainData = getChainData(chainKey);
+    // STOK link (alamat wallet CEX di explorer) — pakai scIn agar relevan dgn langkah pertama
+    const chainData = (typeof getChainData === 'function') ? getChainData(chainKey) : null;
     const walletObj = chainData?.CEXCHAIN?.[String(cex).toUpperCase()] || {};
     const firstAddr = Object.entries(walletObj)
       .filter(([k,v]) => /address/i.test(String(k)) && v && v !== '#')
       .map(([,v]) => String(v))[0];
-    if (firstAddr) {
-      const scForStock = (direction === 'cex_to_dex') ? tokenData.contractAddress : tokenData.pairContractAddress;
-      stockLink = `${chainConfig.URL_Chain}/token/${scForStock}?a=${firstAddr}`;
-    }
+    if (firstAddr) stockLink = `${chainConfig.URL_Chain}/token/${scIn}?a=${firstAddr}`;
   } catch(_) {}
 
   const emo = (v) => (v===true ? '✅' : (v===false ? '❌' : '❓'));
 
-  // Header & proses
-  const procLeft  = (direction === 'cex_to_dex') ? String(cex).toUpperCase() : String(dex).toUpperCase();
-  const procRight = (direction === 'cex_to_dex') ? String(dex).toUpperCase() : String(cex).toUpperCase();
+  // PROSES (CEX ↔ DEX) arah-aware
+  const procLeft  = isC2D ? String(cex).toUpperCase() : String(dex).toUpperCase();
+  const procRight = isC2D ? String(dex).toUpperCase() : String(cex).toUpperCase();
 
-  // Compose message
+  // Compose pesan
   const lines = [];
   lines.push('---------------------------------------------------');
   lines.push(`#MULTICECKER #${String(chainConfig.Nama_Chain||'').toUpperCase()}`);
   lines.push(`#INFO_USER : #${String(nickname||'').trim()||'-'}`);
   lines.push('---------------------------------------------------');
   lines.push(`<b>PROSES :</b> ${procLeft} => ${procRight}`);
-  lines.push(`<b>TRANSAKSI :</b> <a href="${linkScToken}">${String(fromSymbol).toUpperCase()}</a> => <a href="${linkScPair}">${String(toSymbol).toUpperCase()}</a>`);
+  lines.push(`<b>TRANSAKSI :</b> <a href="${linkScFrom}">${String(fromSymbol).toUpperCase()}</a> => <a href="${linkScTo}">${String(toSymbol).toUpperCase()}</a>`);
   lines.push(`<b>MODAL & STOK :</b> ${Number(modal||0).toFixed(2)}$ | <a href="${stockLink}">STOK</a>`);
 
-  const buyLinkText  = (direction === 'cex_to_dex') ? linkCexTradeToken : linkDefillama;
-  const sellLinkText = (direction === 'cex_to_dex') ? linkDefillama : linkCexTradePair;
-  lines.push(`<b>BUY</b> <a href="${buyLinkText}">${String(tokenData.symbol||'').toUpperCase()}</a> : ${Number(priceBUY||0).toFixed(10)}$`);
-  lines.push(`<b>SELL</b> <a href="${sellLinkText}">${String(tokenData.symbol||'').toUpperCase()}</a> : ${Number(priceSELL||0).toFixed(10)}$`);
+  // BUY/SELL arah-aware
+  const buyLinkText  = isC2D ? linkCexTradeToken : linkDefillama;
+  const sellLinkText = isC2D ? linkDefillama     : linkCexTradePair;
+  lines.push(`<b>BUY ${String(fromSymbol).toUpperCase()}</b> : <a href="${buyLinkText}">${Number(priceBUY||0).toFixed(10)}$</a>`);
+  lines.push(`<b>SELL ${String(toSymbol).toUpperCase()}</b> : <a href="${sellLinkText}">${Number(priceSELL||0).toFixed(10)}$</a>`);
   lines.push(`<b>PROFIT & TOTAL FEE :</b> ${Number(PNL||0).toFixed(2)}$ & ${Number(totalFee||0).toFixed(2)}$`);
   lines.push(`<b>FEE WD & FEE SWAP :</b> ${Number(FeeWD||0).toFixed(2)}$ & ${Number(FeeSwap||0).toFixed(2)}$`);
 
-  // Status + links (TOKEN & PAIR) — gunakan status hasil override/autodetect
-  const tokenSym = String(tokenData.symbol||'').toUpperCase();
-  const pairSym  = String(tokenData.pairSymbol||'').toUpperCase();
+  // Status WD/DP — selalu tampilkan berdasarkan canonical TOKEN/PAIR
+  const tokenSym = String(TOKEN_SYM||'').toUpperCase();
+  const pairSym  = String(PAIR_SYM||'').toUpperCase();
   lines.push(`<b>${tokenSym}:</b> <a href="${wdTokenUrl}">WD</a>${emo(wdTok)} | <a href="${dpTokenUrl}">DP</a>${emo(depTok)}`);
   lines.push(`<b>${pairSym}:</b> <a href="${wdPairUrl}">WD</a>${emo(wdPair)} | <a href="${dpPairUrl}">DP</a>${emo(depPair)}`);
   lines.push('---------------------------------------------------');
 
   sendTelegramHTML(lines.join('\n'));
 }
+
 
 // [moved later] CEX Shims will be appended at end of file to override earlier defs
 // =================================================================================
