@@ -543,7 +543,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                         DataCEX.priceBuyToken, DataCEX.priceSellToken, DataCEX.priceBuyPair, DataCEX.priceSellPair,
                                         isKiri ? token.symbol_in : token.symbol_out, isKiri ? token.symbol_out : token.symbol_in,
                                         isKiri ? DataCEX.feeWDToken : DataCEX.feeWDPair,
-                                        finalDexRes.dexTitle || dex, token.chain, CONFIG_CHAINS[token.chain.toLowerCase()].Kode_Chain,
+                                        dex, token.chain, CONFIG_CHAINS[token.chain.toLowerCase()].Kode_Chain,
                                         direction, 0, finalDexRes
                                     );
                                     // debug logs removed
