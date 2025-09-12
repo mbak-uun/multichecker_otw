@@ -253,7 +253,7 @@ function MultisendMessage(
   // Compose pesan
   const lines = [];
   lines.push('---------------------------------------------------');
-  lines.push(`#MULTICECKER #${String(chainConfig.Nama_Chain||'').toUpperCase()}`);
+  lines.push(`#MULTICHECKER #${String(chainConfig.Nama_Chain||'').toUpperCase()}`);
   lines.push(`#INFO_USER : #${String(nickname||'').trim()||'-'}`);
   lines.push('---------------------------------------------------');
   lines.push(`<b>PROSES :</b> ${procLeft} => ${procRight}`);
@@ -263,8 +263,8 @@ function MultisendMessage(
   // BUY/SELL arah-aware
   const buyLinkText  = isC2D ? linkCexTradeToken : linkDefillama;
   const sellLinkText = isC2D ? linkDefillama     : linkCexTradePair;
-  lines.push(`<b>BUY ${String(fromSymbol).toUpperCase()}</b> : <a href="${buyLinkText}">${Number(priceBUY||0).toFixed(10)}$</a>`);
-  lines.push(`<b>SELL ${String(toSymbol).toUpperCase()}</b> : <a href="${sellLinkText}">${Number(priceSELL||0).toFixed(10)}$</a>`);
+  lines.push(`<b>BUY USDT-${String(toSymbol).toUpperCase()}</b> : <a href="${buyLinkText}">${Number(priceBUY||0).toFixed(10)}$</a>`);
+  lines.push(`<b>SELL ${String(toSymbol).toUpperCase()}-USDT</b> : <a href="${sellLinkText}">${Number(priceSELL||0).toFixed(10)}$</a>`);
   lines.push(`<b>PROFIT & TOTAL FEE :</b> ${Number(PNL||0).toFixed(2)}$ & ${Number(totalFee||0).toFixed(2)}$`);
   lines.push(`<b>FEE WD & FEE SWAP :</b> ${Number(FeeWD||0).toFixed(2)}$ & ${Number(FeeSwap||0).toFixed(2)}$`);
 
