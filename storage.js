@@ -1,8 +1,8 @@
     // IndexedDB-based storage with in-memory cache.
     // Object store (table) names use prefix MULTICHECKER_.
     (function initIndexedDBStorage(){
-        const DB_NAME = 'MULTICHECKER_DB';
-        const STORE_KV = 'MULTICHECKER_KV';
+        const DB_NAME = 'MULTICHECKER_OTW_DB';
+        const STORE_KV = 'MULTICHECKER_OTW_KV';
         const cache = {}; // runtime cache for sync reads
         let db = null;
 
