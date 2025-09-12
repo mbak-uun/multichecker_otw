@@ -191,7 +191,8 @@
         const amount_out = outNum / Math.pow(10, des_output);
         const feeDex = parseFloat(response?.fees?.[0]?.value || 0);
         const FeeSwap = (Number.isFinite(feeDex) && feeDex > 0) ? feeDex : getFeeSwap(chainName);
-        return { amount_out, FeeSwap, dexTitle: 'FLYTRADE' };
+        // Use canonical display title matching app DEX key to avoid id mismatches elsewhere
+        return { amount_out, FeeSwap, dexTitle: 'FLY' };
       }
     },
     'zero-1inch': {
