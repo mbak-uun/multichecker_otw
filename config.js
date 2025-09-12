@@ -459,7 +459,7 @@ const CONFIG_DEXS = {
         // Rute fetch per arah (utama + alternatif)
         fetchdex: {
             primary: {
-                tokentopair: 'zero-1inch',
+                tokentopair: '1inch',
                 pairtotoken: 'lifi'
             } ,
              allowFallback: false,
