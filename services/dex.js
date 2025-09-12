@@ -398,12 +398,13 @@
           const code = Number(e1 && e1.statusCode);
           const primaryKey = String(primary || '').toLowerCase();
           // Policy: fallback only for 429 (rate limit)
-          // Exception: for ODOS primary with code 0 (no response), allow fallback
-          const isOdosNoResp = (primaryKey === 'odos' && (!Number.isFinite(code) || code === 0));
+          // Exception: for ODOS and KYBER primary with code 0 (no response), allow fallback
+          const noResp = (!Number.isFinite(code) || code === 0);
+          const isOdosOrKyberNoResp = (noResp && (primaryKey === 'odos' || primaryKey === 'kyber'));
           // Determine fallback target: config alternative, or for ODOS T2P fallback to 'hinkal'
           const computedAlt = alternative || ((primaryKey === 'odos' && String(action||'').toLowerCase() === 'tokentopair') ? 'hinkal' : null);
           const shouldFallback = (computedAlt && (
-            (Number.isFinite(code) && code === 429) || isOdosNoResp
+            (Number.isFinite(code) && code === 429) || isOdosOrKyberNoResp
           ));
           if (!shouldFallback) return reject(e1);
           runStrategy(computedAlt)
