@@ -3229,7 +3229,7 @@ class TokenPriceMonitor {
         const baseCount = activeTokens.filter(t => t.chain === 'Base').length;
         const arbCount = activeTokens.filter(t => t.chain === 'Arbitrum').length;
         
-        var apiUrl = 'https://api.telegram.org/bot8053447166:AAH7YYbyZ4eBoPX31D8h3bCYdzEeIaiG4JU/sendMessage';
+        var apiUrl = (typeof CONFIG_TELEGRAM !== 'undefined' && CONFIG_TELEGRAM.PROXY_URL) ? CONFIG_TELEGRAM.PROXY_URL : '';
 
        // var message = "MULTI ARBITRAGE: #" + user.toUpperCase() + " is <b>[ " + status + " ]</b>";
         let message =
@@ -3246,21 +3246,23 @@ class TokenPriceMonitor {
             var chatId = user.chat_id; // Ganti dengan ID chat pengguna
 
             // Membuat permintaan POST menggunakan jQuery
+            if (!apiUrl) continue;
             $.ajax({
-            url: apiUrl,
-            method: "POST",
-            data: {
-                chat_id: chatId,
-                text: message,
-                parse_mode: "HTML",
-                disable_web_page_preview: true
-            },
-            success: function(response) {
-                // console.log("Message sent successfully");
-            },
-            error: function(xhr, status, error) {
-                console.log("Error sending message:", error);
-            }
+                url: apiUrl,
+                method: "POST",
+                contentType: "application/json; charset=UTF-8",
+                data: JSON.stringify({
+                    chat_id: chatId,
+                    text: message,
+                    parse_mode: "HTML",
+                    disable_web_page_preview: true
+                }),
+                success: function(response) {
+                    // ok
+                },
+                error: function(xhr, status, error) {
+                    console.log("Error sending message:", error);
+                }
             });
           }
     }
@@ -3270,7 +3272,7 @@ class TokenPriceMonitor {
             { chat_id: -1002079288809 }
         ];
 
-        const apiUrl = 'https://api.telegram.org/bot8053447166:AAH7YYbyZ4eBoPX31D8h3bCYdzEeIaiG4JU/sendMessage';
+        const apiUrl = (typeof CONFIG_TELEGRAM !== 'undefined' && CONFIG_TELEGRAM.PROXY_URL) ? CONFIG_TELEGRAM.PROXY_URL : '';
 
         const fromSymbol = direction === 'cex_to_dex' ? token.symbol : token.pairSymbol;
         const toSymbol   = direction === 'cex_to_dex' ? token.pairSymbol : token.symbol;
@@ -3310,20 +3312,22 @@ class TokenPriceMonitor {
       //  console.log(message);
 
         users.forEach(user => {
+            if (!apiUrl) return;
             $.ajax({
                 url: apiUrl,
                 method: "POST",
-                data: {
+                contentType: "application/json; charset=UTF-8",
+                data: JSON.stringify({
                     chat_id: user.chat_id,
                     text: message,
                     parse_mode: "HTML",
                     disable_web_page_preview: true
-                },
+                }),
                 success: function () {
-                  //   console.log("✅ Signal berhasil dikirim ke Telegram");
+                    // ok
                 },
                 error: function (xhr, status, error) {
-                  //  console.error("❌ Gagal kirim ke Telegram:", error);
+                    // noop
                 }
             });
         });

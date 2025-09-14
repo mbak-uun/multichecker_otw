@@ -137,32 +137,16 @@ function getRandomApiKeyOKX(keys) {
 
 /**
  * Send a compact status message to Telegram (startup/online, etc.).
- * Uses CORS proxy if available, falls back to direct Telegram API.
+ * Routed via server-side proxy so no bot token is exposed.
+ * Link previews are disabled by default.
  */
 function sendTelegramHTML(message) {
-    const fallbackDirect = () => {
-        try {
-            if (!CONFIG_TELEGRAM || !CONFIG_TELEGRAM.BOT_TOKEN || !CONFIG_TELEGRAM.CHAT_ID) return;
-            const directUrl = `https://api.telegram.org/bot${CONFIG_TELEGRAM.BOT_TOKEN}/sendMessage`;
-            const form = new URLSearchParams();
-            form.set('chat_id', CONFIG_TELEGRAM.CHAT_ID);
-            form.set('text', message);
-            form.set('parse_mode', 'HTML');
-            form.set('disable_web_page_preview', 'true');
-            fetch(directUrl, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: form
-            });
-        } catch(_) { /* noop */ }
-    };
-
     try {
         const proxy = CONFIG_TELEGRAM && CONFIG_TELEGRAM.PROXY_URL;
-        if (!proxy) return fallbackDirect();
+        const chatId = CONFIG_TELEGRAM && CONFIG_TELEGRAM.CHAT_ID;
+        if (!proxy || !chatId) return;
         const payload = {
-            chat_id: CONFIG_TELEGRAM.CHAT_ID,
+            chat_id: chatId,
             text: message,
             parse_mode: 'HTML',
             disable_web_page_preview: true
@@ -171,10 +155,8 @@ function sendTelegramHTML(message) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
-        })
-        .then(res => { if (!res || !res.ok) fallbackDirect(); })
-        .catch(() => fallbackDirect());
-    } catch(_) { fallbackDirect(); }
+        }).catch(() => {});
+    } catch(_) { /* noop */ }
 }
 
 function sendStatusTELE(user, status) {
