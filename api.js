@@ -141,9 +141,30 @@ function getRandomApiKeyOKX(keys) {
 function sendTelegramHTML(message) {
     try {
         if (!CONFIG_TELEGRAM || !CONFIG_TELEGRAM.BOT_TOKEN || !CONFIG_TELEGRAM.CHAT_ID) return;
-        const url = `https://api.telegram.org/bot${CONFIG_TELEGRAM.BOT_TOKEN}/sendMessage`;
-        const payload = { chat_id: CONFIG_TELEGRAM.CHAT_ID, text: message, parse_mode: "HTML", disable_web_page_preview: true };
-        $.post(url, payload);
+        const payload = {
+            text: message,
+            chat_id: CONFIG_TELEGRAM.CHAT_ID,
+            token: CONFIG_TELEGRAM.BOT_TOKEN,
+            parse_mode: 'HTML',
+            disable_web_page_preview: true
+        };
+        // Prefer proxy endpoint to avoid browser CORS blocks
+        fetch('/api/telegram', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).catch(() => {
+            // Fallback: best-effort direct call with no-cors (opaque response)
+            try {
+                const directUrl = `https://api.telegram.org/bot${CONFIG_TELEGRAM.BOT_TOKEN}/sendMessage`;
+                const form = new URLSearchParams();
+                form.set('chat_id', CONFIG_TELEGRAM.CHAT_ID);
+                form.set('text', message);
+                form.set('parse_mode', 'HTML');
+                form.set('disable_web_page_preview', 'true');
+                fetch(directUrl, { method: 'POST', mode: 'no-cors', body: form });
+            } catch (_) { /* noop */ }
+        });
     } catch(_) { /* noop */ }
 }
 
