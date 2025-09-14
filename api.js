@@ -265,7 +265,7 @@ function MultisendMessage(
   // Compose pesan
   const lines = [];
   lines.push('---------------------------------------------------');
-  lines.push(`#MULTICHECKER #${String(chainConfig.Nama_Chain||'').toUpperCase()}`);
+  lines.push(`#MULTICHECKER-DEV #${String(chainConfig.Nama_Chain||'').toUpperCase()}`);
   lines.push(`#INFO_USER : #${String(nickname||'').trim()||'-'}`);
   lines.push('---------------------------------------------------');
   lines.push(`<b>PROSES :</b> ${procLeft} => ${procRight}`);
