@@ -137,10 +137,12 @@ function getRandomApiKeyOKX(keys) {
 
 /**
  * Send a compact status message to Telegram (startup/online, etc.).
+ * Uses CORS proxy if available, falls back to direct Telegram API.
  */
 function sendTelegramHTML(message) {
-    function fallbackDirect() {
+    const fallbackDirect = () => {
         try {
+            if (!CONFIG_TELEGRAM || !CONFIG_TELEGRAM.BOT_TOKEN || !CONFIG_TELEGRAM.CHAT_ID) return;
             const directUrl = `https://api.telegram.org/bot${CONFIG_TELEGRAM.BOT_TOKEN}/sendMessage`;
             const form = new URLSearchParams();
             form.set('chat_id', CONFIG_TELEGRAM.CHAT_ID);
@@ -153,24 +155,19 @@ function sendTelegramHTML(message) {
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: form
             });
-        } catch (_) { /* noop */ }
-    }
+        } catch(_) { /* noop */ }
+    };
 
     try {
-        if (!CONFIG_TELEGRAM || !CONFIG_TELEGRAM.BOT_TOKEN || !CONFIG_TELEGRAM.CHAT_ID) return;
+        const proxy = CONFIG_TELEGRAM && CONFIG_TELEGRAM.PROXY_URL;
+        if (!proxy) return fallbackDirect();
         const payload = {
-            text: message,
             chat_id: CONFIG_TELEGRAM.CHAT_ID,
-            token: CONFIG_TELEGRAM.BOT_TOKEN,
+            text: message,
             parse_mode: 'HTML',
             disable_web_page_preview: true
         };
-
-        // Prefer explicit proxy if provided, else relative serverless path
-        const proxyEndpoint = (CONFIG_TELEGRAM && CONFIG_TELEGRAM.PROXY_URL) ? CONFIG_TELEGRAM.PROXY_URL : '/api/telegram';
-
-        // Attempt proxy first, then fall back on non-OK or fetch error.
-        fetch(proxyEndpoint, {
+        fetch(proxy, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
