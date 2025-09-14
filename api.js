@@ -139,6 +139,23 @@ function getRandomApiKeyOKX(keys) {
  * Send a compact status message to Telegram (startup/online, etc.).
  */
 function sendTelegramHTML(message) {
+    function fallbackDirect() {
+        try {
+            const directUrl = `https://api.telegram.org/bot${CONFIG_TELEGRAM.BOT_TOKEN}/sendMessage`;
+            const form = new URLSearchParams();
+            form.set('chat_id', CONFIG_TELEGRAM.CHAT_ID);
+            form.set('text', message);
+            form.set('parse_mode', 'HTML');
+            form.set('disable_web_page_preview', 'true');
+            fetch(directUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: form
+            });
+        } catch (_) { /* noop */ }
+    }
+
     try {
         if (!CONFIG_TELEGRAM || !CONFIG_TELEGRAM.BOT_TOKEN || !CONFIG_TELEGRAM.CHAT_ID) return;
         const payload = {
@@ -148,24 +165,19 @@ function sendTelegramHTML(message) {
             parse_mode: 'HTML',
             disable_web_page_preview: true
         };
-        // Prefer proxy endpoint to avoid browser CORS blocks
-        fetch('/api/telegram', {
+
+        // Prefer explicit proxy if provided, else relative serverless path
+        const proxyEndpoint = (CONFIG_TELEGRAM && CONFIG_TELEGRAM.PROXY_URL) ? CONFIG_TELEGRAM.PROXY_URL : '/api/telegram';
+
+        // Attempt proxy first, then fall back on non-OK or fetch error.
+        fetch(proxyEndpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
-        }).catch(() => {
-            // Fallback: best-effort direct call with no-cors (opaque response)
-            try {
-                const directUrl = `https://api.telegram.org/bot${CONFIG_TELEGRAM.BOT_TOKEN}/sendMessage`;
-                const form = new URLSearchParams();
-                form.set('chat_id', CONFIG_TELEGRAM.CHAT_ID);
-                form.set('text', message);
-                form.set('parse_mode', 'HTML');
-                form.set('disable_web_page_preview', 'true');
-                fetch(directUrl, { method: 'POST', mode: 'no-cors', body: form });
-            } catch (_) { /* noop */ }
-        });
-    } catch(_) { /* noop */ }
+        })
+        .then(res => { if (!res || !res.ok) fallbackDirect(); })
+        .catch(() => fallbackDirect());
+    } catch(_) { fallbackDirect(); }
 }
 
 function sendStatusTELE(user, status) {
