@@ -310,6 +310,7 @@ function getFeatureReadiness() {
         export: hasSettings && (mode.type === 'single' ? hasTokensChain : hasTokensMulti),
         wallet: hasSettings && (hasTokensChain || hasTokensMulti),
         assets: hasSettings,
+        snapshot: hasSettings,
         proxy: true,
         reload: true
     };
@@ -643,11 +644,15 @@ function flattenDataKoin(dataTokens) {
     (item.selectedCexs || []).forEach(cex => {
       const cexUpper = String(cex).toUpperCase();
       const cexInfo = item.dataCexs?.[cexUpper] || {};
-      const dexArray = (item.selectedDexs || []).map(dex => ({
-        dex: dex,
-        left: item.dataDexs?.[dex]?.left || 0,
-        right: item.dataDexs?.[dex]?.right || 0
-      }));
+      // Normalize DEX keys to lowercase for consistency
+      const dexArray = (item.selectedDexs || []).map(dex => {
+        const dexLower = String(dex).toLowerCase();
+        return {
+          dex: dexLower,
+          left: item.dataDexs?.[dex]?.left || item.dataDexs?.[dexLower]?.left || 0,
+          right: item.dataDexs?.[dex]?.right || item.dataDexs?.[dexLower]?.right || 0
+        };
+      });
 
       flatResult.push({
         no: counter++,
@@ -674,6 +679,40 @@ function flattenDataKoin(dataTokens) {
 
   return flatResult;
 }
+
+/**
+ * Generate consistent DEX cell ID for both skeleton and scanner
+ * @param {Object} params - Parameters for ID generation
+ * @param {string} params.cex - CEX name (e.g., 'BINANCE')
+ * @param {string} params.dex - DEX name (e.g., 'paraswap')
+ * @param {string} params.symbolIn - Input symbol (e.g., 'SAND')
+ * @param {string} params.symbolOut - Output symbol (e.g., 'EDU')
+ * @param {string} params.chain - Chain name (e.g., 'BSC')
+ * @param {boolean} params.isLeft - True for LEFT side (TokentoPair), False for RIGHT (PairtoToken)
+ * @param {string} params.tableBodyId - Table body ID prefix (e.g., 'dataTableBody')
+ * @returns {string} Full cell ID
+ */
+function generateDexCellId({ cex, dex, symbolIn, symbolOut, chain, isLeft, tableBodyId = 'dataTableBody', tokenId = '' }) {
+  const cexUpper = String(cex || '').toUpperCase();
+  const dexUpper = String(dex || '').toLowerCase().toUpperCase(); // normalize
+  const sym1 = isLeft ? String(symbolIn || '').toUpperCase() : String(symbolOut || '').toUpperCase();
+  const sym2 = isLeft ? String(symbolOut || '').toUpperCase() : String(symbolIn || '').toUpperCase();
+  const chainUpper = String(chain || '').toUpperCase();
+  const tokenIdUpper = String(tokenId || '').toUpperCase();
+
+  const baseIdRaw = tokenIdUpper
+    ? `${cexUpper}_${dexUpper}_${sym1}_${sym2}_${chainUpper}_${tokenIdUpper}`
+    : `${cexUpper}_${dexUpper}_${sym1}_${sym2}_${chainUpper}`;
+  const baseId = baseIdRaw.replace(/[^A-Z0-9_]/g, '');
+  return `${tableBodyId}_${baseId}`;
+}
+
+// Export to window
+try {
+  if (typeof window !== 'undefined') {
+    window.generateDexCellId = generateDexCellId;
+  }
+} catch(_) {}
 
 /**
  * Calculates the estimated swap fee in USD for a given chain.

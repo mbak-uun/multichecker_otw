@@ -75,7 +75,7 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
             </td>`;
     }
 
-    function buildDexSlots(direction, data, dexList, idPrefix) {
+    function buildDexSlots(direction, data, dexList, idPrefix, rowIndex) {
         const isLeft = direction === 'LEFT';
         let html = '';
         const lowerDexs = (data.dexs || []).map(d => ({
@@ -86,15 +86,40 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
             const dexKeyLower = String(dexKey).toLowerCase();
             const found = lowerDexs.find(x => x.dex === dexKeyLower);
             if (found) {
-                const dexName = String(dexKey); // display label (from config)
+                // Get proper display label from CONFIG_DEXS
+                const dexConfig = (typeof window !== 'undefined' && window.CONFIG_DEXS) ? window.CONFIG_DEXS[dexKeyLower] : null;
+                const dexName = (dexConfig && dexConfig.label) ? String(dexConfig.label) : String(dexKey).toUpperCase();
                 const canonicalDex = String(found.dex || dexKeyLower); // used for IDs to match scanner
                 const modal = isLeft ? (found.left ?? 0) : (found.right ?? 0);
-                const idCellRaw = isLeft
-                    ? `${String(data.cex).toUpperCase()}_${canonicalDex.toUpperCase()}_${String(data.symbol_in||'').toUpperCase()}_${String(data.symbol_out||'').toUpperCase()}_${String(data.chain).toUpperCase()}_${String(data.id||'').toUpperCase()}`
-                    : `${String(data.cex).toUpperCase()}_${canonicalDex.toUpperCase()}_${String(data.symbol_out||'').toUpperCase()}_${String(data.symbol_in||'').toUpperCase()}_${String(data.chain).toUpperCase()}_${String(data.id||'').toUpperCase()}`;
-                const safeIdCell = (idCellRaw).replace(/[^A-Z0-9_]/g, '');
+                // ID generation: include token ID and CEX for uniqueness across multiple rows with same symbol pair
+                const sym1 = isLeft ? String(data.symbol_in||'').toUpperCase() : String(data.symbol_out||'').toUpperCase();
+                const sym2 = isLeft ? String(data.symbol_out||'').toUpperCase() : String(data.symbol_in||'').toUpperCase();
+                const tokenId = String(data.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+                const baseIdRaw = `${String(data.cex).toUpperCase()}_${canonicalDex.toUpperCase()}_${sym1}_${sym2}_${String(data.chain).toUpperCase()}_${tokenId}`;
+                const baseId = baseIdRaw.replace(/[^A-Z0-9_]/g, '');
+                const fullCellId = `${idPrefix}${baseId}`;
+                // Debug: log cell ID yang dibuat
+                if (window.DEBUG_CELL_IDS) {
+                    console.log(`[buildDexSlots] Created cell:`, {
+                        id: fullCellId,
+                        dex: dexName,
+                        direction: direction,
+                        modal: modal,
+                        symbolIn: data.symbol_in,
+                        symbolOut: data.symbol_out,
+                        cex: data.cex,
+                        chain: data.chain
+                    });
+                }
                 html += `
-                    <td class="td-dex" id="${idPrefix}${safeIdCell}" style="text-align: center; vertical-align: middle;">
+                    <td class="td-dex" id="${fullCellId}"
+                        data-cex="${String(data.cex).toUpperCase()}"
+                        data-dex="${canonicalDex}"
+                        data-sym1="${sym1}"
+                        data-sym2="${sym2}"
+                        data-chain="${String(data.chain).toUpperCase()}"
+                        data-row-index="${rowIndex}"
+                        style="text-align: center; vertical-align: middle;">
                         <strong class="uk-align-center" style="display:inline-block; margin:0;">${dexName.toUpperCase()} [$${modal}]</strong></br>
                         <span class="dex-status uk-text-muted">🔒</span>
                     </td>`;
@@ -223,8 +248,8 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
         // refactor: gunakan helper kecil untuk orderbook kiri
         rowHtml += buildOrderbookCell('LEFT', data, idPrefix, warnaCex);
 
-        // refactor: render slot DEX kiri via helper
-        rowHtml += buildDexSlots('LEFT', data, dexList, idPrefix);
+        // refactor: render slot DEX kiri via helper (pass row index for unique IDs)
+        rowHtml += buildDexSlots('LEFT', data, dexList, idPrefix, index);
 
         // Detail Info
         const urlScIn = chainConfig.URL_Chain ? `${chainConfig.URL_Chain}/token/${data.sc_in}` : '#';
@@ -298,7 +323,7 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
             </td>`;
 
         // refactor: render slot DEX kanan via helper
-        rowHtml += buildDexSlots('RIGHT', data, dexList, idPrefix);
+        rowHtml += buildDexSlots('RIGHT', data, dexList, idPrefix, index);
 
         // refactor: gunakan helper kecil untuk orderbook kanan
         rowHtml += buildOrderbookCell('RIGHT', data, idPrefix, warnaCex);
@@ -694,9 +719,18 @@ function DisplayPNL(data) {
   const elementId = String(idPrefix || '') + String(baseId || '');
   const el = document.getElementById(elementId);
   if (!el) {
-    try {
-      // debug logs removed
-    } catch(_) {}
+    // Debug: log missing cell ID dengan console.error agar lebih terlihat
+    console.error(`❌ [DisplayPNL] Cell NOT FOUND!`, {
+      elementId,
+      cex: cex,
+      dex: dextype,
+      direction: trx,
+      symbolIn: Name_in,
+      symbolOut: Name_out,
+      chain: nameChain,
+      baseId: baseId,
+      idPrefix: idPrefix
+    });
     return;
   }
   // Clear any prior error background once a successful result renders
@@ -1083,29 +1117,28 @@ function calculateResult(baseId, tableBodyId, amount_out, FeeSwap, sc_input, sc_
     // Early guards for numeric validity to avoid NaN/Infinity propagation
     const idPrefix = tableBodyId + '_';
     const toId = () => String(baseId || '').replace(/[^A-Z0-9_]/g,'');
-    const errorPayload = (msg) => {
-        return { type: 'error', id: idPrefix + toId(), message: msg };
-    };
+    const errorPayload = (msg) => ({ type: 'error', id: idPrefix + toId(), message: msg });
     const isPos = v => Number.isFinite(v) && v >= 0;
     const isPosStrict = v => Number.isFinite(v) && v > 0;
 
     if (!isPosStrict(amount_in)) return errorPayload('Amount_in tidak valid');
     if (!isPos(amount_out)) return errorPayload('Amount_out tidak valid');
-    if (!(isPos(priceBuyToken_CEX) && isPos(priceSellToken_CEX) && isPos(priceBuyPair_CEX) && isPos(priceSellPair_CEX))) {
-        return errorPayload('Harga CEX tidak valid');
-    }
 
-    const rateTokentoPair = amount_out / amount_in;
-    const ratePairtoToken = amount_in / amount_out;
+    const rateTokentoPair = (amount_in > 0) ? (amount_out / amount_in) : 0;
+    const ratePairtoToken = (amount_out > 0) ? (amount_in / amount_out) : 0;
 
     const totalModal = Modal + FeeSwap + FeeWD + FeeTrade;
     const totalFee = FeeSwap + FeeWD + FeeTrade;
 
     let totalValue = 0;
     if (trx === "TokentoPair") {
-        totalValue = amount_out * priceSellPair_CEX;
+        if (priceSellPair_CEX > 0) totalValue = amount_out * priceSellPair_CEX;
+        else if (priceBuyToken_CEX > 0) totalValue = amount_in * priceBuyToken_CEX;
+        else totalValue = amount_out;
     } else {
-        totalValue = amount_out * priceSellToken_CEX;
+        if (priceSellToken_CEX > 0) totalValue = amount_out * priceSellToken_CEX;
+        else if (priceBuyPair_CEX > 0) totalValue = amount_in * priceBuyPair_CEX;
+        else totalValue = amount_out;
     }
 
     // Validate totals before computing PNL
@@ -1115,14 +1148,7 @@ function calculateResult(baseId, tableBodyId, amount_out, FeeSwap, sc_input, sc_
     const profitLoss = totalValue - totalModal;
     const profitLossPercent = totalModal !== 0 ? (profitLoss / totalModal) * 100 : 0;
 
-    const linkDEX = generateDexLink(dextype,nameChain,codeChain,Name_in,sc_input, Name_out, sc_output);
-
-    if (!linkDEX) {
-        // refactor: use notify directly; shim ensures availability
-        try { if (typeof notify === 'function') notify('error', `DEX Type "${dextype}" tidak valid atau belum didukung.`); } catch(_) {}
-        try { console.error(`DEX Type "${dextype}" tidak valid atau belum didukung.`); } catch(_) {}
-        return { type: 'error', id: idPrefix + baseId, message: `DEX Type "${dextype}" tidak valid.` };
-    }
+    const linkDEX = generateDexLink(dextype,nameChain,codeChain,Name_in,sc_input, Name_out, sc_output) || '#';
 
     let displayRate, tooltipRate, tooltipText;
     tooltipRate = rateTokentoPair;
@@ -1164,11 +1190,15 @@ function calculateResult(baseId, tableBodyId, amount_out, FeeSwap, sc_input, sc_
     // Fallback if DEX-based USD rate not resolved
     // - TokentoPair: USD/token = (pair per token) * (USD per 1 pair)
     // - PairtoToken: USD/token = langsung harga CEX token (hindari mengalikan hingga jadi USD per PAIR)
-    if (typeof displayRate === 'undefined') {
+    if (!Number.isFinite(displayRate) || displayRate <= 0) {
         if (trx === 'TokentoPair') {
-            displayRate = rateTokentoPair * priceSellPair_CEX;
+            displayRate = priceSellPair_CEX > 0
+                ? priceSellPair_CEX
+                : (priceBuyToken_CEX > 0 ? priceBuyToken_CEX : rateTokentoPair || 0);
         } else {
-            displayRate = priceSellToken_CEX; // correct fallback for Pair->Token in USD/token
+            displayRate = priceSellToken_CEX > 0
+                ? priceSellToken_CEX
+                : (priceBuyPair_CEX > 0 ? priceBuyPair_CEX : (rateTokentoPair > 0 ? (1 / rateTokentoPair) : 0));
         }
     }
 

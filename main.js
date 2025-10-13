@@ -418,7 +418,7 @@ function bootApp() {
         // REFACTORED
         if (typeof renderSettingsForm === 'function') renderSettingsForm();
         $('#form-setting-app').show();
-        $('#filter-card, #scanner-config, #token-management, #iframe-container').hide();
+        $('#filter-card, #scanner-config, #token-management, #iframe-container, #snapshot-view').hide();
         // REFACTORED
         if ($('#dataTableBody').length) { $('#dataTableBody').closest('.uk-overflow-auto').hide(); }
         if ($('#form-setting-app').length && $('#form-setting-app')[0] && typeof $('#form-setting-app')[0].scrollIntoView === 'function') {
@@ -433,6 +433,7 @@ function bootApp() {
         $('#form-setting-app').hide();
         // Restore primary sections
         $('#filter-card, #scanner-config').show();
+        $('#snapshot-view').hide();
         if ($('#dataTableBody').length) { $('#dataTableBody').closest('.uk-overflow-auto').show(); }
     }
     if (state === 'READY') {
@@ -797,6 +798,12 @@ async function deferredInit() {
                 $('#form-setting-app').hide();
             
                 $('#token-management').show();
+                try {
+                    if (window.SnapshotModule && typeof window.SnapshotModule.hide === 'function') {
+                        window.SnapshotModule.hide();
+                    }
+                } catch(_) {}
+                $('#snapshot-view').hide();
                 renderTokenManagementList();
             }
         } catch(_) {}
@@ -1016,7 +1023,7 @@ $("#reload").click(function () {
 
     $("#SettingConfig").on("click", function () {
         // Hide all other sections to prevent stacking when opening Settings
-        $('#filter-card, #scanner-config, #token-management, #iframe-container, #sinyal-container, #header-table').hide();
+        $('#filter-card, #scanner-config, #token-management, #iframe-container, #snapshot-view, #sinyal-container, #header-table').hide();
         try { $('#dataTableBody').closest('.uk-overflow-auto').hide(); } catch(_) {}
         $('#form-setting-app').show();
         try { document.getElementById('form-setting-app').scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(_) {}
@@ -1032,6 +1039,12 @@ $("#reload").click(function () {
       $('#form-setting-app').hide();
       // unified table; nothing to hide
       $('#token-management').show();
+      try {
+        if (window.SnapshotModule && typeof window.SnapshotModule.hide === 'function') {
+            window.SnapshotModule.hide();
+        }
+      } catch(_) {}
+      $('#snapshot-view').hide();
       renderTokenManagementList();
     });
 
@@ -1245,8 +1258,17 @@ $("#startSCAN").click(function () {
                 return;
             }
             // Re-render monitoring table to initial state for these tokens
-            try { loadKointoTable(flatTokens, 'dataTableBody'); } catch(_) {}
-            startScanner(flatTokens, settings, 'dataTableBody');
+            try {
+                loadKointoTable(flatTokens, 'dataTableBody');
+                console.log('[START] Table skeleton rendered, waiting for DOM to settle...');
+            } catch(e) {
+                console.error('[START] Failed to render table:', e);
+            }
+            // Wait for DOM to settle before starting scanner (increased to 250ms for safety)
+            setTimeout(() => {
+                console.log('[START] Starting scanner now...');
+                startScanner(flatTokens, settings, 'dataTableBody');
+            }, 250);
             return;
         }
 
@@ -1263,8 +1285,17 @@ $("#startSCAN").click(function () {
             return;
         }
         // Re-render monitoring table to initial state for these tokens
-        try { loadKointoTable(toScan, 'dataTableBody'); } catch(_) {}
-        startScanner(toScan, settings, 'dataTableBody');
+        try {
+            loadKointoTable(toScan, 'dataTableBody');
+            console.log('[START] Table skeleton rendered, waiting for DOM to settle...');
+        } catch(e) {
+            console.error('[START] Failed to render table:', e);
+        }
+        // Wait for DOM to settle before starting scanner (increased to 250ms for safety)
+        setTimeout(() => {
+            console.log('[START] Starting scanner now...');
+            startScanner(toScan, settings, 'dataTableBody');
+        }, 250);
     });
 
     // Token Management Form Handlers
@@ -1465,16 +1496,221 @@ $("#startSCAN").click(function () {
         }
     });
 
-    function showMainScannerView() {
-        $('#iframe-container').hide();
-        $('#token-management').hide();
-        $('#scanner-config, #sinyal-container, #header-table').show();
-        $('#dataTableBody').closest('.uk-overflow-auto').show();
+function showMainScannerView() {
+    $('#iframe-container').hide();
+    $('#token-management').hide();
+    try {
+        if (window.SnapshotModule && typeof window.SnapshotModule.hide === 'function') {
+            window.SnapshotModule.hide();
+        }
+    } catch(_) {}
+    $('#filter-card').show();
+    $('#form-setting-app').hide();
+    $('#scanner-config, #sinyal-container, #header-table').show();
+    $('#dataTableBody').closest('.uk-overflow-auto').show();
+    $('#snapshot-view').hide();
+}
+
+function showSnapshotView() {
+    $('#iframe-container').hide();
+    $('#token-management').hide();
+    $('#scanner-config, #sinyal-container, #header-table').hide();
+    $('#dataTableBody').closest('.uk-overflow-auto').hide();
+    $('#filter-card').hide();
+    $('#form-setting-app').hide();
+    try {
+        if (window.SnapshotModule && typeof window.SnapshotModule.show === 'function') {
+            window.SnapshotModule.show();
+            return;
+        }
+    } catch(_) {}
+    $('#snapshot-view').show();
+}
+
+// =================================================================================
+// Sync Modal Helpers (Server / Snapshot)
+// =================================================================================
+const SNAPSHOT_DB_CONFIG = { name: 'SNAPSHOT_DB', store: 'kv', snapshotKey: 'SNAPSHOT_DATA_KOIN' };
+let snapshotDbInstance = null;
+
+function setSyncSourceIndicator(label) {
+    try {
+        $('#sync-source-indicator').text(label || 'Server');
+    } catch(_) {}
+}
+
+function resetSyncModalSelections() {
+    try {
+        $('#sync-search-input').val('');
+        $('#sync-select-controls input[name="sync-pick-mode"]').prop('checked', false);
+    } catch(_) {}
+}
+
+function setSyncModalData(chainKey, rawTokens, savedTokens, sourceLabel) {
+    try {
+        const chainLower = String(chainKey || '').toLowerCase();
+        const list = Array.isArray(rawTokens) ? rawTokens.map((item, idx) => {
+            const clone = Object.assign({}, item);
+            if (typeof clone._idx !== 'number') clone._idx = idx;
+            if (!clone.__source) clone.__source = String(sourceLabel || 'server').toLowerCase();
+            return clone;
+        }) : [];
+        const $modal = $('#sync-modal');
+        $modal.data('remote-raw', list);
+        const savedList = Array.isArray(savedTokens) ? savedTokens : [];
+        $modal.data('saved-tokens', savedList);
+        $modal.data('source', String(sourceLabel || 'server').toLowerCase());
+        resetSyncModalSelections();
+        const labelText = `${sourceLabel || 'Server'} (${list.length})`;
+        setSyncSourceIndicator(labelText);
+        buildSyncFilters(chainLower);
+        renderSyncTable(chainLower);
+    } catch(error) {
+        console.error('setSyncModalData failed:', error);
     }
+}
 
-    // Single Chain Mode Handler removed (unified table)
+function parseNumberSafe(val, fallback = 0) {
+    const num = Number(val);
+    return Number.isFinite(num) ? num : fallback;
+}
 
-    // Iframe View Handler
+function parseSnapshotStatus(val) {
+    if (val === undefined || val === null || val === '') return null;
+    if (val === true) return true;
+    if (val === false) return false;
+    const str = String(val).toLowerCase();
+    if (['on', 'true', 'yes', 'open', 'enabled', 'aktif'].includes(str)) return true;
+    if (['off', 'false', 'no', 'close', 'closed', 'disabled', 'nonaktif', 'tidak'].includes(str)) return false;
+    return null;
+}
+
+function normalizeSnapshotRecord(rec, chainKey) {
+    if (!rec) return null;
+    const cex = String(rec.cex || rec.exchange || '').toUpperCase().trim();
+    const symbol = String(rec.symbol || rec.ticker || rec.koin || rec.token || '').toUpperCase().trim();
+    const sc = String(rec.sc || rec.contract || rec.address || '').trim();
+    if (!cex || !symbol || !sc) return null;
+    return {
+        __source: 'snapshot',
+        chain: String(chainKey || '').toLowerCase(),
+        cex,
+        symbol_in: symbol,
+        sc_in: sc,
+        des_in: parseNumberSafe(rec.des || rec.decimals || rec.des_in || rec.decimals_in || 0, 0),
+        token_name: rec.name || rec.token || '',
+        deposit: rec.deposit,
+        withdraw: rec.withdraw,
+        feeWD: rec.feeWD,
+        price: rec.price
+    };
+}
+
+async function openSnapshotDatabase() {
+    if (snapshotDbInstance) return snapshotDbInstance;
+    if (typeof indexedDB === 'undefined') throw new Error('IndexedDB tidak tersedia di lingkungan ini.');
+    snapshotDbInstance = await new Promise((resolve, reject) => {
+        try {
+            const req = indexedDB.open(SNAPSHOT_DB_CONFIG.name, 1);
+            req.onupgradeneeded = function(ev) {
+                const db = ev.target.result;
+                if (!db.objectStoreNames.contains(SNAPSHOT_DB_CONFIG.store)) {
+                    db.createObjectStore(SNAPSHOT_DB_CONFIG.store, { keyPath: 'key' });
+                }
+            };
+            req.onsuccess = function(ev) { resolve(ev.target.result); };
+            req.onerror = function(ev) { reject(ev.target.error || new Error('Gagal membuka Snapshot DB')); };
+        } catch(err) { reject(err); }
+    });
+    return snapshotDbInstance;
+}
+
+async function snapshotDbGet(key) {
+    try {
+        const db = await openSnapshotDatabase();
+        return await new Promise((resolve) => {
+            try {
+                const tx = db.transaction([SNAPSHOT_DB_CONFIG.store], 'readonly');
+                const st = tx.objectStore(SNAPSHOT_DB_CONFIG.store);
+                const req = st.get(String(key));
+                req.onsuccess = function() { resolve(req.result ? req.result.val : undefined); };
+                req.onerror = function() { resolve(undefined); };
+            } catch(_) { resolve(undefined); }
+        });
+    } catch(error) {
+        console.error('snapshotDbGet error:', error);
+        return undefined;
+    }
+}
+
+async function loadSnapshotRecords(chainKey) {
+    try {
+        const snapshotMap = await snapshotDbGet(SNAPSHOT_DB_CONFIG.snapshotKey);
+        if (!snapshotMap || typeof snapshotMap !== 'object') return [];
+        const keyLower = String(chainKey || '').toLowerCase();
+        const fallbackKey = String(chainKey || '').toUpperCase();
+        const arr = Array.isArray(snapshotMap[keyLower]) ? snapshotMap[keyLower]
+                  : Array.isArray(snapshotMap[fallbackKey]) ? snapshotMap[fallbackKey]
+                  : [];
+        if (!Array.isArray(arr) || !arr.length) return [];
+        const seen = new Set();
+        const out = [];
+        arr.forEach((rec) => {
+            const norm = normalizeSnapshotRecord(rec, keyLower);
+            if (!norm) return;
+            const dedupKey = `${norm.cex}__${norm.symbol_in}__${String(norm.sc_in || '').toLowerCase()}`;
+            if (seen.has(dedupKey)) return;
+            seen.add(dedupKey);
+            norm._idx = out.length;
+            out.push(norm);
+        });
+        return out;
+    } catch(error) {
+        console.error('loadSnapshotRecords failed:', error);
+        return [];
+    }
+}
+
+async function fetchTokensFromServer(chainKey) {
+    const keyLower = String(chainKey || '').toLowerCase();
+    const cfg = (window.CONFIG_CHAINS || {})[keyLower];
+    if (!cfg || !cfg.DATAJSON) throw new Error(`No datajson URL for ${String(chainKey || '').toUpperCase()}`);
+    const remoteTokens = await $.getJSON(cfg.DATAJSON);
+    let raw = [];
+    if (Array.isArray(remoteTokens)) raw = remoteTokens;
+    else if (remoteTokens && Array.isArray(remoteTokens.token)) raw = remoteTokens.token;
+    else raw = [];
+    return raw.map((item, idx) => {
+        const clone = Object.assign({}, item);
+        clone._idx = idx;
+        clone.__source = 'server';
+        return clone;
+    });
+}
+
+async function loadSyncTokensFromServer(chainKey) {
+    const key = String(chainKey || '').toLowerCase();
+    const chainConfig = (window.CONFIG_CHAINS || {})[key];
+    if (!chainConfig || !chainConfig.DATAJSON) throw new Error(`No datajson URL for ${String(chainKey || '').toUpperCase()}`);
+    try { if (typeof toast !== 'undefined' && toast.info) toast.info('Mengambil data koin dari server...'); } catch(_) {}
+    const raw = await fetchTokensFromServer(key);
+    const savedTokens = getTokensChain(chainKey);
+    setSyncModalData(chainKey, raw, savedTokens, 'Server');
+    try { if (typeof toast !== 'undefined' && toast.success) toast.success(`Berhasil memuat ${raw.length} koin dari server`); } catch(_) {}
+}
+
+async function loadSyncTokensFromSnapshot(chainKey) {
+    const key = String(chainKey || '').toLowerCase();
+    const raw = await loadSnapshotRecords(key);
+    if (!raw.length) throw new Error('Snapshot kosong untuk chain ini.');
+    const savedTokens = getTokensChain(chainKey);
+    setSyncModalData(chainKey, raw, savedTokens, 'Snapshot Lokal');
+    try { if (typeof toast !== 'undefined' && toast.success) toast.success(`Berhasil memuat ${raw.length} koin dari snapshot lokal`); } catch(_) {}
+}
+
+// Single Chain Mode Handler removed (unified table)
+
+// Iframe View Handler
     $(document).on('click', '.iframe-modal-trigger', function(e) {
         $("#filter-card").hide();
         e.preventDefault();
@@ -1485,6 +1721,12 @@ $("#startSCAN").click(function () {
         $('#scanner-config, #sinyal-container, #header-table, #form-setting-app').hide();
         $('#dataTableBody').closest('.uk-overflow-auto').hide();
         $('#token-management').hide();
+        try {
+            if (window.SnapshotModule && typeof window.SnapshotModule.hide === 'function') {
+                window.SnapshotModule.hide();
+            }
+        } catch(_) {}
+        $('#snapshot-view').hide();
 
         // Show iframe view
         //$('#iframe-title').text(viewTitle);
@@ -1492,68 +1734,79 @@ $("#startSCAN").click(function () {
         $('#iframe-container').show();
     });
 
+    $(document).on('click', '#openSnapshotView', function(e){
+        e.preventDefault();
+        showSnapshotView();
+    });
+
+    $(document).on('click', '#snapshot-back', function(){
+        showMainScannerView();
+    });
+
     // Let #home-link perform a full navigation (fresh reload)
 
     // Token Sync Modal Logic
     $(document).on('click', '#sync-tokens-btn', async function() {
-        if (!activeSingleChainKey) return (typeof toast !== 'undefined' && toast.error) ? toast.error("No active chain selected.") : undefined;
+        if (!activeSingleChainKey) {
+            if (typeof toast !== 'undefined' && toast.error) toast.error("No active chain selected.");
+            return;
+        }
 
         const chainConfig = CONFIG_CHAINS[activeSingleChainKey];
-        if (!chainConfig || !chainConfig.DATAJSON) return (typeof toast !== 'undefined' && toast.error) ? toast.error(`No datajson URL for ${activeSingleChainKey}`) : undefined;
+        if (!chainConfig || !chainConfig.DATAJSON) {
+            if (typeof toast !== 'undefined' && toast.error) toast.error(`No datajson URL for ${String(activeSingleChainKey).toUpperCase()}`);
+            return;
+        }
 
-        $('#sync-modal-chain-name').text(chainConfig.Nama_Chain || activeSingleChainKey.toUpperCase());
-        const modalBody = $('#sync-modal-tbody').empty().html('<tr><td colspan="4">Loading...</td></tr>');
+        $('#sync-modal-chain-name').text(chainConfig.Nama_Chain || String(activeSingleChainKey).toUpperCase());
+        $('#sync-modal-tbody').empty().html('<tr><td colspan="4">Loading...</td></tr>');
+        setSyncSourceIndicator('Server');
         UIkit.modal('#sync-modal').show();
 
         try {
-            // Progress info to user
-            try { if (typeof toast !== 'undefined' && toast.info) toast.info('Mengambil data koin dari server...'); } catch(_) {}
-            const remoteTokens = await $.getJSON(chainConfig.DATAJSON);
-            const savedTokens = getTokensChain(activeSingleChainKey);
-
-            // Accept both formats:
-            // - Array of token objects
-            // - Object with { token: [...] }
-            let raw = [];
-            if (Array.isArray(remoteTokens)) raw = remoteTokens;
-            else if (remoteTokens && Array.isArray(remoteTokens.token)) raw = remoteTokens.token;
-            else {
-                raw = [];
-                if (typeof toast !== 'undefined' && toast.warning) toast.warning('Struktur JSON tidak sesuai: array token tidak ditemukan.');
-            }
-
-            raw.forEach((t,i) => { try { t._idx = i; } catch(_){} });
-            $('#sync-modal').data('remote-raw', raw);
-            $('#sync-modal').data('saved-tokens', savedTokens);
-
-            // Build filters UI (needs raw tokens for counts)
-            buildSyncFilters(activeSingleChainKey);
-
-            // Initial render
-            renderSyncTable(activeSingleChainKey);
-
-            try { if (typeof toast !== 'undefined' && toast.success) toast.success(`Berhasil memuat ${raw.length} koin dari server`); } catch(_) {}
-
-            // Debug logs for fetch result
-            try {
-                const chainKey = String(activeSingleChainKey).toLowerCase();
-                const countBy = (arr, pick)=> arr.reduce((a,t)=>{ const k = pick(t)||'-'; a[k]=(a[k]||0)+1; return a; },{});
-                const byCex  = countBy(raw, t => String(t.cex||'').toUpperCase());
-                const byPair = countBy(raw, t => String(t.symbol_out||'').toUpperCase());
-                /* debug logs removed */
-                /* debug logs removed */
-            } catch(e){ /* debug logs removed */ }
-
+            await loadSyncTokensFromServer(activeSingleChainKey);
         } catch (error) {
-            modalBody.html('<tr><td colspan="4">Failed to fetch token data.</td></tr>');
+            $('#sync-modal-tbody').html('<tr><td colspan="4">Failed to fetch token data.</td></tr>');
             console.error("Error fetching token JSON:", error);
             let reason = '';
             try {
                 const status = error?.status;
                 const text = error?.statusText || error?.message || '';
-                if (status) reason = `HTTP ${status}${text?` - ${text}`:''}`;
+                if (status) reason = `HTTP ${status}${text ? ` - ${text}` : ''}`;
             } catch(_) {}
-            if (typeof toast !== 'undefined' && toast.error) toast.error(`Gagal mengambil data dari server${reason?`: ${reason}`:''}. Cek koneksi atau URL DATAJSON.`);
+            if (typeof toast !== 'undefined' && toast.error) toast.error(`Gagal mengambil data dari server${reason ? `: ${reason}` : ''}. Cek koneksi atau URL DATAJSON.`);
+        }
+    });
+
+    // Handler untuk toggle sumber data (Server/Snapshot) di modal sinkronisasi
+    $(document).on('click', '#sync-source-toggle .uk-button', async function() {
+        const $button = $(this);
+        if ($button.hasClass('uk-button-primary')) return; // Sudah aktif, tidak perlu aksi
+
+        // Update tampilan tombol
+        $('#sync-source-toggle .uk-button').removeClass('uk-button-primary').addClass('uk-button-default');
+        $button.removeClass('uk-button-default').addClass('uk-button-primary');
+
+        const source = $button.data('source');
+        if (!activeSingleChainKey) {
+            if (typeof toast !== 'undefined' && toast.error) toast.error("No active chain selected.");
+            return;
+        }
+
+        $('#sync-modal-tbody').empty().html('<tr><td colspan="4">Loading...</td></tr>');
+
+        if (source === 'server') {
+            try {
+                await loadSyncTokensFromServer(activeSingleChainKey);
+            } catch (error) {
+                $('#sync-modal-tbody').html('<tr><td colspan="4">Gagal memuat data server.</td></tr>');
+            }
+        } else if (source === 'snapshot') {
+            try {
+                await loadSyncTokensFromSnapshot(activeSingleChainKey);
+            } catch (error) {
+                $('#sync-modal-tbody').html('<tr><td colspan="4">Gagal memuat data snapshot.</td></tr>');
+            }
         }
     });
 
@@ -1579,8 +1832,10 @@ $("#startSCAN").click(function () {
             if (!$(this).is(':checked')) return;
             const leftVal = parseFloat($(`#sync-dex-config .sync-dex-global-left[data-dex="${dx}"]`).val());
             const rightVal = parseFloat($(`#sync-dex-config .sync-dex-global-right[data-dex="${dx}"]`).val());
-            selectedDexsGlobal.push(dx);
-            dataDexsGlobal[dx] = { left: isNaN(leftVal)?0:leftVal, right: isNaN(rightVal)?0:rightVal };
+            // Normalize to lowercase canonical key
+            const dxLower = dx.toLowerCase();
+            selectedDexsGlobal.push(dxLower);
+            dataDexsGlobal[dxLower] = { left: isNaN(leftVal)?0:leftVal, right: isNaN(rightVal)?0:rightVal };
         });
         if (selectedDexsGlobal.length < 1) {
             if (typeof toast !== 'undefined' && toast.warning) toast.warning('Pilih minimal 1 DEX.');
@@ -1596,16 +1851,20 @@ $("#startSCAN").click(function () {
             const $cb = $row.find('.sync-token-checkbox');
             if (!$cb.is(':checked')) return;
             const idx = Number($cb.data('index'));
+            const pairOverride = String($cb.data('pair') || '').toUpperCase();
+            const sourceOverride = String($cb.data('source') || '');
             const tok = remoteTokens[idx];
             if (!tok) return;
 
             const cexUpper = String(tok.cex || '').toUpperCase().trim();
             const symbolIn = String(tok.symbol_in || '').toUpperCase().trim();
-            const symbolOut = String(tok.symbol_out || '').toUpperCase().trim();
-            const scIn = tok.sc_in || tok.contract_in || '';
+            const isSnapshot = (sourceOverride === 'snapshot') || String(tok.__source || '').toLowerCase() === 'snapshot';
+            const pairKeyRaw = pairOverride || String(tok.symbol_out || '').toUpperCase().trim();
+            const symbolOut = pairKeyRaw || 'NON';
+            let scIn = tok.sc_in || tok.contract_in || '';
             const scOutRaw = tok.sc_out || tok.contract_out || '';
-            const desIn = Number(tok.des_in || tok.decimals_in || 0);
-            const desOutRaw = Number(tok.des_out || tok.decimals_out || 0);
+            const desInVal = Number(tok.des_in ?? tok.decimals_in ?? tok.des ?? tok.dec_in ?? 0);
+            const desOutRaw = Number(tok.des_out ?? tok.decimals_out ?? tok.desPair ?? tok.dec_out ?? 0);
 
             // Map pair to config; if unknown → NON
             // NON concept: any pair NOT explicitly listed in PAIRDEXS.
@@ -1613,11 +1872,11 @@ $("#startSCAN").click(function () {
             const pairDef = pairDefs[symbolOut] || pairDefs['NON'] || { scAddressPair: '0x', desPair: 18, symbolPair: 'NON' };
             const isAddrInvalid = (addr) => !addr || String(addr).toLowerCase() === '0x' || String(addr).length < 6;
             let scOut = tok.sc_out || tok.contract_out || '';
-            let desOut = desOutRaw || Number(pairDef.desPair);
+            let desOut = Number.isFinite(desOutRaw) && desOutRaw > 0 ? desOutRaw : Number(pairDef.desPair);
             if (pairDefs[symbolOut]) {
                 // Known pair in config: allow fallback to config default if source empty
                 scOut = scOut || pairDef.scAddressPair;
-                desOut = desOutRaw || Number(pairDef.desPair);
+                desOut = Number.isFinite(desOutRaw) && desOutRaw > 0 ? desOutRaw : Number(pairDef.desPair);
             } else {
                 // NON: keep source SC if present; only fallback when invalid
                 if (isAddrInvalid(scOut)) {
@@ -1633,11 +1892,37 @@ $("#startSCAN").click(function () {
             // Merge prior CEX info if exists
             const existing = savedTokens.find(s => String(s.cex).toUpperCase() === cexUpper && s.symbol_in === symbolIn && s.symbol_out === symbolOut);
             const dataCexs = {};
-            dataCexs[cexUpper] = existing?.dataCexs?.[cexUpper] || {
+            const baseCexInfo = existing?.dataCexs?.[cexUpper] ? { ...existing.dataCexs[cexUpper] } : {
                 feeWDToken: 0, feeWDPair: 0,
                 depositToken: false, withdrawToken: false,
                 depositPair: false, withdrawPair: false
             };
+            if (isSnapshot) {
+                const feeSnapshot = parseFloat(tok.feeWDToken ?? tok.feeWD);
+                if (Number.isFinite(feeSnapshot) && feeSnapshot >= 0) {
+                    baseCexInfo.feeWDToken = feeSnapshot;
+                }
+                const depositSnap = parseSnapshotStatus(tok.depositToken ?? tok.deposit);
+                if (depositSnap !== null) {
+                    baseCexInfo.depositToken = depositSnap;
+                    baseCexInfo.depositPair = depositSnap;
+                }
+                const withdrawSnap = parseSnapshotStatus(tok.withdrawToken ?? tok.withdraw);
+                if (withdrawSnap !== null) {
+                    baseCexInfo.withdrawToken = withdrawSnap;
+                    baseCexInfo.withdrawPair = withdrawSnap;
+                }
+            }
+            dataCexs[cexUpper] = baseCexInfo;
+
+            if (!scIn || isAddrInvalid(scIn)) scIn = tok.sc_in || tok.contract_in || '';
+            scIn = String(scIn || '').trim();
+            if (!scIn || scIn.length < 6) return;
+            if (isAddrInvalid(scOut)) scOut = pairDef.scAddressPair || scOut;
+            scOut = String(scOut || '').trim();
+
+            const desIn = Number.isFinite(desInVal) && desInVal >= 0 ? desInVal : 0;
+            desOut = Number.isFinite(desOut) && desOut >= 0 ? desOut : desIn;
 
             const tokenObj = {
                 id: `${chainKey}_${cexUpper}_${symbolIn}_${symbolOut}`,
@@ -1652,7 +1937,8 @@ $("#startSCAN").click(function () {
                 selectedCexs: [cexUpper],
                 selectedDexs,
                 dataDexs,
-                dataCexs
+                dataCexs,
+                cex: cexUpper
             };
             selectedTokens.push(tokenObj);
             // debug logs removed
@@ -2112,6 +2398,7 @@ $(document).ready(function() {
         const savedTokens = $modal.data('saved-tokens') || [];
         const chainCfg = CONFIG_CHAINS[chainKey] || {};
         const pairDefs = chainCfg.PAIRDEXS || {};
+        const sourceLabel = String($modal.data('source') || 'server').toLowerCase();
 
         if (!raw.length) {
             modalBody.html('<tr><td colspan="4">No tokens found in remote JSON.</td></tr>');
@@ -2122,13 +2409,48 @@ $(document).ready(function() {
         const selectedCexs = $('#sync-filter-cex input:checked').map(function(){ return $(this).val().toUpperCase(); }).get();
         const selectedPairs = $('#sync-filter-pair input:checked').map(function(){ return $(this).val().toUpperCase(); }).get();
 
-        const filtered = raw.filter(t => {
+        const pairKeys = Object.keys(pairDefs || {});
+        const defaultPairs = (selectedPairs.length
+            ? selectedPairs
+            : (pairDefs.USDT ? ['USDT'] : (pairKeys.length ? pairKeys : ['NON'])));
+
+        const expanded = [];
+        raw.forEach((token, idx) => {
+            const baseIndex = (typeof token._idx === 'number') ? token._idx : idx;
+            const source = String(token.__source || sourceLabel || 'server').toLowerCase();
+            const cexUp = String(token.cex || '').toUpperCase();
+            if (source === 'snapshot' && (!token.symbol_out || token.symbol_out === '')) {
+                const pairsForSnapshot = defaultPairs.length ? defaultPairs : ['NON'];
+                pairsForSnapshot.forEach(pairKey => {
+                    const pairUp = String(pairKey || '').toUpperCase();
+                    const isKnownPair = !!pairDefs[pairUp];
+                    const def = pairDefs[pairUp] || pairDefs['NON'] || {};
+                    expanded.push(Object.assign({}, token, {
+                        __source: 'snapshot',
+                        __baseIndex: baseIndex,
+                        cex: cexUp,
+                        symbol_out: pairUp,
+                        sc_out: token.sc_out || def.scAddressPair || '',
+                        des_out: token.des_out || Number(def.desPair || token.des_in || 0),
+                        __pairKnown: isKnownPair
+                    }));
+                });
+            } else {
+                expanded.push(Object.assign({}, token, {
+                    __baseIndex: baseIndex,
+                    __source: source,
+                    cex: cexUp
+                }));
+            }
+        });
+
+        const filtered = expanded.filter(t => {
             const cexUp = String(t.cex || '').toUpperCase();
             if (selectedCexs.length && !selectedCexs.includes(cexUp)) return false;
             const pairUp = String(t.symbol_out || '').toUpperCase();
             const mappedPair = pairDefs[pairUp] ? pairUp : 'NON';
             if (selectedPairs.length && !selectedPairs.includes(mappedPair)) return false;
-            const text = `${t.symbol_in} ${t.symbol_out} ${t.cex}`.toLowerCase();
+            const text = `${t.symbol_in || ''} ${pairUp} ${cexUp}`.toLowerCase();
             return !search || text.includes(search);
         });
 
@@ -2177,9 +2499,12 @@ $(document).ready(function() {
         } catch(e) { /* debug logs removed */ }
 
         filtered.forEach((token, index) => {
+            const baseIndex = (typeof token.__baseIndex === 'number') ? token.__baseIndex : (token._idx ?? index);
+            const source = String(token.__source || sourceLabel || 'server').toLowerCase();
             const cexUp = String(token.cex || '').toUpperCase();
             const symIn = String(token.symbol_in || '').toUpperCase();
             const symOut = String(token.symbol_out || '').toUpperCase();
+            const mappedPair = pairDefs[symOut] ? symOut : 'NON';
             // Cek apakah koin sudah ada di database (per-chain)
             const saved = (Array.isArray(savedTokens) ? savedTokens : []).find(s => {
                 const inMatch  = String(s.symbol_in || '').toUpperCase() === symIn;
@@ -2193,11 +2518,17 @@ $(document).ready(function() {
             const statusBadge = saved
               ? ' <span class="uk-label uk-label-success" style="font-size:10px;" title="Koin sudah tersimpan di database">[ SUDAH DIPILIH ]</span>'
               : '';
+            const sourceBadge = (source === 'snapshot')
+              ? ' <span class="uk-label uk-label-warning" style="font-size:10px;" title="Berhasil dimuat dari snapshot lokal">SNAPSHOT</span>'
+              : '';
+            const pairBadge = pairDefs[symOut]
+              ? ''
+              : ' <span class="uk-text-danger uk-text-bold">[NON]</span>';
             const row = `
                 <tr>
-                    <td><input type="checkbox" class="uk-checkbox sync-token-checkbox" data-index="${token._idx ?? index}" ${isChecked ? 'checked' : ''} ${isChecked ? 'data-saved="1"' : ''}></td>
-                    <td>${symIn}${statusBadge}</td>
-                    <td>${symOut}${pairDefs[symOut] ? '' : ' <span class="uk-text-danger uk-text-bold">[NON]</span>'}</td>
+                    <td><input type="checkbox" class="uk-checkbox sync-token-checkbox" data-index="${baseIndex}" data-pair="${symOut}" data-source="${source}" ${isChecked ? 'checked' : ''} ${isChecked ? 'data-saved="1"' : ''}></td>
+                    <td>${symIn}${statusBadge}${sourceBadge}</td>
+                    <td>${symOut}${pairBadge}</td>
                     <td>${cexUp}</td>
                 </tr>`;
             modalBody.append(row);
@@ -2226,10 +2557,12 @@ function readDexSelectionFromForm() {
     $('#dex-checkbox-koin .dex-edit-checkbox:checked').each(function () {
         const dexName = String($(this).val());
         const dexKeyLower = dexName.toLowerCase().replace(/[^a-z0-9_-]/gi, '');
+        // Normalize: always use lowercase canonical key for consistency
+        const canonicalKey = dexKeyLower || dexName.toLowerCase();
         const leftVal  = parseFloat($(`#dex-${dexKeyLower}-left`).val());
         const rightVal = parseFloat($(`#dex-${dexKeyLower}-right`).val());
-        selectedDexs.push(dexName);
-        dataDexs[dexName] = { left: isNaN(leftVal) ? 0 : leftVal, right: isNaN(rightVal) ? 0 : rightVal };
+        selectedDexs.push(canonicalKey);
+        dataDexs[canonicalKey] = { left: isNaN(leftVal) ? 0 : leftVal, right: isNaN(rightVal) ? 0 : rightVal };
     });
     return { selectedDexs, dataDexs };
 }

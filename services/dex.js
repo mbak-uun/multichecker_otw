@@ -81,45 +81,59 @@
       }
     },
     '1inch': {
-      buildRequest: ({ action, SavedSettingData, codeChain, amount_in_big, sc_input, des_input, sc_output, des_output }) => {
-        if (action === "TokentoPair") {
-          return {
-            url: "https://api.dzap.io/v1/quotes",
-            method: 'POST',
-            data: JSON.stringify({
-              account: SavedSettingData.walletMeta || '0x0000000000000000000000000000000000000000',
-              fromChain: codeChain,
-              integratorId: 'dzap',
-              allowedSources: ["oneInchViaLifi"],
-              data: [{ amount: amount_in_big.toString(), srcToken: sc_input, srcDecimals: des_input, destToken: sc_output, destDecimals: des_output, slippage: 0.3, toChain: codeChain }]
-            })
-          };
-        }
-        return {
-          url: "https://api-v1.marbleland.io/api/v1/jumper/api/p/lifi/advanced/routes",
-          method: 'POST',
-          data: JSON.stringify({
-            fromAmount: amount_in_big.toString(), fromChainId: codeChain, fromTokenAddress: sc_input, toChainId: codeChain, toTokenAddress: sc_output,
-            options: { integrator: "swap.marbleland.io", order: "CHEAPEST", exchanges: { allow: ["1inch"] } }
-          })
-        };
-      },
-      parseResponse: (response, { action, des_output, chainName }) => {
-        let amount_out, FeeSwap;
-        if (action === "TokentoPair") {
-          const key = Object.keys(response)[0];
-          const quoteData = response?.[key]?.quoteRates?.oneInchViaLifi;
-          if (!quoteData) throw new Error("1inch quote not found in DZAP response");
-          amount_out = parseFloat(quoteData.toAmount ?? quoteData.destAmount ?? 0) / Math.pow(10, des_output);
-          FeeSwap = parseFloat(quoteData.fee?.gasFee?.[0]?.amountUSD) || getFeeSwap(chainName);
-        } else {
-          const route = response?.routes?.[0];
-          if (!route) throw new Error("1inch route not found in LiFi response");
-          amount_out = parseFloat(route.toAmount ?? 0) / Math.pow(10, des_output);
-          FeeSwap = parseFloat(route.gasCostUSD) || getFeeSwap(chainName);
-        }
+      buildRequest: ({ codeChain, amount_in_big, sc_input, sc_output }) => ({
+        url: "https://api-v1.marbleland.io/api/v1/jumper/api/p/lifi/advanced/routes",
+        method: 'POST',
+        data: JSON.stringify({
+          fromAmount: amount_in_big.toString(),
+          fromChainId: codeChain,
+          fromTokenAddress: sc_input,
+          toChainId: codeChain,
+          toTokenAddress: sc_output,
+          options: {
+            integrator: "swap.marbleland.io",
+            order: "CHEAPEST",
+            exchanges: { allow: ["1inch"] }
+          }
+        })
+      }),
+      parseResponse: (response, { des_output, chainName }) => {
+        const route = response?.routes?.[0];
+        if (!route) throw new Error("1inch route not found in LiFi response");
+        const amount_out = parseFloat(route.toAmount ?? 0) / Math.pow(10, des_output);
+        const FeeSwap = parseFloat(route.gasCostUSD) || getFeeSwap(chainName);
         return { amount_out, FeeSwap, dexTitle: '1INCH' };
       }
+    },
+    paraswap: {
+      buildRequest: ({ codeChain, sc_input, sc_output, amount_in_big, des_input, des_output }) => {
+        const params = new URLSearchParams({
+          network: String(codeChain || ''),
+          srcToken: sc_input,
+          destToken: sc_output,
+          amount: amount_in_big.toString(),
+          side: 'SELL',
+          srcDecimals: String(des_input),
+          destDecimals: String(des_output),
+          partner: 'multichecker'
+        });
+        return {
+          url: `https://apiv5.paraswap.io/prices/?${params.toString()}`,
+          method: 'GET'
+        };
+      },
+      parseResponse: (response, { des_output, chainName }) => {
+        const route = response?.priceRoute;
+        const destAmountStr = route?.destAmount;
+        if (!destAmountStr) throw new Error('Invalid ParaSwap response');
+        const destAmountNum = parseFloat(destAmountStr);
+        if (!Number.isFinite(destAmountNum) || destAmountNum <= 0) throw new Error('Invalid ParaSwap dest amount');
+        const amount_out = destAmountNum / Math.pow(10, des_output);
+        const gasUsd = parseFloat(route.gasCostUSD || route.estimatedGasCostUSD || response?.gasCostUSD || 0);
+        const FeeSwap = (Number.isFinite(gasUsd) && gasUsd > 0) ? gasUsd : getFeeSwap(chainName);
+        return { amount_out, FeeSwap, dexTitle: 'PARASWAP' };
+      },
+      useProxy: false
     },
     odos: {
       buildRequest: ({ action, codeChain, SavedSettingData, amount_in_big, sc_input, sc_output }) => {
@@ -174,7 +188,8 @@
         const feeUsd = parseFloat(response?.odosResponse?.gasEstimateValue || response?.gasEstimateValue || 0);
         const FeeSwap = (Number.isFinite(feeUsd) && feeUsd > 0) ? feeUsd : getFeeSwap(chainName);
         return { amount_out, FeeSwap, dexTitle: 'ODOS' };
-      }
+      },
+      useProxy: false
     },
     fly: {
       buildRequest: ({ chainName, sc_input, sc_output, amount_in_big, SavedSettingData }) => {
@@ -317,7 +332,7 @@
       const runStrategy = (strategyName) => new Promise((res, rej) => {
         try {
           const sname = String(strategyName||'').toLowerCase();
-          if (sname === 'swoop' || sname === 'lifi') {
+          if (sname === 'swoop' || sname === 'lifi' || sname === 'dzap') {
             const force = sname; // paksa jenis fallback khusus
             getPriceAltDEX(sc_input, des_input, sc_output, des_output, amount_in, PriceRate, dexType, NameToken, NamePair, cex, chainName, codeChain, action, { force })
               .then(res)
@@ -342,7 +357,8 @@
 
           // Apply proxy if configured for this DEX
           const cfg = (typeof DEX !== 'undefined' && DEX.get) ? (DEX.get(dexType) || {}) : {};
-          const useProxy = !!cfg.proxy;
+          const strategyAllowsProxy = strategy?.useProxy !== false;
+          const useProxy = !!cfg.proxy && strategyAllowsProxy;
           const proxyPrefix = (root.CONFIG_PROXY && root.CONFIG_PROXY.PREFIX) ? String(root.CONFIG_PROXY.PREFIX) : '';
           const finalUrl = (useProxy && proxyPrefix && typeof url === 'string' && !url.startsWith(proxyPrefix)) ? (proxyPrefix + url) : url;
 
@@ -397,15 +413,20 @@
         .catch((e1) => {
           const code = Number(e1 && e1.statusCode);
           const primaryKey = String(primary || '').toLowerCase();
-          // Policy: fallback only for 429 (rate limit)
-          // Exception: for ODOS and KYBER primary with code 0 (no response), allow fallback
+          // Treat ODOS + Hinkal proxy as one family because both rely on ODOS backend
+          const isOdosFamily = (primaryKey === 'odos' || primaryKey === 'hinkal');
+          // Policy: fallback only untuk 429 (rate limit)
+          // Pengecualian: ODOS family fallback untuk semua error; KYBER tetap khusus no-response
           const noResp = (!Number.isFinite(code) || code === 0);
-          const isOdosOrKyberNoResp = (noResp && (primaryKey === 'odos' || primaryKey === 'kyber'));
+          const isNoRespFallback = noResp && (isOdosFamily || primaryKey === 'kyber');
+          const allowBroadFallback = isOdosFamily;
           // Determine fallback target: config alternative, or for ODOS T2P fallback to 'hinkal'
           const computedAlt = alternative || ((primaryKey === 'odos' && String(action||'').toLowerCase() === 'tokentopair') ? 'hinkal' : null);
-          const shouldFallback = (computedAlt && (
-            (Number.isFinite(code) && code === 429) || isOdosOrKyberNoResp
-          ));
+          const shouldFallback = computedAlt && (
+            isOdosFamily || // ODOS/Hinkal always escalate to alternative on any error
+            (Number.isFinite(code) && (code === 429 || (allowBroadFallback && code >= 400))) ||
+            isNoRespFallback
+          );
           if (!shouldFallback) return reject(e1);
           runStrategy(computedAlt)
             .then(resolve)
@@ -418,10 +439,10 @@
    * Optional fallback quoting via external SWOOP service.
    */
   function getPriceAltDEX(sc_input, des_input, sc_output, des_output, amount_in, PriceRate, dexType, NameToken, NamePair, cex, nameChain, codeChain, action, options) {
-    // Fallback policy: SWOOP untuk TokentoPair, LiFi (Jumper) untuk PairtoToken
+    // Default fallback policy: SWOOP untuk Token→Pair, LiFi (Jumper) untuk Pair→Token.
     const SavedSettingData = getFromLocalStorage('SETTING_SCANNER', {});
     const timeoutMilliseconds = (SavedSettingData.speedScan || 4) * 1000;
-    const force = options && options.force ? String(options.force).toLowerCase() : null; // 'swoop' | 'lifi' | null
+    const force = options && options.force ? String(options.force).toLowerCase() : null; // 'swoop' | 'lifi' | 'dzap' | null
 
     function fallbackSWOOP(){
       return new Promise((resolve, reject) => {
@@ -467,6 +488,7 @@
         });
       });
     }
+
 
     function fallbackLIFI(){
       return new Promise((resolve, reject) => {
@@ -541,8 +563,107 @@
       });
     }
 
+    function fallbackDZAP(){
+      return new Promise((resolve, reject) => {
+        const fromAmount = String(BigInt(Math.round(Number(amount_in) * Math.pow(10, des_input))));
+        const dexLower = String(dexType || '').toLowerCase();
+        const exchangeMap = {
+          '0x': '0x',
+          'kyber': 'kyberswap',
+          'kyberswap': 'kyberswap',
+          '1inch': '1inch',
+          'odos': 'odos',
+          'okx': 'okx',
+          'paraswap': 'paraswap',
+          'fly': 'fly'
+        };
+        const displayMap = {
+          '0x': '0X',
+          'kyber': 'KYBER',
+          'kyberswap': 'KYBER',
+          '1inch': '1INCH',
+          'odos': 'ODOS',
+          'okx': 'OKX',
+          'paraswap': 'PARASWAP',
+          'fly': 'FLY'
+        };
+        const exchangeSlug = exchangeMap[dexLower] || dexLower;
+        const displayTitle = displayMap[dexLower] || dexLower.toUpperCase();
+
+        const body = {
+          fromAmount,
+          fromChainId: codeChain,
+          fromTokenAddress: sc_input.toLowerCase(),
+          toChainId: codeChain,
+          toTokenAddress: sc_output.toLowerCase(),
+          options: {
+            integrator: 'multichecker',
+            order: 'CHEAPEST',
+            exchanges: { allow: [exchangeSlug] },
+            allowSwitchChain: true
+          }
+        };
+        $.ajax({
+          url: 'https://api-v1.marbleland.io/api/v1/jumper/api/p/lifi/advanced/routes',
+          method: 'POST',
+          dataType: 'json',
+          contentType: 'application/json',
+          timeout: timeoutMilliseconds,
+          data: JSON.stringify(body),
+          success: function(response){
+            const route = response?.routes?.[0];
+            if (!route || !route.toAmount) return reject({ pesanDEX: 'DZAP route not found' });
+            const amount_out = parseFloat(route.toAmount) / Math.pow(10, des_output);
+            const feeUsd = parseFloat(route.gasCostUSD || 0);
+            const FeeSwap = (Number.isFinite(feeUsd) && feeUsd > 0) ? feeUsd : getFeeSwap(nameChain);
+            const rawTool = String(route?.steps?.[0]?.tool || '').toLowerCase();
+            resolve({
+              dexTitle: displayTitle,
+              sc_input, des_input, sc_output, des_output,
+              FeeSwap, dex: dexType, amount_out,
+              routeTool: rawTool
+            });
+          },
+          error: function(xhr, textStatus){
+            let status = 0; try { status = Number(xhr && xhr.status) || 0; } catch(_) {}
+            try {
+              const txt = xhr && xhr.responseText;
+              if (txt && typeof txt === 'string' && txt.length) {
+                try {
+                  const parsed = JSON.parse(txt);
+                  const upstream = Number(parsed.status || parsed.statusCode || parsed.code);
+                  if (Number.isFinite(upstream) && upstream >= 400) status = upstream;
+                } catch(_) {}
+              }
+            } catch(_) {}
+            const isParser = String(textStatus||'').toLowerCase() === 'parsererror';
+            let coreMsg;
+            if (textStatus === 'timeout') coreMsg = 'Request Timeout';
+            else if (status === 200) coreMsg = isParser ? 'Parser Error (200)' : 'XHR Error (200)';
+            else if (status > 0) coreMsg = describeHttpStatus(status);
+            else coreMsg = `Error: ${textStatus||'unknown'}`;
+            const prefix = status > 0 ? (status === 200 ? '[XHR ERROR 200]' : `[HTTP ${status}]`) : '';
+            const isDark = (typeof window !== 'undefined' && window.isDarkMode && window.isDarkMode()) || (typeof document !== 'undefined' && document.body && document.body.classList.contains('dark-mode'));
+            const errColor = isDark ? '#7e3636' : '#ffcccc';
+            reject({ statusCode: status, pesanDEX: `DZAP: ${prefix} ${coreMsg}`, color: errColor, DEX: dexType.toUpperCase(), textStatus });
+          }
+        });
+      });
+    }
+
     // Pilih fallback berdasarkan force → action
-    if (force === 'lifi' || (force !== 'swoop' && String(action||'').toLowerCase() === 'pairtotoken')) {
+    const isPairToToken = String(action||'').toLowerCase() === 'pairtotoken';
+
+    if (force === 'dzap') {
+      const fallbackChain = isPairToToken ? fallbackLIFI : fallbackSWOOP;
+      return fallbackDZAP().catch((dzapError) => {
+        return fallbackChain()
+          .then(result => result)
+          .catch(() => { throw dzapError; });
+      });
+    }
+
+    if (force === 'lifi' || (force !== 'swoop' && force !== 'dzap' && isPairToToken)) {
       return fallbackLIFI();
     }
     return fallbackSWOOP();

@@ -1,1 +1,219 @@
-function _0x47ea(_0x4ed021,_0x196d22){const _0x4854f1=_0x4854();return _0x47ea=function(_0x47eaf0,_0x21c53c){_0x47eaf0=_0x47eaf0-0x16e;let _0x333dc0=_0x4854f1[_0x47eaf0];return _0x333dc0;},_0x47ea(_0x4ed021,_0x196d22);}function _0x4854(){const _0x3ddb1d=['97439591-ea8e-4d78-86bb-bdac8e43e835','Macpro-2025','4F61764255CEDE6D5E151714B3E1E93B','undefined','196658185E65F93963323870B521A6F6','F42BD9E95F01BCD248C94EE2EECDE19A','514245jncOXq','328xTmdhY','B8101413760E26278FFAF6F0A2BCEA73','a81d5a32-569a-401c-b207-3f0dd8f949c7','41826044-b7bb-4465-a903-3da61e336747','17442MlKrpU','10324111liyCjK','ecc51700-e7a2-4c93-9c8d-dbc43bda74c1','08af14cb-2f97-472c-90cd-fefd2103f253','adad55d1-bf90-43ac-ac03-0a43dc7ccee2','04f923ec-98f2-4e60-bed3-b8f2d419c773','AC7C6D593C29F3378BF93E7EDF74CB6D','dd3f982e-0e20-4ecd-8a03-12d7b0f54586','6766ee02471b28922926f4cc42d08305b1b310413ac999b5b4111c988d21c21c','43c169db-db8c-4aeb-9c25-a2761fdcae49','6BZlsRD','251KfkeSt','4f43c88375cfeee43ec00eae6d95655f','c3c7e029-64b7-4704-8fdc-6d1861ad876a','6A24A249F758047057A993D9A460DA7F','830C9BB8D963F293857DB0CCA5459089','11240kUZRWK','mx0vglBh22wwHBY0il','2U7YGMEUDri6tP3YEzmK3CcZWb9yQ5j3COp9s7pRRUv4vu8hJAlwH4NkbNK74hDU','77FA24FA1DBFFBA5C9C83367D0EAE676','f7a23981-af15-47f4-8775-8200f9fdfe5d','a77871bd-7855-484c-a675-e429bad3490e','2ff67f7546f9b1af3344f4012fbb5561969de9440f1d1432c89473d1fe007deb3f3d0bac7400622b','54970C78369CE892E2D1B8B296B4E572','HnsUDsGJz3wBUWB0yo','429877e0b47c41b68dd77613cdfded64','aec98aef-e2b6-4fb2-b63b-89e358ba1fe1','cf214e57-8af2-42bf-8afa-3b7880c5a152','B13A8CFA344038FAACB44A3E92C9C057','61061ef4-6d0a-412a-92a9-bdc29c6161a7','4f708f99-2e06-4c81-88cb-3c8323fa42c5','80932e81-45b1-497e-bc14-81bdb6ed38d5','Cek_Horeg_911','Regi!#007','CEX_SECRETS','bfbd60b5-9aee-461d-9c17-3b401f9671d1','9F69EEB1A17CCCE9862B797428D56C00','a4569d13-8a59-4ecd-9936-6c4e1233bff8','6866441f-6510-4175-b032-342ad6798817','71cbe094-380a-4146-b619-e81a254c0702','https://cors-proxy-rosy.vercel.app/api/tele-send','8oROUsj','4DDF73FD7C38EB50CD09BF84CDB418ED','6636873a-e8ab-4063-a602-7fbeb8d85835','CONFIG_TELEGRAM','3982XIipeO','BF44AE00CF775DC6DDB0FDADF61EC724','528AFB3ECC88653A9070F05CC3839611','FFC78575E3961D11BF134C8DE9CBE7F8','D621020540042C41D984E2FB78BED5E4','4CA9689FA4DE86F4E4CBF2B777CBAA91','5116D48C1847EB2D7BDD6DDD1FC8B199','7988931kVSJWx','1427387D7B1A67018AA26D364700527B','XHjPVjLzbs741xoznV3xz1Wj5SFrcechNBjvezyXLcg8GLWF21VW32f0YhAsQ9pn','1BD8AC02C9461A6D1BEBDFE31B3BFF9F','HRKOX8GL-KD9ANNF5-T7OKENAH-LHL5PBYQ-NW8GQICL','904cefba-08ce-48e9-9e8b-33411bf44a0f','-1002079288809','81a072cc-b079-410c-9963-fb8e49c16d9d','C30FCABB0B95BE4529D5BA1097954D34','7F812C175823BBD9BD5461B0E3A106F5','E8C92510E44400D8A709FBF140AABEC1','4484BC9B2FC22C35CB1071A2A520FDC8','a499fca1-14cd-41c3-a5bc-0eb37581eff9','ca59e403-4bcb-410a-88bb-3e931a2829d5','35810bKwPGp','6A897CF4D6B56AF6B4E39942C8811871','86f40277-661c-4290-929b-29a25b851a87','a6fd566b-90ed-42c1-8575-1e15c05e395c','26AA1E415682BD8BBDF44A9B1CFF4759','87db4731-fbe3-416f-8bb4-a4f5e5cb64f7','B83EF91AFB861BA3E208F2680FAEDDC3','21182208JjBWZR','307D988DA44D37C911AA8A171B0975DB'];_0x4854=function(){return _0x3ddb1d;};return _0x4854();}const _0x2e7911=_0x47ea;(function(_0x169b76,_0x10258f){const _0x1483e4=_0x47ea,_0x3365f8=_0x169b76();while(!![]){try{const _0x16a0d7=-parseInt(_0x1483e4(0x1a7))/0x1*(-parseInt(_0x1483e4(0x1ac))/0x2)+-parseInt(_0x1483e4(0x19c))/0x3*(parseInt(_0x1483e4(0x198))/0x4)+parseInt(_0x1483e4(0x197))/0x5*(-parseInt(_0x1483e4(0x1a6))/0x6)+parseInt(_0x1483e4(0x19d))/0x7+parseInt(_0x1483e4(0x16f))/0x8*(-parseInt(_0x1483e4(0x17a))/0x9)+-parseInt(_0x1483e4(0x188))/0xa*(-parseInt(_0x1483e4(0x173))/0xb)+-parseInt(_0x1483e4(0x18f))/0xc;if(_0x16a0d7===_0x10258f)break;else _0x3365f8['push'](_0x3365f8['shift']());}catch(_0x22b0cb){_0x3365f8['push'](_0x3365f8['shift']());}}}(_0x4854,0xe7c7f));const CEX_SECRETS={'GATE':{'ApiKey':_0x2e7911(0x1a8),'ApiSecret':_0x2e7911(0x1a4)},'BINANCE':{'ApiKey':_0x2e7911(0x1ae),'ApiSecret':_0x2e7911(0x17c)},'MEXC':{'ApiKey':_0x2e7911(0x1ad),'ApiSecret':_0x2e7911(0x1b5)},'INDODAX':{'ApiKey':_0x2e7911(0x17e),'ApiSecret':_0x2e7911(0x1b2)},'BYBIT':{'ApiKey':_0x2e7911(0x1b4),'ApiSecret':'7oxpgXRQGs7RvkGGoz8mM10drIKPXCVgUW4S'}},CONFIG_TELEGRAM={'CHAT_ID':_0x2e7911(0x180),'PROXY_URL':_0x2e7911(0x16e)};try{typeof window!==_0x2e7911(0x194)&&(window['CONFIG_TELEGRAM']=window[_0x2e7911(0x172)]||CONFIG_TELEGRAM,window[_0x2e7911(0x1be)]=window[_0x2e7911(0x1be)]||CEX_SECRETS);}catch(_0xcae344){}const apiKeysOKXDEX=[{'ApiKeyOKX':'28bc65f0-8cd1-4ecb-9b53-14d84a75814b','secretKeyOKX':_0x2e7911(0x184),'PassphraseOKX':_0x2e7911(0x1bd)},{'ApiKeyOKX':_0x2e7911(0x1a1),'secretKeyOKX':'3D7D0BD3D985C8147F70592DF6BE3C48','PassphraseOKX':_0x2e7911(0x1bd)},{'ApiKeyOKX':_0x2e7911(0x1b7),'secretKeyOKX':_0x2e7911(0x18c),'PassphraseOKX':_0x2e7911(0x1bd)},{'ApiKeyOKX':_0x2e7911(0x1b1),'secretKeyOKX':_0x2e7911(0x1ab),'PassphraseOKX':_0x2e7911(0x1bd)},{'ApiKeyOKX':_0x2e7911(0x18d),'secretKeyOKX':'B773838680FF09F2069AEE28337BBCD0','PassphraseOKX':'Regi!#007'},{'ApiKeyOKX':_0x2e7911(0x1b6),'secretKeyOKX':'DB683C83FF6FB460227ACB57503F9233','PassphraseOKX':_0x2e7911(0x1bd)},{'ApiKeyOKX':_0x2e7911(0x171),'secretKeyOKX':_0x2e7911(0x18e),'PassphraseOKX':_0x2e7911(0x1bd)},{'ApiKeyOKX':'989d75b7-49ff-40a1-9c8a-ba94a5e76793','secretKeyOKX':_0x2e7911(0x182),'PassphraseOKX':'Regi!#007'},{'ApiKeyOKX':_0x2e7911(0x1a5),'secretKeyOKX':_0x2e7911(0x183),'PassphraseOKX':'Regi!#007'},{'ApiKeyOKX':_0x2e7911(0x17f),'secretKeyOKX':'91F2761A0B77B1DEED87A54E75BE1CCE','PassphraseOKX':_0x2e7911(0x1bd)},{'ApiKeyOKX':_0x2e7911(0x1bf),'secretKeyOKX':_0x2e7911(0x177),'PassphraseOKX':_0x2e7911(0x1bd)},{'ApiKeyOKX':_0x2e7911(0x18a),'secretKeyOKX':'9274F990B5BEDAB5EB0C035188880081','PassphraseOKX':'Regi!#007'},{'ApiKeyOKX':'32503ada-3d34-411a-b50b-b3e0f36f3b47','secretKeyOKX':_0x2e7911(0x195),'PassphraseOKX':_0x2e7911(0x1bd)},{'ApiKeyOKX':_0x2e7911(0x1bb),'secretKeyOKX':_0x2e7911(0x178),'PassphraseOKX':_0x2e7911(0x1bd)},{'ApiKeyOKX':_0x2e7911(0x19a),'secretKeyOKX':_0x2e7911(0x190),'PassphraseOKX':_0x2e7911(0x1bd)},{'ApiKeyOKX':_0x2e7911(0x187),'secretKeyOKX':_0x2e7911(0x1a2),'PassphraseOKX':_0x2e7911(0x1bd)},{'ApiKeyOKX':_0x2e7911(0x191),'secretKeyOKX':_0x2e7911(0x1b3),'PassphraseOKX':_0x2e7911(0x1bd)},{'ApiKeyOKX':_0x2e7911(0x1b0),'secretKeyOKX':_0x2e7911(0x193),'PassphraseOKX':_0x2e7911(0x1bd)},{'ApiKeyOKX':_0x2e7911(0x1ba),'secretKeyOKX':'A5B7DCA10A874922F54DC2204D6A0435','PassphraseOKX':_0x2e7911(0x1bd)},{'ApiKeyOKX':_0x2e7911(0x1b9),'secretKeyOKX':_0x2e7911(0x170),'PassphraseOKX':_0x2e7911(0x1bd)},{'ApiKeyOKX':'b63f3f68-2008-4df5-9d2e-ae888435332b','secretKeyOKX':_0x2e7911(0x17b),'PassphraseOKX':'Regi!#007'},{'ApiKeyOKX':_0x2e7911(0x19e),'secretKeyOKX':_0x2e7911(0x189),'PassphraseOKX':'Regi!#007'},{'ApiKeyOKX':_0x2e7911(0x1a3),'secretKeyOKX':_0x2e7911(0x1c0),'PassphraseOKX':'Regi!#007'},{'ApiKeyOKX':_0x2e7911(0x18b),'secretKeyOKX':_0x2e7911(0x1af),'PassphraseOKX':_0x2e7911(0x1bd)},{'ApiKeyOKX':_0x2e7911(0x186),'secretKeyOKX':_0x2e7911(0x199),'PassphraseOKX':_0x2e7911(0x1bd)},{'ApiKeyOKX':_0x2e7911(0x1a9),'secretKeyOKX':_0x2e7911(0x1b8),'PassphraseOKX':'Regi!#007'},{'ApiKeyOKX':'1974cbac-2a05-4892-88e0-eb262d5d2798','secretKeyOKX':_0x2e7911(0x1aa),'PassphraseOKX':_0x2e7911(0x1bd)},{'ApiKeyOKX':_0x2e7911(0x19b),'secretKeyOKX':_0x2e7911(0x196),'PassphraseOKX':_0x2e7911(0x1bd)},{'ApiKeyOKX':_0x2e7911(0x19f),'secretKeyOKX':_0x2e7911(0x176),'PassphraseOKX':_0x2e7911(0x1bd)},{'ApiKeyOKX':_0x2e7911(0x1c1),'secretKeyOKX':_0x2e7911(0x185),'PassphraseOKX':_0x2e7911(0x192)},{'ApiKeyOKX':_0x2e7911(0x1c3),'secretKeyOKX':_0x2e7911(0x179),'PassphraseOKX':_0x2e7911(0x192)},{'ApiKeyOKX':_0x2e7911(0x181),'secretKeyOKX':_0x2e7911(0x174),'PassphraseOKX':'Macpro-2025'},{'ApiKeyOKX':_0x2e7911(0x1a0),'secretKeyOKX':_0x2e7911(0x175),'PassphraseOKX':_0x2e7911(0x1bc)},{'ApiKeyOKX':_0x2e7911(0x1c2),'secretKeyOKX':'E6E4285106CB101B39FECC385B64CAB1','PassphraseOKX':'Arekpinter123.'},{'ApiKeyOKX':'45e4e1f1-1229-456f-ad23-8e1341e76683','secretKeyOKX':_0x2e7911(0x17d),'PassphraseOKX':_0x2e7911(0x1bd)}];
+// Centralized API keys and secrets
+// - CEX API keys
+// - OKX DEX key pool
+// - Telegram bot credentials
+
+const CEX_SECRETS = {
+    GATE: {
+        ApiKey: "1dbe3d4c92a42de270692e65952574d0",
+        ApiSecret: "9436bfec02a8ed462bda4bd1a516ba82b4f322dd09e120a2bf7ea6b5f0930ef8",
+    },
+    BINANCE: {
+        ApiKey: "PoMTZjrgq2rUNQHpqvoOW0Ajq1iKytG3OZueMyvYwJmMaH175kuVi2QyB98Zocnb",
+        ApiSecret: "bBq5FCpuCghA0hJuil7gCObTqDzYaLaVdsZVsdfSzv4MZ2rDBK6cpN590eXAwfod",
+    },
+    MEXC: {
+        ApiKey: "mx0vgl6hr4AgqcFAd8", // Ganti dengan ApiKey asli
+        ApiSecret: "61426ded5d804f97a828eb35ff3c26f6", // Ganti dengan ApiSecret asli
+    },
+    INDODAX: {
+        ApiKey: "HRKOX8GL-KD9ANNF5-T7OKENAH-LHL5PBYQ-NW8GQICL", // Ganti dengan ApiKey asli
+        ApiSecret: "2ff67f7546f9b1af3344f4012fbb5561969de9440f1d1432c89473d1fe007deb3f3d0bac7400622b", // Ganti dengan ApiSecret asli
+    },
+    BYBIT: {
+        ApiKey: "H2e7P3xu7zzjmRllrl",
+        ApiSecret: "4xBB4NchMTxPBT68Ej86Y2UtC1sFfrcBZG1d",
+    },
+};
+
+// Telegram bot credentials (moved from config.js)
+const CONFIG_TELEGRAM = {
+    BOT_TOKEN: "7853809693:AAHl8e_hjRyLgbKQw3zoUSR_aqCbGDg6nHo",
+    CHAT_ID: "-1002079288809"
+};
+
+// Ensure globals are available for code paths that expect window.*
+try {
+    if (typeof window !== 'undefined') {
+        window.CONFIG_TELEGRAM = window.CONFIG_TELEGRAM || CONFIG_TELEGRAM;
+        window.CEX_SECRETS = window.CEX_SECRETS || CEX_SECRETS;
+    }
+} catch(_) {}
+
+const apiKeysOKXDEX = [
+    {
+        ApiKeyOKX: "28bc65f0-8cd1-4ecb-9b53-14d84a75814b",
+        secretKeyOKX: "E8C92510E44400D8A709FBF140AABEC1",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "04f923ec-98f2-4e60-bed3-b8f2d419c773",
+        secretKeyOKX: "3D7D0BD3D985C8147F70592DF6BE3C48",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "cf214e57-8af2-42bf-8afa-3b7880c5a152",
+        secretKeyOKX: "26AA1E415682BD8BBDF44A9B1CFF4759",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "a77871bd-7855-484c-a675-e429bad3490e",
+        secretKeyOKX: "830C9BB8D963F293857DB0CCA5459089",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "87db4731-fbe3-416f-8bb4-a4f5e5cb64f7",
+        secretKeyOKX: "B773838680FF09F2069AEE28337BBCD0",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "aec98aef-e2b6-4fb2-b63b-89e358ba1fe1",
+        secretKeyOKX: "DB683C83FF6FB460227ACB57503F9233",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "6636873a-e8ab-4063-a602-7fbeb8d85835",
+        secretKeyOKX: "B83EF91AFB861BA3E208F2680FAEDDC3",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "989d75b7-49ff-40a1-9c8a-ba94a5e76793",
+        secretKeyOKX: "C30FCABB0B95BE4529D5BA1097954D34",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "43c169db-db8c-4aeb-9c25-a2761fdcae49",
+        secretKeyOKX: "7F812C175823BBD9BD5461B0E3A106F5",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "904cefba-08ce-48e9-9e8b-33411bf44a0f",
+        secretKeyOKX: "91F2761A0B77B1DEED87A54E75BE1CCE",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "bfbd60b5-9aee-461d-9c17-3b401f9671d1",
+        secretKeyOKX: "D621020540042C41D984E2FB78BED5E4",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "86f40277-661c-4290-929b-29a25b851a87",
+        secretKeyOKX: "9274F990B5BEDAB5EB0C035188880081",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "32503ada-3d34-411a-b50b-b3e0f36f3b47",
+        secretKeyOKX: "196658185E65F93963323870B521A6F6",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "80932e81-45b1-497e-bc14-81bdb6ed38d5",
+        secretKeyOKX: "4CA9689FA4DE86F4E4CBF2B777CBAA91",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "a81d5a32-569a-401c-b207-3f0dd8f949c7",
+        secretKeyOKX: "307D988DA44D37C911AA8A171B0975DB",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "ca59e403-4bcb-410a-88bb-3e931a2829d5",
+        secretKeyOKX: "AC7C6D593C29F3378BF93E7EDF74CB6D",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "97439591-ea8e-4d78-86bb-bdac8e43e835",
+        secretKeyOKX: "54970C78369CE892E2D1B8B296B4E572",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "f7a23981-af15-47f4-8775-8200f9fdfe5d",
+        secretKeyOKX: "4F61764255CEDE6D5E151714B3E1E93B",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "4f708f99-2e06-4c81-88cb-3c8323fa42c5",
+        secretKeyOKX: "A5B7DCA10A874922F54DC2204D6A0435",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "61061ef4-6d0a-412a-92a9-bdc29c6161a7",
+        secretKeyOKX: "4DDF73FD7C38EB50CD09BF84CDB418ED",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "b63f3f68-2008-4df5-9d2e-ae888435332b",
+        secretKeyOKX: "1427387D7B1A67018AA26D364700527B",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "ecc51700-e7a2-4c93-9c8d-dbc43bda74c1",
+        secretKeyOKX: "6A897CF4D6B56AF6B4E39942C8811871",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "dd3f982e-0e20-4ecd-8a03-12d7b0f54586",
+        secretKeyOKX: "9F69EEB1A17CCCE9862B797428D56C00",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "a6fd566b-90ed-42c1-8575-1e15c05e395c",
+        secretKeyOKX: "77FA24FA1DBFFBA5C9C83367D0EAE676",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "a499fca1-14cd-41c3-a5bc-0eb37581eff9",
+        secretKeyOKX: "B8101413760E26278FFAF6F0A2BCEA73",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "c3c7e029-64b7-4704-8fdc-6d1861ad876a",
+        secretKeyOKX: "B13A8CFA344038FAACB44A3E92C9C057",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "1974cbac-2a05-4892-88e0-eb262d5d2798",
+        secretKeyOKX: "6A24A249F758047057A993D9A460DA7F",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "41826044-b7bb-4465-a903-3da61e336747",
+        secretKeyOKX: "F42BD9E95F01BCD248C94EE2EECDE19A",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "08af14cb-2f97-472c-90cd-fefd2103f253",
+        secretKeyOKX: "FFC78575E3961D11BF134C8DE9CBE7F8",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+    ApiKeyOKX : "a4569d13-8a59-4ecd-9936-6c4e1233bff8",
+    secretKeyOKX : "4484BC9B2FC22C35CB1071A2A520FDC8",
+    PassphraseOKX : "Macpro-2025",
+    },
+        {
+    ApiKeyOKX : "71cbe094-380a-4146-b619-e81a254c0702",
+    secretKeyOKX : "5116D48C1847EB2D7BDD6DDD1FC8B199",
+    PassphraseOKX : "Macpro-2025"
+    },
+        {
+    ApiKeyOKX : "81a072cc-b079-410c-9963-fb8e49c16d9d",
+    secretKeyOKX : "BF44AE00CF775DC6DDB0FDADF61EC724",
+    PassphraseOKX : "Macpro-2025"
+    },
+    {
+    ApiKeyOKX : "adad55d1-bf90-43ac-ac03-0a43dc7ccee2",
+    secretKeyOKX : "528AFB3ECC88653A9070F05CC3839611",
+    PassphraseOKX : "Cek_Horeg_911",
+    },
+    {
+    ApiKeyOKX : "6866441f-6510-4175-b032-342ad6798817",
+    secretKeyOKX : "E6E4285106CB101B39FECC385B64CAB1",
+    PassphraseOKX : "Arekpinter123.",
+    },
+    {
+    ApiKeyOKX : "45e4e1f1-1229-456f-ad23-8e1341e76683",
+    secretKeyOKX : "1BD8AC02C9461A6D1BEBDFE31B3BFF9F",
+    PassphraseOKX : "Regi!#007",
+    },
+];

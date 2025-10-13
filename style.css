@@ -802,3 +802,40 @@ input[type="radio"], .uk-radio {
   border-top-right-radius: 0.5rem !important;
   border-bottom-right-radius: 0.5rem !important;
 }
+
+/* Snapshot view styles */
+.snapshot-table-wrap {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  overflow: auto;
+}
+.snapshot-sticky-head thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: #f5f5f5;
+}
+.snapshot-cex-list label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  background: #fafafa;
+  margin: 2px 4px 2px 0;
+}
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+.snapshot-table-wrap table td {
+  vertical-align: middle;
+}
+.snapshot-table-wrap table th {
+  text-align: left;
+}
+.uk-form-xxsmall {
+  height: 28px;
+  padding: 2px 6px;
+  font-size: 12px;
+}

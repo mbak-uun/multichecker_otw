@@ -250,6 +250,39 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
         }
     } catch(_) {}
 
+    async function fetchCEXWithRetry(token, tableBodyId, options = {}) {
+        const maxAttempts = Number(options.maxAttempts) > 0 ? Number(options.maxAttempts) : 3;
+        const delayMs = Number(options.delayMs) >= 0 ? Number(options.delayMs) : 400;
+        let attempts = 0;
+        let lastError = null;
+        let lastData = null;
+
+        while (attempts < maxAttempts) {
+            try {
+                const data = await getPriceCEX(token, token.symbol_in, token.symbol_out, token.cex, tableBodyId);
+                lastData = data;
+                const prices = [
+                    data?.priceBuyToken,
+                    data?.priceSellToken,
+                    data?.priceBuyPair,
+                    data?.priceSellPair
+                ];
+                const valid = prices.every(p => Number.isFinite(p) && Number(p) > 0);
+                if (valid) {
+                    return { ok: true, data };
+                }
+                lastError = 'Harga CEX tidak lengkap';
+            } catch (error) {
+                lastError = error;
+            }
+            attempts += 1;
+            if (attempts < maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+        }
+        return { ok: false, data: lastData, error: lastError };
+    }
+
     function processUiUpdates() {
         if (!isScanRunning && uiUpdateQueue.length === 0) return;
 
@@ -333,12 +366,13 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
             if (!stillExists) return; // token removed; do not fetch
         } catch(_) {}
         try {
-            const DataCEX = await getPriceCEX(token, token.symbol_in, token.symbol_out, token.cex, tableBodyId);
+            const cexResult = await fetchCEXWithRetry(token, tableBodyId, { maxAttempts: 3, delayMs: 450 });
+            const DataCEX = cexResult.data || {};
 
-            const prices = [DataCEX.priceBuyToken, DataCEX.priceSellToken, DataCEX.priceBuyPair, DataCEX.priceSellPair];
-            if (prices.some(p => !isFinite(p) || p <= 0)) {
-                if (typeof toast !== 'undefined' && toast.error) toast.error(`CEK MANUAL ${token.symbol_in} di ${token.cex}`);
-                // Inform all DEX cells for this token that CEX prices are invalid
+            if (!cexResult.ok) {
+                if (typeof toast !== 'undefined' && toast.error) {
+                    toast.error(`CEK MANUAL ${token.symbol_in} di ${token.cex}`);
+                }
                 try {
                     if (Array.isArray(token.dexs)) {
                         token.dexs.forEach((dd) => {
@@ -346,12 +380,13 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                             const dex = String(dd.dex||'').toLowerCase();
                             ['TokentoPair','PairtoToken'].forEach(dir => {
                                 const isKiri = dir === 'TokentoPair';
-                                const baseIdRaw = `${String(token.cex).toUpperCase()}_${String(dex).toUpperCase()}_`
-                                  + `${String(isKiri ? token.symbol_in : token.symbol_out).toUpperCase()}_`
-                                  + `${String(isKiri ? token.symbol_out : token.symbol_in).toUpperCase()}_`
-                                  + `${String(token.chain).toUpperCase()}_`
-                                  + `${String(token.id||'').toUpperCase()}`;
-                                const idCELL = tableBodyId + '_' + baseIdRaw.replace(/[^A-Z0-9_]/g,'');
+                                // ID generation: include token ID for uniqueness
+                                const sym1 = isKiri ? String(token.symbol_in).toUpperCase() : String(token.symbol_out).toUpperCase();
+                                const sym2 = isKiri ? String(token.symbol_out).toUpperCase() : String(token.symbol_in).toUpperCase();
+                                const tokenId = String(token.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+                                const baseIdRaw = `${String(token.cex).toUpperCase()}_${String(dex).toUpperCase()}_${sym1}_${sym2}_${String(token.chain).toUpperCase()}_${tokenId}`;
+                                const baseId = baseIdRaw.replace(/[^A-Z0-9_]/g,'');
+                                const idCELL = tableBodyId + '_' + baseId;
                                 const cell = document.getElementById(idCELL);
                                 if (!cell) return;
                                 setDexErrorBackground(cell);
@@ -389,11 +424,11 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                 if (isKiri && !isPosChecked('Actionkiri')) { return; }
                                 if (!isKiri && !isPosChecked('ActionKanan')) { return; }
 
-                                const baseIdRaw = `${String(token.cex).toUpperCase()}_${String(dex).toUpperCase()}_`
-                                  + `${String(isKiri ? token.symbol_in : token.symbol_out).toUpperCase()}_`
-                                  + `${String(isKiri ? token.symbol_out : token.symbol_in).toUpperCase()}_`
-                                  + `${String(token.chain).toUpperCase()}_`
-                                  + `${String(token.id||'').toUpperCase()}`;
+                                // ID generation: include token ID for uniqueness
+                                const sym1 = isKiri ? String(token.symbol_in||'').toUpperCase() : String(token.symbol_out||'').toUpperCase();
+                                const sym2 = isKiri ? String(token.symbol_out||'').toUpperCase() : String(token.symbol_in||'').toUpperCase();
+                                const tokenId = String(token.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+                                const baseIdRaw = `${String(token.cex).toUpperCase()}_${String(dex).toUpperCase()}_${sym1}_${sym2}_${String(token.chain).toUpperCase()}_${tokenId}`;
                                 const baseId = baseIdRaw.replace(/[^A-Z0-9_]/g,'');
                                 const idCELL = tableBodyId + '_' + baseId;
                                 let lastPrimaryError = null;
@@ -419,7 +454,17 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                     const cell = document.getElementById(idCELL);
                                     if (!cell) return;
                                     // Do not overwrite if cell already finalized by a prior UPDATE/ERROR
-                                    try { if (cell.dataset && cell.dataset.final === '1') return; } catch(_) {}
+                                try {
+                                    if (cell.dataset) {
+                                        if (status === 'checking' && cell.dataset.final === '1') {
+                                            delete cell.dataset.final;
+                                            delete cell.dataset.deadline;
+                                            delete cell.dataset.checking;
+                                        } else if (cell.dataset.final === '1') {
+                                            return;
+                                        }
+                                    }
+                                } catch(_) {}
                                     // Presentation only: spinner for checking, badge for error
                                     try { cell.classList.remove('dex-error'); } catch(_) {}
                                     let statusSpan = ensureDexStatusSpan(cell);
@@ -660,8 +705,17 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                             prosesLine,
                                             statusLine
                                         ].join('\n');
+                                        // Token info untuk debugging
+                                        const tokenInInfo = isKiri
+                                            ? `    📥 Token IN  : ${nameIn} (${String(token.sc_in).substring(0,10)}...)`
+                                            : `    📥 Token IN  : ${nameIn} (${String(token.sc_out).substring(0,10)}...)`;
+                                        const tokenOutInfo = isKiri
+                                            ? `    📤 Token OUT : ${nameOut} (${String(token.sc_out).substring(0,10)}...)`
+                                            : `    📤 Token OUT : ${nameOut} (${String(token.sc_in).substring(0,10)}...)`;
                                         const lines = [
                                             headerBlock,
+                                            tokenInInfo,
+                                            tokenOutInfo,
                                             `    🪙 Modal: $${modal.toFixed(2)}`,
                                             buyLine,
                                             buyIdrLine,
@@ -676,7 +730,8 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                             `    🧾 Total Fee: ~$${totalFee.toFixed(2)}`,
                                             '',
                                             `    📈 PNL: ${bruto>=0?'+':''}${bruto.toFixed(2)} USDT (${pnlPct.toFixed(2)}%)`,
-                                            `    🚀 PROFIT : ${profitLoss>=0?'+':''}${profitLoss.toFixed(2)} USDT`
+                                            `    🚀 PROFIT : ${profitLoss>=0?'+':''}${profitLoss.toFixed(2)} USDT`,
+                                            `idCELL: ${idCELL}`,
                                         ].join('\n');
                                         appendCellTitleById(idCELL, lines);
                                         try { if (window.SCAN_LOG_ENABLED) console.log(lines); } catch(_) {}
@@ -792,17 +847,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                         });
                                     } else {
                                         // Use formatted message with HTTP code when available (avoid duplicate prefix)
-                                        updateDexCellStatus('error', dex, (function(){
-                                            let m = (initialError && initialError.pesanDEX) ? String(initialError.pesanDEX) : 'Unknown Error';
-                                            const hasPrefix2 = /\[(HTTP \d{3}|XHR ERROR 200)\]/.test(m);
-                                            try {
-                                                const code = Number(initialError && initialError.statusCode);
-                                                if (!hasPrefix2 && Number.isFinite(code) && code > 0) {
-                                                    if (code === 200) m = `[XHR ERROR 200] ${m}`; else m = `[HTTP ${code}] ${m}`;
-                                                }
-                                            } catch(_) {}
-                                            return m;
-                                        })());
+                                        updateDexCellStatus('error', dex, msg);
                                         // Tambahkan header block ke tooltip + console (jika Log ON)
                                         try {
                                             const nowStr = (new Date()).toLocaleTimeString();
