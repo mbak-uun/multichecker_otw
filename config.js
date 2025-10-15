@@ -1,7 +1,7 @@
 
 const CONFIG_APP = {
     APP: {
-        NAME: "MULTIPLUS-SCANNER",
+        NAME: "MULTICHECKER DEV",
         VERSION: "1.0"
     }
 };
