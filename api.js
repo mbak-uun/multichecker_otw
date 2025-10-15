@@ -2,6 +2,23 @@
 // API AND NETWORK FUNCTIONS
 // =================================================================================
 
+const APP_META = (function(){
+    try {
+        return (typeof window !== 'undefined' && window.CONFIG_APP && window.CONFIG_APP.APP) ? window.CONFIG_APP.APP : {};
+    } catch(_) { return {}; }
+})();
+const APP_NAME = APP_META.NAME || 'MULTIALL-PLUS';
+const APP_VERSION = APP_META.VERSION ? String(APP_META.VERSION) : '';
+const APP_HASHTAG = (function(name){
+    try {
+        const base = String(name || '').trim();
+        if (!base) return '#APP';
+        const normalized = base.replace(/\s+/g, '');
+        return `#${normalized.toUpperCase()}`;
+    } catch(_) { return '#APP'; }
+})(APP_NAME);
+const APP_HEADER = APP_VERSION ? `${APP_HASHTAG} v${APP_VERSION}` : APP_HASHTAG;
+
 
 /**
  * Fetches the order book for a token pair from a CEX.
@@ -137,21 +154,31 @@ function getRandomApiKeyOKX(keys) {
 
 /**
  * Send a compact status message to Telegram (startup/online, etc.).
- * Routed via server-side proxy so no bot token is exposed.
+ * Prefers proxy (PROXY_URL) but falls back to direct bot API when not provided.
  * Link previews are disabled by default.
  */
 function sendTelegramHTML(message) {
     try {
-        const proxy = CONFIG_TELEGRAM && CONFIG_TELEGRAM.PROXY_URL;
-        const chatId = CONFIG_TELEGRAM && CONFIG_TELEGRAM.CHAT_ID;
-        if (!proxy || !chatId) return;
+        const cfg = (typeof CONFIG_TELEGRAM !== 'undefined' && CONFIG_TELEGRAM) ? CONFIG_TELEGRAM : {};
+        const chatId = cfg.CHAT_ID;
+        if (!chatId) return;
+
+        // prefer proxy to avoid exposing bot token
+        let endpoint = cfg.PROXY_URL;
         const payload = {
             chat_id: chatId,
             text: message,
             parse_mode: 'HTML',
             disable_web_page_preview: true
         };
-        fetch(proxy, {
+
+        if (!endpoint) {
+            const token = cfg.BOT_TOKEN;
+            if (!token) return;
+            endpoint = `https://api.telegram.org/bot${token}/sendMessage`;
+        }
+
+        fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -160,7 +187,7 @@ function sendTelegramHTML(message) {
 }
 
 function sendStatusTELE(user, status) {
-    const message = `<b>#MULTICHECKER</b>\n<b>USER:</b> ${user ? user.toUpperCase() : '-'}[<b>${status ? status.toUpperCase() : '-'}]</b>`;
+    const message = `<b>${APP_HEADER}</b>\n<b>USER:</b> ${user ? user.toUpperCase() : '-'}[<b>${status ? status.toUpperCase() : '-'}]</b>`;
     sendTelegramHTML(message);
 }
 
@@ -265,7 +292,7 @@ function MultisendMessage(
   // Compose pesan
   const lines = [];
   lines.push('---------------------------------------------------');
-  lines.push(`#MULTICHECKER-DEV #${String(chainConfig.Nama_Chain||'').toUpperCase()}`);
+  lines.push(`${APP_HEADER} #${String(chainConfig.Nama_Chain||'').toUpperCase()}`);
   lines.push(`#INFO_USER : #${String(nickname||'').trim()||'-'}`);
   lines.push('---------------------------------------------------');
   lines.push(`<b>PROSES :</b> ${procLeft} => ${procRight}`);

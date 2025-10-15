@@ -17,8 +17,11 @@
       LEGACY_SELECTED_CEX: 'TOOL_SELECTED_CEX'
     };
     // IndexedDB lightweight KV wrapper with in-memory cache
-    const IDB_NAME = 'SNAPSHOT_DB';
-    const IDB_STORE = 'kv';
+    const root = (typeof window !== 'undefined') ? window : {};
+    const appCfg = (root.CONFIG_APP && root.CONFIG_APP.APP) ? root.CONFIG_APP.APP : {};
+    const dbCfg = root.CONFIG_DB || {};
+    const IDB_NAME = dbCfg.NAME || appCfg.NAME || 'MULTIALL-PLUS';
+    const IDB_STORE = (dbCfg.STORES && dbCfg.STORES.SNAPSHOT) ? dbCfg.STORES.SNAPSHOT : 'SNAPSHOT_STORE';
     let IDB_DB = null;
     const IDB_CACHE = {}; // { key -> value }
     let snapshotInitTriggered = false;
@@ -27,9 +30,28 @@
     function openIDB(){
       return new Promise((resolve, reject)=>{
         try{
-          const req = indexedDB.open(IDB_NAME, 1);
-          req.onupgradeneeded = function(ev){ const db = ev.target.result; if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE, { keyPath:'key' }); };
-          req.onsuccess = function(ev){ IDB_DB = ev.target.result; resolve(IDB_DB); };
+          const req = indexedDB.open(IDB_NAME);
+          req.onupgradeneeded = function(ev){
+            const db = ev.target.result;
+            if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE, { keyPath:'key' });
+          };
+          req.onsuccess = function(ev){
+            const db = ev.target.result;
+            if (!db.objectStoreNames.contains(IDB_STORE)){
+              const next = (db.version || 1) + 1;
+              db.close();
+              const up = indexedDB.open(IDB_NAME, next);
+              up.onupgradeneeded = function(e2){
+                const udb = e2.target.result;
+                if (!udb.objectStoreNames.contains(IDB_STORE)) udb.createObjectStore(IDB_STORE, { keyPath:'key' });
+              };
+              up.onsuccess = function(e2){ IDB_DB = e2.target.result; resolve(IDB_DB); };
+              up.onerror = function(e2){ reject(e2.target.error || new Error('IDB upgrade failed')); };
+            } else {
+              IDB_DB = db;
+              resolve(IDB_DB);
+            }
+          };
           req.onerror = function(ev){ reject(ev.target.error || new Error('IDB open failed')); };
         }catch(e){ reject(e); }
       });
@@ -99,18 +121,7 @@
     const CHAIN_CONFIG = (ROOT.CONFIG_CHAINS && typeof ROOT.CONFIG_CHAINS === 'object') ? ROOT.CONFIG_CHAINS : {};
     const CEX_API = (ROOT.CEX_SECRETS && typeof ROOT.CEX_SECRETS === 'object') ? ROOT.CEX_SECRETS : {};
 
-    // Price sources per CEX (centralized)
-    const PRICE_SOURCES = {
-      // useProxy: false to bypass proxy if endpoint allows CORS (helps avoid 451)
-      BINANCE: { url: 'https://api.binance.com/api/v3/ticker/price',        useProxy: false, parse: r => { const m={}; (r||[]).forEach(it=>{ const s=String(it.symbol||''); if (s.endsWith('USDT')) m[s.replace(/USDT$/,'')] = parseFloat(it.price); }); return m; } },
-      MEXC:    { url: 'https://api.mexc.com/api/v3/ticker/price',           useProxy: false, parse: r => { const m={}; (r||[]).forEach(it=>{ const s=String(it.symbol||''); if (s.endsWith('USDT')) m[s.replace(/USDT$/,'')] = parseFloat(it.price); }); return m; } },
-      GATE:    { url: 'https://api.gateio.ws/api/v4/spot/tickers',           useProxy: true,  parse: r => { const m={}; (r||[]).forEach(it=>{ const p=String(it.currency_pair||''); if (p.endsWith('_USDT')) m[p.replace(/_USDT$/,'')] = parseFloat(it.last); }); return m; } },
-      KUCOIN:  { url: 'https://api.kucoin.com/api/v1/market/allTickers',     useProxy: true,  parse: r => { const m={}; ((r?.data?.ticker)||[]).forEach(it=>{ const s=String(it.symbol||''); if (s.endsWith('-USDT')) m[s.replace(/-USDT$/,'')] = parseFloat(it.last); }); return m; } },
-      OKX:     { url: 'https://www.okx.com/api/v5/market/tickers?instType=SPOT', useProxy: true, parse: r => { const m={}; ((r?.data)||[]).forEach(it=>{ const s=String(it.instId||''); if (s.endsWith('-USDT')) m[s.replace(/-USDT$/,'')] = parseFloat(it.last); }); return m; } },
-      BITGET:  { url: 'https://api.bitget.com/api/v2/spot/market/tickers',  useProxy: false,  parse: r => { const m={}; ((r?.data)||[]).forEach(it=>{ const s=String(it.symbol||''); if (s.endsWith('USDT')) m[s.replace(/USDT$/,'')] = parseFloat(it.lastPr); }); return m; } },
-      BYBIT:   { url: 'https://api.bybit.com/v5/market/tickers?category=spot', useProxy: false, parse: r => { const m={}; ((r?.result?.list)||[]).forEach(it=>{ const s=String(it.symbol||''); if (s.endsWith('USDT')) m[s.replace(/USDT$/,'')] = parseFloat(it.lastPrice); }); return m; } },
-      INDODAX: { url: 'https://indodax.com/api/ticker_all', useProxy: true, parse: r => { const m={}; const t=r?.tickers||{}; Object.keys(t).forEach(k=>{ if(/_idr$/i.test(k)){ const sym=k.replace(/_idr$/i,'').toUpperCase(); const last = parseFloat(t[k]?.last); if (isFinite(last)) m[sym]=last; } }); return m; } }
-    };
+    const PRICE_SUPPORTED_CEX = new Set(['BINANCE','MEXC','GATE','KUCOIN','OKX','BITGET','BYBIT','INDODAX']);
 
     const SNAPSHOT_LAST_CHAIN = 'SNAPSHOT_LAST_CHAIN';
     function getSnapshotMode(){
@@ -187,8 +198,20 @@
       let updated = false;
       for (let i=0;i<list.length;i++){
         const it = list[i]||{};
-        if (String(it.cex||'').toUpperCase()===cexUp && String(it.sc||'').toLowerCase()===scLow){
-          list[i] = { ...it, ...rec, des: (typeof rec.des==='bigint')? String(rec.des): rec.des };
+        if (String(it.cex||'').toUpperCase() === cexUp && String(it.sc||'').toLowerCase() === scLow){
+          // Smart merge: Jangan timpa 'des'/'decimals' jika nilai baru tidak valid
+          const existingDecimals = it.des ?? it.decimals;
+          const newDecimals = rec.des ?? rec.decimals;
+
+          const merged = { ...it, ...rec };
+          
+          // Jika nilai desimal baru tidak ada (kosong, null, undefined), pertahankan nilai lama.
+          if (newDecimals === '' || newDecimals == null) {
+            merged.des = existingDecimals;
+          } else {
+            merged.des = (typeof newDecimals === 'bigint') ? String(newDecimals) : newDecimals;
+          }
+          list[i] = merged;
           updated = true; break;
         }
       }
@@ -271,13 +294,16 @@
     }
 
     async function ensureChainSnapshot(chainKey, options = {}) {
-      const { silent = false } = options;
+      const { silent = false, force = false } = options;
       const key = String(chainKey || '').toLowerCase();
       if (!key) return 0;
       const snap = loadSnapshot();
       const existing = Array.isArray(snap[key]) ? snap[key] : [];
-      if (existing.length) return existing.length;
-      const dataUrl = getChainDataUrl(key) || SNAPSHOT_SEED_URL;
+      if (!force && existing.length) return existing.length;
+      
+      // Prioritaskan URL spesifik chain dari config.js
+      const dataUrl = getChainDataUrl(key);
+
       if (!dataUrl || !/^https?:\/\//i.test(dataUrl)) return 0;
       const overlayVisible = $('#snapshot-overlay').is(':visible');
       if (!silent && !overlayVisible) {
@@ -313,6 +339,7 @@
       if (!key) {
         $tbody.empty();
         setStatus('Pilih chain.');
+        $btnFetch.prop('disabled', true); // Disable fetch button if no chain
         return;
       }
       setChainLabelDisplay(key);
@@ -323,11 +350,7 @@
         ? list.filter(it => selectedCexInitial.includes(String(it.cex||'').toUpperCase()))
         : list;
       let rows = filtered.map(it => {
-        const parseStoredPrice = (val) => {
-          if (val === null || val === undefined || val === '') return null;
-          const num = Number(val);
-          return Number.isFinite(num) ? num : null;
-        };
+        // ... (kode yang ada tetap sama)
         const rawTrade = (typeof it.trade === 'string') ? it.trade.trim().toUpperCase() : '';
         const tradeableRaw = it.tradeable;
         let tradeableFlag;
@@ -339,26 +362,28 @@
           else if (lower === 'false') tradeableFlag = false;
         }
         const tradeFromFlag = (tradeableFlag !== undefined) ? (tradeableFlag ? 'ON' : 'OFF') : '';
-        const numericPrice = parseStoredPrice(it.price) ?? parseStoredPrice(it.lastPrice);
+        const finalTrade = rawTrade || tradeFromFlag || 'OFF';
+        const finalTradeable = (tradeableFlag !== undefined) ? tradeableFlag : false;
         return {
           cex: String(it.cex || '-').toUpperCase(),
           chain: it.chain || key,
           token: String(it.name || it.token || '').trim(),
           symbol: String(it.ticker || it.koin || it.symbol || '').toUpperCase(),
           sc: it.sc || '',
-          decimals: it.des || it.decimals || '',
-          feeWD: '',
-          deposit: '',
-          withdraw: '',
-          trade: rawTrade || tradeFromFlag || '',
-          price: numericPrice,
-          tradeable: (tradeableFlag !== undefined) ? tradeableFlag : undefined
+          decimals: it.des ?? it.decimals ?? '',
+          feeWD: it.feeWD,
+          deposit: it.deposit,
+          withdraw: it.withdraw,
+          trade: finalTrade,
+          price: 0,
+          tradeable: finalTradeable
         };
       });
 
       renderRows(rows, key);
       setStatus(rows.length ? `${rows.length} tokens (Snapshot)` : 'Tidak ada data snapshot.');
       try { renderSummary(rows); } catch(_){}
+      $btnFetch.prop('disabled', !rows.length); // Enable/disable based on data
       setupExport(rows, `snapshot_${String(key).toUpperCase()}`);
 
       if (!fetchPrices || !rows.length) return;
@@ -369,12 +394,13 @@
         updateOverlayProgress(0);
       }
 
-      let selectedCex = $('.cex-check:checked').map(function(){return String(this.value).toUpperCase();}).get();
+     let selectedCex = $('.cex-check:checked').map(function(){return String(this.value).toUpperCase();}).get();
+      selectedCex = selectedCex.filter(cx => PRICE_SUPPORTED_CEX.has(cx));
       if (!selectedCex.length) {
         const set = new Set();
         rows.forEach(r => {
           const cx = String(r.cex || '').toUpperCase();
-          if (cx && PRICE_SOURCES[cx]) set.add(cx);
+          if (cx && PRICE_SUPPORTED_CEX.has(cx)) set.add(cx);
         });
         selectedCex = Array.from(set.values());
       }
@@ -389,7 +415,7 @@
         updateOverlayProgress(0);
       }
       try {
-        const getPrice = await fetchBulkPrices(selectedCex, (idx, cex, err)=>{
+        const getPrice = await fetchBulkPrices(selectedCex, rows, (idx, cex, err)=>{
           if (err) UIkit.notification({message:`PRICE_BULK gagal [${cex}]: ${err}`, status:'warning'});
           if (!silent) updateOverlayProgress(idx);
         });
@@ -417,14 +443,17 @@
       }
     }
 
-    async function handleChainChange(initial = false, chainOverride = ''){
+    async function loadChainData(initial = false, chainOverride = ''){
       const chainKey = chainOverride || String($chain.val() || '').toLowerCase();
       if (!chainKey) return;
       try { localStorage.setItem(SNAPSHOT_LAST_CHAIN, chainKey); } catch(_){}
+      $btnFetch.prop('disabled', true); // Disable while loading
       // Pastikan ada data snapshot, jika tidak ada, fetch dari seed JSON.
+      // Fungsi ini sekarang hanya memastikan data untuk chain spesifik ada,
+      // setelah ensureFullSnapshot() kemungkinan sudah mengisi semuanya.
       await ensureChainSnapshot(chainKey, { silent: initial });
       buildCexChips();
-      await renderLocalSnapshot(chainKey, { fetchPrices: true, silent: initial });
+      await renderLocalSnapshot(chainKey, { fetchPrices: false, silent: true }); // Always silent on data render
     }
 
     async function initializeUI(force = false){
@@ -434,7 +463,7 @@
       snapshotInitTriggered = true;
       const initialChain = syncChainControls();
       uiInitializing = (async () => {
-        await handleChainChange(true, initialChain); // Pass initialChain to ensure correct first load
+        await loadChainData(true, initialChain); // Pass initialChain to ensure correct first load
         uiInitialized = true;
         const done = true;
         uiInitializing = null;
@@ -460,13 +489,27 @@
       }
     }
     function normalizeRecord(it, chainFallback){
-      const chain = String(it.chain || chainFallback || '').trim().toLowerCase();
-      const name = String(it.name ?? it.token ?? '').trim();
-      const ticker = String((it.ticker ?? it.symbol ?? it.koin ?? '')||'').toUpperCase();
-      const sc = String(it.sc ?? it.contract ?? it.address ?? '').trim();
-      const des = (it.des ?? it.decimals ?? '');
-      const cex = String((it.cex ?? it.exchange ?? '-')||'').toUpperCase();
-      return { chain, name, ticker, sc, des, cex };
+      // Cek format baru (symbol_in, sc_in, des_in)
+      if (it.symbol_in && it.sc_in) {
+        const chain = String(it.chain || chainFallback || '').trim().toLowerCase();
+        const ticker = String(it.symbol_in || '').toUpperCase();
+        const name = String(it.name || ticker).trim(); // Gunakan nama jika ada, jika tidak, gunakan ticker
+        const sc = String(it.sc_in || '').trim();
+        const des = it.des_in ?? '';
+        const cex = String(it.cex || '-').toUpperCase();
+        return { chain, name, ticker, sc, des, cex };
+      }
+      
+      // Fallback ke format lama
+      else {
+        const chain = String(it.chain || chainFallback || '').trim().toLowerCase();
+        const name = String(it.name ?? it.token ?? '').trim();
+        const ticker = String((it.ticker ?? it.symbol ?? it.koin ?? '')||'').toUpperCase();
+        const sc = String(it.sc ?? it.contract ?? it.address ?? '').trim();
+        const des = (it.des ?? it.decimals ?? '');
+        const cex = String((it.cex ?? it.exchange ?? '-')||'').toUpperCase();
+        return { chain, name, ticker, sc, des, cex };
+      }
     }
     async function applySeedObject(obj, onlyChainKey){
       if (!obj || typeof obj !== 'object') throw new Error('Format JSON tidak valid');
@@ -487,7 +530,11 @@
 
       // If array provided at root
       if (Array.isArray(root)){
-        root.forEach(it => { const rec = normalizeRecord(it, it.chain); pushRec(rec); });
+        // Perbaikan: Gunakan 'onlyChainKey' sebagai fallback jika 'it.chain' tidak ada.
+        // Ini penting untuk format JSON baru yang berupa array.
+        root.forEach(it => { 
+          const rec = normalizeRecord(it, it.chain || onlyChainKey); pushRec(rec); 
+        });
       } else {
         // Object keyed by chain
         Object.keys(root||{}).forEach(chainKey => {
@@ -577,7 +624,15 @@
       (rows||[]).forEach((r,idx)=>{
         const parsedPrice = Number(r.price);
         const hasPrice = r.price !== null && r.price !== undefined && r.price !== '' && Number.isFinite(parsedPrice);
-        const price = hasPrice ? parsedPrice.toFixed(6) : '-';
+        const price = hasPrice ? (parsedPrice === 0 ? '0' : parsedPrice.toFixed(6)) : '-';
+        let tradeHtml;
+        if (r.trade === 'ON') {
+          tradeHtml = '<span class="uk-text-success">ON</span>';
+        } else if (r.trade === 'OFF') {
+          tradeHtml = '<span class="uk-text-danger">OFF</span>';
+        } else {
+          tradeHtml = r.trade || '-';
+        }
         $tbody.append(`<tr>
           <td>${idx+1}</td>
           <td>${r.cex||'-'}</td>
@@ -586,7 +641,7 @@
           <td class="mono">${String(r.symbol||'').toUpperCase()}</td>
           <td class="mono">${r.sc||''}</td>
           <td>${r.decimals||''}</td>
-          <td>${r.trade||'-'}</td>
+          <td>${tradeHtml}</td>
           <td>${price}</td>
         </tr>`);
       });
@@ -683,11 +738,11 @@
       saveRate(RATE);
       try { UIkit.notification('Delay updated', {status:'success'}); } catch(_){ }
     });
-    $chain.on('change', () => { const key = getSelectedChainKey(); setChainLabelDisplay(key); handleChainChange(false); });
+    $chain.on('change', () => { const key = getSelectedChainKey(); setChainLabelDisplay(key); loadChainData(false); });
     $cex.on('change', '.cex-check', function(){
       const selected = $('.cex-check:checked').map(function(){ return String(this.value).toUpperCase(); }).get();
       trySave(LS_KEYS.SELECTED_CEX, selected);
-      renderLocalSnapshot(String($chain.val() || '').toLowerCase(), { fetchPrices: true, silent: true }).catch(()=>{});
+      renderLocalSnapshot(String($chain.val() || '').toLowerCase(), { fetchPrices: false, silent: true }).catch(()=>{});
     });
 
     function setStatus(msg){ $status.text(msg||''); }
@@ -765,6 +820,165 @@
 
     // Read API keys from embedded const
     function getKeys(){ return CEX_API; }
+
+    let indodaxUsdtRateCache = { ts: 0, rate: null };
+
+    async function getIndodaxUsdtRate() {
+      const now = Date.now();
+      if (indodaxUsdtRateCache.rate && (now - indodaxUsdtRateCache.ts) < 60000) {
+        return indodaxUsdtRateCache.rate;
+      }
+      try {
+        const res = await $.ajax({ url: prox('https://indodax.com/api/ticker/usdtidr'), dataType: 'json' });
+        const rate = parseFloat(res?.ticker?.last);
+        if (Number.isFinite(rate) && rate > 0) {
+          indodaxUsdtRateCache = { rate, ts: now };
+          return rate;
+        }
+      } catch (_){}
+      indodaxUsdtRateCache = { ts: now, rate: null };
+      return null;
+    }
+
+    async function fetchPriceForSymbol(cex, symbol) {
+      const upperCex = String(cex || '').toUpperCase();
+      const sym = String(symbol || '').toUpperCase();
+      if (!upperCex || !sym) return null;
+
+      try {
+        switch (upperCex) {
+          case 'BINANCE': {
+            const url = `https://data-api.binance.vision/api/v3/ticker/price?symbol=${encodeURIComponent(sym + 'USDT')}`;
+            const res = await $.ajax({ url, dataType: 'json' });
+            const price = parseFloat(res?.price);
+            return Number.isFinite(price) ? price : null;
+          }
+          case 'MEXC': {
+            const url = prox(`https://api.mexc.com/api/v3/ticker/price?symbol=${encodeURIComponent(sym + 'USDT')}`);
+            const res = await $.ajax({ url, dataType: 'json' });
+            const price = parseFloat(res?.price);
+            return Number.isFinite(price) ? price : null;
+          }
+          case 'GATE': {
+            const pair = `${sym}_USDT`;
+            const url = prox(`https://api.gateio.ws/api/v4/spot/tickers?currency_pair=${encodeURIComponent(pair)}`);
+            const res = await $.ajax({ url, dataType: 'json' });
+            const data = Array.isArray(res) ? res[0] : res;
+            const price = parseFloat(data?.last);
+            return Number.isFinite(price) ? price : null;
+          }
+          case 'KUCOIN': {
+            const url = prox(`https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=${encodeURIComponent(sym + '-USDT')}`);
+            const res = await $.ajax({ url, dataType: 'json' });
+            const price = parseFloat(res?.data?.price);
+            return Number.isFinite(price) ? price : null;
+          }
+          case 'OKX': {
+            const url = prox(`https://www.okx.com/api/v5/market/ticker?instId=${encodeURIComponent(sym + '-USDT')}`);
+            const res = await $.ajax({ url, dataType: 'json' });
+            const data = Array.isArray(res?.data) ? res.data[0] : undefined;
+            const price = parseFloat(data?.last);
+            return Number.isFinite(price) ? price : null;
+          }
+          case 'BITGET': {
+            const url = prox(`https://api.bitget.com/api/v2/spot/market/ticker?symbol=${encodeURIComponent(sym + 'USDT')}`);
+            const res = await $.ajax({ url, dataType: 'json' });
+            const data = Array.isArray(res?.data) ? res.data[0] : undefined;
+            const price = parseFloat(data?.lastPr ?? data?.close ?? data?.last);
+            return Number.isFinite(price) ? price : null;
+          }
+          case 'BYBIT': {
+            const url = prox(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${encodeURIComponent(sym + 'USDT')}`);
+            const res = await $.ajax({ url, dataType: 'json' });
+            const data = Array.isArray(res?.result?.list) ? res.result.list[0] : undefined;
+            const price = parseFloat(data?.lastPrice);
+            return Number.isFinite(price) ? price : null;
+          }
+          case 'INDODAX': {
+            // Fallback to single ticker if needed, but bulk is preferred.
+            // First, try to get USDT rate.
+            const rate = await getIndodaxUsdtRate();
+            if (!Number.isFinite(rate) || rate <= 0) return null;
+            // Then get the specific coin's IDR price.
+            const pair = `${sym.toLowerCase()}_idr`;
+            const url = prox(`https://indodax.com/api/ticker/${pair}`);
+            const res = await $.ajax({ url, dataType: 'json' });
+            const lastIdr = parseFloat(res?.ticker?.last);
+            if (!Number.isFinite(lastIdr) || lastIdr <= 0) return null;
+            const price = lastIdr / rate; // Calculate USDT price
+            return Number.isFinite(price) ? price : null;
+          }
+          default:
+            return null;
+        }
+      } catch (error) {
+        console.warn(`fetchPriceForSymbol gagal [${upperCex} ${sym}]:`, error?.message || error);
+        return null;
+      }
+    }
+
+    // Web3 Helpers
+    async function getDecimals(chainKey, contractAddress) {
+      try {
+        const rpc = getChainRpc(chainKey);
+        if (!rpc || !contractAddress) return null;
+        const web3 = new Web3(rpc);
+        const contract = new web3.eth.Contract([{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"payable":false,"stateMutability":"view","type":"function"}], contractAddress);
+        const decimals = await contract.methods.decimals().call();
+        return decimals;
+      } catch (e) {
+        console.warn(`getDecimals failed for ${contractAddress} on ${chainKey}:`, e.message);
+        return null;
+      }
+    }
+
+    async function findContractBySymbol(chainKey, symbol) {
+      try {
+        const cfg = getChainConfig(chainKey);
+        const rpc = cfg.RPC;
+        const routerAddr = cfg.ROUTER;
+        const wethAddr = cfg.WETH;
+        if (!rpc || !routerAddr || !wethAddr || !symbol) return null;
+
+        const web3 = new Web3(rpc);
+        const router = new web3.eth.Contract([{"constant":true,"inputs":[{"internalType":"address","name":"tokenA","type":"address"},{"internalType":"address","name":"tokenB","type":"address"}],"name":"getPair","outputs":[{"internalType":"address","name":"pair","type":"address"}],"payable":false,"stateMutability":"view","type":"function"}], routerAddr);
+        
+        // Cari pair antara WETH dan token yang dicari (by symbol, ini tidak standar)
+        // Ini adalah pendekatan heuristik dan mungkin tidak selalu berhasil.
+        // Untuk implementasi yang lebih andal, diperlukan API eksternal atau daftar token yang lebih lengkap.
+        // Untuk saat ini, kita asumsikan kita perlu SC untuk mencari, jadi fungsi ini lebih sebagai placeholder.
+        // Logika yang lebih realistis adalah mencari di snapshot berdasarkan simbol, bukan via web3.
+        // Jika ada API khusus chain untuk lookup simbol, itu bisa digunakan di sini.
+        return null; // Placeholder, karena lookup by symbol via web3 tidak trivial.
+      } catch (e) {
+        console.warn(`findContractBySymbol failed for ${symbol} on ${chainKey}:`, e.message);
+        return null;
+      }
+    }
+
+    /**
+     * Helper untuk memperkaya data CEX dengan desimal.
+     * Mencari di database dulu, jika tidak ada baru ke Web3.
+     */
+    async function enrichWithDecimals(item, chainKey, snapBySc) {
+      if (!item || !item.sc) return item;
+
+      const scLower = String(item.sc).toLowerCase();
+      const snapIt = snapBySc.get(scLower);
+
+      let decimals = snapIt?.des ?? snapIt?.decimals;
+
+      // Jika desimal tidak ditemukan di snapshot, coba fetch via Web3
+      if (decimals === undefined || decimals === '' || decimals === null) {
+        const fetchedDecimals = await getDecimals(chainKey, item.sc);
+        if (fetchedDecimals !== null) {
+          decimals = fetchedDecimals;
+          // Pacing untuk menghindari rate-limit RPC
+          await new Promise(r => setTimeout(r, RATE.WEB3_DELAY_MS));
+        }
+      }
+      return { ...item, decimals: decimals ?? '' };
+    }
 
     // Fetchers: return [{ cex, chain, token, symbol, sc, decimals, deposit, withdraw, feeWD }]
     const fetchers = {
@@ -935,7 +1149,7 @@
         } catch(_){}
         // Iterate network mapping and filter by selected chain aliases
         Object.keys(networkMap||{}).forEach(symRaw => {
-          const sym = String(symRaw||'').toUpperCase();
+          const sym = String(symRaw||'').trim().toUpperCase();
           const netVal = networkMap[symRaw];
           const nets = Array.isArray(netVal) ? netVal : [netVal];
           // Pick any network alias that matches this chain
@@ -943,34 +1157,113 @@
           if (!hit) return;
           // Hapus `tradeable: false` agar status trade ditentukan oleh ketersediaan harga.
           const base = { cex:'INDODAX', chain: chainKey, token: sym, symbol: sym, sc:'', decimals:'', deposit: null, withdraw: null, feeWD: 0 };
-          const snapIt = snapBySym.get(sym);
-          if (snapIt) {
-            base.sc = snapIt.sc || '';
-            base.decimals = snapIt.des || snapIt.decimals || '';
-            base.token = String(snapIt.name || base.token).trim();
-          }
-          out.push(base);
+          out.push(base); // Push base record first
         });
-        return out;
+
+        // Asynchronous enrichment step
+        const enrichedOut = [];
+        for (const item of out) {
+          const sym = item.symbol;
+          let snapIt = snapBySym.get(sym);
+          let sc = snapIt?.sc || '';
+          let decimals = snapIt?.des ?? snapIt?.decimals ?? '';
+          let tokenName = snapIt?.name || snapIt?.token || item.token;
+
+          // Jika SC tidak ada, coba cari (logika placeholder)
+          if (!sc) {
+            // sc = await findContractBySymbol(chainKey, sym); // Placeholder
+          }
+
+          // Jika SC ada tapi decimals tidak, fetch via web3
+          if (sc && (decimals === '' || decimals == null)) {
+            decimals = await getDecimals(chainKey, sc);
+            await new Promise(r => setTimeout(r, RATE.WEB3_DELAY_MS)); // Pacing
+          }
+          enrichedOut.push({ ...item, sc: sc || '', decimals: decimals ?? '', token: tokenName });
+        }
+        return enrichedOut;
       }
     };
 
-    async function fetchBulkPrices(selectedCex, onStep){
+    async function fetchBulkPrices(selectedCex, rows, onStep) {
       const maps = {};
-      for (let i=0;i<selectedCex.length;i++){
+      const grouped = {};
+    
+      (rows || []).forEach(r => {
+        const cex = String(r.cex || '').toUpperCase();
+        const sym = String(r.symbol || '').toUpperCase();
+        if (!cex || !sym) return;
+        if (!selectedCex.includes(cex)) return;
+        if (!PRICE_SUPPORTED_CEX.has(cex)) return;
+        if (!grouped[cex]) grouped[cex] = new Set(); // Symbols needed for this CEX
+        grouped[cex].add(sym);
+      });
+    
+      for (let i = 0; i < selectedCex.length; i++) {
         const cex = selectedCex[i];
-        const cfg = PRICE_SOURCES[cex];
+        maps[cex] = {};
         try {
-          if (cfg && cfg.url) {
-            const url = (cfg.useProxy===false) ? cfg.url : prox(cfg.url);
-            const r = await $.ajax({ url });
-            maps[cex] = (cfg.parse||(()=>({})))(r) || {};
-          } else { maps[cex] = {}; }
-        } catch(e){ maps[cex] = maps[cex] || {}; try{ onStep && onStep(i+1, cex, e.message||e); }catch(_){} }
-        await new Promise(r=>setTimeout(r, RATE.PRICE_DELAY_MS));
-        try{ onStep && onStep(i+1, cex); }catch(_){ }
+          let url = '';
+          switch (cex) {
+            case 'BINANCE': url = 'https://data-api.binance.vision/api/v3/ticker/price'; break;
+            case 'MEXC': url = prox('https://api.mexc.com/api/v3/ticker/price'); break;
+            case 'GATE': url = prox('https://api.gateio.ws/api/v4/spot/tickers'); break;
+            case 'KUCOIN': url = prox('https://api.kucoin.com/api/v1/market/allTickers'); break;
+            case 'OKX': url = prox('https://www.okx.com/api/v5/market/tickers?instType=SPOT'); break;
+            case 'BITGET': url = prox('https://api.bitget.com/api/v2/spot/market/tickers'); break;
+            case 'BYBIT': url = prox('https://api.bybit.com/v5/market/tickers?category=spot'); break;
+            case 'INDODAX': url = prox('https://indodax.com/api/ticker_all'); break;
+          }
+    
+          const res = await $.ajax({ url, dataType: 'json' });
+          switch (cex) {
+            case 'BINANCE': (res || []).forEach(t => { if (t.symbol.endsWith('USDT')) maps[cex][t.symbol.slice(0, -4)] = parseFloat(t.price); }); break;
+            case 'MEXC': (res || []).forEach(t => { if (t.symbol.endsWith('USDT')) maps[cex][t.symbol.slice(0, -4)] = parseFloat(t.price); }); break;
+            case 'GATE': (res || []).forEach(t => { if (t.currency_pair.endsWith('_USDT')) maps[cex][t.currency_pair.slice(0, -5)] = parseFloat(t.last); }); break;
+            case 'KUCOIN': (res?.data?.ticker || []).forEach(t => { if (t.symbol.endsWith('-USDT')) maps[cex][t.symbol.slice(0, -5)] = parseFloat(t.last); }); break;
+            case 'OKX': (res?.data || []).forEach(t => { if (t.instId.endsWith('-USDT')) maps[cex][t.instId.slice(0, -5)] = parseFloat(t.last); }); break;
+            case 'BITGET': (res?.data || []).forEach(t => { if (t.symbol.endsWith('USDT')) maps[cex][t.symbol.slice(0, -4)] = parseFloat(t.lastPr); }); break;
+            case 'BYBIT': (res?.result?.list || []).forEach(t => { if (t.symbol.endsWith('USDT')) maps[cex][t.symbol.slice(0, -4)] = parseFloat(t.lastPrice); }); break;
+            case 'INDODAX': {
+              const tickers = res?.tickers || {};
+              const usdtRate = parseFloat(tickers['usdt_idr']?.last);
+              if (Number.isFinite(usdtRate) && usdtRate > 0) {
+                Object.keys(tickers).forEach(pair => {
+                  if (pair.endsWith('_idr') && pair !== 'usdt_idr') {
+                    const sym = pair.slice(0, -4).toUpperCase();
+                    const lastIdr = parseFloat(tickers[pair].last);
+                    if (Number.isFinite(lastIdr)) maps[cex][sym] = lastIdr / usdtRate;
+                  }
+                });
+              }
+            } break;
+          }
+    
+          // Filter only the symbols we need to reduce memory usage
+          const neededSymbols = grouped[cex] || new Set();
+          const filteredMap = {};
+          neededSymbols.forEach(sym => {
+            if (maps[cex].hasOwnProperty(sym)) {
+              filteredMap[sym] = maps[cex][sym];
+            }
+          });
+          maps[cex] = filteredMap;
+    
+          if (onStep) onStep(i + 1, cex);
+        } catch (error) {
+          if (onStep) onStep(i + 1, cex, error?.message || error);
+        }
+        // Add delay between CEX calls, not between symbols
+        await new Promise(resolve => setTimeout(resolve, RATE.PRICE_DELAY_MS));
       }
-      return function getPrice(cex, base){ const b=String(base||'').toUpperCase(); const m=maps[cex]||{}; const v=m[b]; return (isFinite(v)? v : null); };
+    
+      return function getPrice(cex, base){
+        const cx = String(cex || '').toUpperCase();
+        const sym = String(base || '').toUpperCase();
+        const map = maps[cx] || {};
+        const value = map[sym];
+        return (value !== undefined && value !== null) ? value : null;
+      };
     }
 
     async function fetchAll(){
@@ -979,154 +1272,103 @@
       if(!selectedCex.length){ UIkit.notification('Pilih minimal 1 CEX', {status:'warning'}); return; }
       if(!chainKey){ UIkit.notification('Pilih chain', {status:'warning'}); return; }
 
+      const startedAt = Date.now();
+      let statusForHistory = 'success';
+      let errorMessage = null;
+
       $btnFetch.prop('disabled', true); $btnExport.prop('disabled', true);
-      $tbody.empty(); setStatus('Fetching...');
+      $tbody.empty(); setStatus('Memulai sinkronisasi CEX...');
+      showOverlay('Sinkronisasi CEX...');
+      setOverlayPhase('CEX Sync', selectedCex.length);
+      updateOverlayProgress(0);
 
-      // Build snapshot map (chain+sc -> record) for decimals lookup
-      const snap = loadSnapshot();
-      const prevSnap = Array.isArray(snap[chainKey]) ? snap[chainKey] : [];
-      const snapBySc = new Map(); prevSnap.forEach(s=>{ const sc=String(s.sc||''); if(/^0x[a-fA-F0-9]{40}$/.test(sc)) snapBySc.set(sc.toLowerCase(), s); });
+      try {
+        // Buat index dari snapshot saat ini untuk pencarian desimal yang efisien
+        const snapBySc = getSnapshotIndexBySc(chainKey);
 
-      let rows = [];
-      showOverlay('Menyiapkan fetch...');
-      setOverlayPhase('Fetch CEX', selectedCex.length);
-      for (let i=0;i<selectedCex.length;i++){
-        const cx = selectedCex[i];
-        const msg = `Fetching ${cx} (${i+1}/${selectedCex.length})...`;
-        setStatus(msg); showOverlay(msg); updateOverlayProgress(i);
-        try{
-          if ((cx==='BINANCE'||cx==='MEXC')){ const k=CEX_API[cx]; if(!k?.ApiKey||!k?.ApiSecret){ UIkit.notification(`${cx}: tidak ada API Key embedded`, {status:'warning'}); continue; } }
-          const fn = fetchers[cx]; if(!fn) continue; const part = await fn(chainKey); rows = rows.concat(part||[]);
-        }catch(e){ UIkit.notification({message:`CEX ${cx} gagal [FETCH_CEX]: ${e.status||''} ${e.message||e}`, status:'danger'}); }
-        await new Promise(r=>setTimeout(r, RATE.CEX_DELAY_MS));
-      }
-      updateOverlayProgress(selectedCex.length);
-
-      // Dedup per (cex, chain, symbol)
-      const key = r => `${r.cex}|${r.chain}|${String(r.symbol||'').toUpperCase()}`;
-      const map = new Map(); rows.forEach(r=>{ if(!map.has(key(r))) map.set(key(r), r); });
-      rows = Array.from(map.values());
-
-      // Hapus render awal. Kita akan render sekali saja di akhir setelah semua data lengkap.
-      $tbody.empty();
-
-      // Fill decimals/name/symbol from snapshot; resolve missing via web3
-      const rpc = getChainRpc(chainKey);
-      if (rpc) {
-        try {
-          showOverlay('Resolving decimals via cache/web3...');
-          setOverlayPhase('Checking Decimals Smart Contract', rows.length);
-          const web3 = new Web3(new Web3.providers.HttpProvider(rpc));
-          const abi = [{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"type":"function"}, {"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"type":"function"}, {"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"type":"function"}];
-          for (let i=0;i<rows.length;i++){
-            const r = rows[i];
-            const sc = String(r.sc||'');
-            const name = r.token || r.symbol || '';
-            // Skip Web3 for INDODAX rows per requirement
-            if (String(r.cex||'').toUpperCase()==='INDODAX') { updateOverlayProgress(i+1); continue; }
-            if(!/^0x[a-fA-F0-9]{40}$/.test(sc)) { continue; }
-            const snapCached = snapBySc.get(sc.toLowerCase());
-            if (snapCached && (snapCached.des!==undefined && snapCached.des!=='' && snapCached.des!=null)){
-              r.decimals = r.decimals||snapCached.des||'';
-              r.token = r.token||snapCached.koin||r.token;
-              // Log hanya jika lengkap: chain, nama koin, SC, DES
-              try { const nm=r.token||r.symbol||''; if (r.chain && nm && sc && r.decimals!=='' && r.decimals!=null) { /* debug logs removed */ } } catch(_){ }
-              continue;
-            }
-            if (r.decimals!==undefined && r.decimals!=='' && r.decimals!=null) {
-              try { const nm=r.token||r.symbol||''; if (r.chain && nm && sc) { /* debug logs removed */ } } catch(_){ }
-              continue;
-            }
-            try{ const c = new web3.eth.Contract(abi, sc); const [d, nm, sb] = await Promise.all([ c.methods.decimals().call(), c.methods.name().call().catch(()=>''), c.methods.symbol().call().catch(()=>r.symbol) ]); r.decimals=d; if(nm) r.token=nm; if(sb) r.symbol=sb; 
-            }catch(e){ r.decimals = r.decimals || ''; UIkit.notification({message:`WEB3 gagal [${(r.symbol||r.token||'').toUpperCase()} ${sc.slice(0,8)}...] : ${e.message||e}`, status:'warning'}); }
-            await new Promise(r=>setTimeout(r, RATE.WEB3_DELAY_MS));
-            updateOverlayProgress(i+1);
+        // Loop melalui setiap CEX yang dipilih
+        for (let i = 0; i < selectedCex.length; i++) {
+          const cex = selectedCex[i];
+          const fetcher = fetchers[cex];
+          if (!fetcher) {
+            UIkit.notification(`Tidak ada fetcher untuk ${cex}`, { status: 'warning' });
+            updateOverlayProgress(i + 1);
+            continue;
           }
-        }catch(e){ /* debug logs removed */ }
-      }
 
-      // Prices + trade status (bulk per CEX)
-      try{ showOverlay('Fetching prices (bulk)...'); }catch(_){ }
-      setOverlayPhase('Bulk Prices', selectedCex.length);
-      const getPrice = await fetchBulkPrices(selectedCex, (idx, cex, err)=>{
-        if (err) UIkit.notification({message:`PRICE_BULK gagal [${cex}]: ${err}`, status:'warning'});
-        updateOverlayProgress(idx);
-      });
-      rows.forEach(r => {
-        r.price = getPrice(r.cex, r.symbol);
-        // Prioritaskan status 'tradeable' dari fetcher jika ada.
-        // Jika tidak ada (undefined), gunakan fallback berdasarkan harga.
-        if (r.tradeable !== undefined) {
-          r.trade = r.tradeable ? 'ON' : 'OFF';
-        } else {
-          r.trade = (r.price != null) ? 'ON' : 'OFF';
+          showOverlay(`Sinkronisasi data dari ${cex}...`);
+          try {
+            // Panggil fetcher untuk CEX ini dan chain yang dipilih
+            const results = await fetcher(chainKey);
+            const enrichedResults = [];
+
+            // Perkaya setiap hasil dengan desimal menggunakan logika baru
+            for (const rec of results) {
+              const enrichedRec = await enrichWithDecimals(rec, chainKey, snapBySc);
+              enrichedResults.push(enrichedRec);
+            }
+
+            // Simpan (upsert) setiap hasil ke database
+            enrichedResults.forEach(rec => {
+              if (rec && rec.sc) { upsertSnapshot(chainKey, rec); }
+            });
+
+            UIkit.notification(`✅ ${cex}: ${results.length} token disinkronkan`, { status: 'success' });
+          } catch (err) {
+            UIkit.notification(`❌ Gagal sinkronisasi ${cex}: ${err.message || err}`, { status: 'danger' });
+          }
+
+          updateOverlayProgress(i + 1);
+          // Tambahkan jeda untuk menghindari rate-limit
+          await new Promise(r => setTimeout(r, RATE.CEX_DELAY_MS));
+        }
+
+        // Setelah semua CEX selesai, render ulang data dari database
+        showOverlay('Menampilkan hasil terbaru...');
+        // Render ulang CEX chips untuk update jumlah
+        try { buildCexChips(); } catch(_){}
+        // Render ulang tabel dengan data terbaru dari DB, termasuk harga
+        await renderLocalSnapshot(chainKey, { fetchPrices: true, silent: true });
+
+      } catch (err) {
+        statusForHistory = 'error';
+        errorMessage = err && (err.message || err.toString());
+        UIkit.notification({ message: `Gagal sinkronisasi: ${errorMessage}`, status: 'danger' });
+        setStatus('Gagal sinkronisasi');
+      } finally {
+        hideOverlay();
+        $btnFetch.prop('disabled', false);
+        // Status tombol export akan diatur oleh renderLocalSnapshot
+
+        const meta = {
+          chain: String(chainKey).toUpperCase(),
+          requestedCex: selectedCex,
+          durationMs: Date.now() - startedAt
+        };
+        if (errorMessage) meta.errorMessage = errorMessage;
+        try {
+          if (typeof setLastAction === 'function') {
+            setLastAction('SNAPSHOT SYNC CEX', statusForHistory, meta);
+          } else if (typeof addHistoryEntry === 'function') {
+            addHistoryEntry('SNAPSHOT SYNC CEX', statusForHistory, meta, { includeChain: true });
+          }
+        } catch(_){}
+      }
+    }
+
+    function getSnapshotIndexBySc(chainKey) {
+      const snap = loadSnapshot();
+      const key = String(chainKey || '').toLowerCase();
+      const arr = Array.isArray(snap[key]) ? snap[key] : [];
+      const map = new Map();
+      arr.forEach(it => {
+        const sc = String(it.sc || '').toLowerCase();
+        if (sc) {
+          // Last write wins, which is fine for this purpose.
+          map.set(sc, it);
         }
       });
-      showOverlay('Rendering results...');
-
-      // Render table (centralized)
-      renderRows(rows, chainKey);
-
-      setStatus(`${rows.length} tokens.`);
-      try { renderSummary(rows); } catch(_){}
-      $btnFetch.prop('disabled', false);
-      setupExport(rows, String(chainKey).toUpperCase());
-      hideOverlay();
-
-      // Persist final snapshot (upsert per (cex, sc))
-      try {
-        rows.forEach(r => { 
-          if (!r.sc) return;
-          const decimalsValue = (r.decimals !== '' && r.decimals != null && Number.isFinite(Number(r.decimals))) ? Number(r.decimals) : r.decimals;
-          const priceNum = Number(r.price);
-          const storedPrice = (r.price !== null && r.price !== undefined && r.price !== '' && Number.isFinite(priceNum)) ? priceNum : null;
-          upsertSnapshot(chainKey, {
-            chain: r.chain,
-            name: String(r.token||''),
-            ticker: String(r.symbol||'').toUpperCase(),
-            sc: r.sc,
-            des: decimalsValue,
-            cex: r.cex,
-            price: storedPrice,
-            trade: (typeof r.trade === 'string') ? r.trade.toUpperCase() : r.trade,
-            tradeable: r.tradeable,
-            feeWD: r.feeWD,
-            deposit: r.deposit,
-            withdraw: r.withdraw
-          }); 
-        });
-      } catch(_){ }
-
-      // Export
-      $btnExport.off('click').on('click', function(){
-        const header = 'no,cex,chain,nama_token,ticker,sc,decimals,feeWD,trade,deposit,withdraw,price\n';
-        const body = rows.map((r,i)=> {
-          const fee = Number(r.feeWD);
-          const hasFee = r.feeWD !== null && r.feeWD !== undefined && r.feeWD !== '' && Number.isFinite(fee);
-          const priceNum = Number(r.price);
-          const hasPrice = r.price !== null && r.price !== undefined && r.price !== '' && Number.isFinite(priceNum);
-          return [
-            i+1,
-            r.cex,
-            r.chain,
-            (r.token||''),
-            (r.symbol||'').toUpperCase(),
-            r.sc||'',
-            r.decimals||'',
-            hasFee ? fee : '',
-            r.trade||'',
-            r.deposit,
-            r.withdraw,
-            hasPrice ? priceNum : ''
-          ].join(',');
-        }).join('\n');
-        const blob = new Blob([header+body], {type:'text/csv'});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href=url; a.download=`SNAPSHOT_koin_${String(chainKey).toUpperCase()}.csv`; a.click(); URL.revokeObjectURL(url);
-      });
-
-      try { buildCexChips(); } catch(_){}
-      try { await renderLocalSnapshot(chainKey, { fetchPrices: true, silent: true }); } catch(_){}
+      return map;
     }
 
     $('#snapshot-btn-fetch').on('click', fetchAll);
@@ -1142,7 +1384,7 @@
       const key = syncChainControls();
       const initResult = await initializeUI(true);
       if (!initResult) {
-        await handleChainChange(false, key);
+        await loadChainData(false, key);
       }
       $('#snapshot-view').show();
     },

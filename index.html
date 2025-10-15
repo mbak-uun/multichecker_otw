@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MULTICHECKER PLUS</title>
+    <title>MULTIALL-PLUS</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/uikit/3.6.22/css/uikit.min.css" />
     <script src="https://code.jquery.com/jquery-3.7.1.js" integrity="sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4=" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/uikit/3.6.22/js/uikit.min.js"></script>
@@ -54,7 +54,8 @@
                     <div class="uk-flex uk-flex-middle uk-flex-wrap">
                         <h3 id="judul" class="uk-margin-remove" 
                             style="font-size: 18px; line-height: 1.2; color: #000; font-weight: bold;">
-                            MULTICHECKER-DEV <span id="current-chain-label" style="margin-left:3px;">[ALL]</span>
+                            <span id="app-title">MULTIPLUS-SCANNER</span>
+                            <span id="current-chain-label" style="margin-left:3px;">[ALL]</span>
                         </h3>
                         &nbsp;&nbsp;
                         <span>[ <b> 
@@ -235,16 +236,15 @@
                         <div class="uk-flex uk-flex-middle uk-margin">
                             <div style="flex:1;">
                                 <label class="uk-text-danger">KOIN/GRUP :</label>
-                                <label class="uk-form-label uk-text-success"><input class="uk-radio" type="radio" value="7" name="koin-group"> 7</label>
                                 <label class="uk-form-label uk-text-success"><input class="uk-radio" type="radio" value="6" name="koin-group"> 6</label>
                                 <label class="uk-form-label uk-text-success"><input class="uk-radio" type="radio" value="5" checked name="koin-group"> 5</label>
                                 <label class="uk-form-label uk-text-success"><input class="uk-radio" type="radio" value="4" name="koin-group"> 4</label>
                             </div>
                             <div style="flex:1; margin-left: 24px;">
                                 <label class="uk-text-danger">TIME OUT:</label>
-                                <label class="uk-form-label uk-text-success"><input class="uk-radio" type="radio" value="4" name="waktu-tunggu" checked> NORMAL</label>
-                                <label class="uk-form-label uk-text-success"><input class="uk-radio" type="radio" value="3" name="waktu-tunggu"> MEDIUM</label>
-                                <label class="uk-form-label uk-text-success"><input class="uk-radio" type="radio" value="2" name="waktu-tunggu"> FAST</label>
+                                <label class="uk-form-label uk-text-success"><input class="uk-radio" type="radio" value="5" name="waktu-tunggu" checked> NORMAL</label>
+                                <label class="uk-form-label uk-text-success"><input class="uk-radio" type="radio" value="4" name="waktu-tunggu"> MEDIUM</label>
+                                <label class="uk-form-label uk-text-success"><input class="uk-radio" type="radio" value="3" name="waktu-tunggu"> FAST</label>
                             </div>
                         </div>
 
@@ -253,7 +253,7 @@
                         <div class="uk-flex uk-flex-middle uk-margin">
                             <div style="flex:1; margin-right: 8px;">
                                 <label class="uk-text-danger">JEDA / GRUP (ms)</label><br>
-                                <input class="uk-input" id="jeda-time-group" type="number" value="1500" name="jeda-time-group">
+                                <input class="uk-input" id="jeda-time-group" type="number" value="2000" name="jeda-time-group">
                             </div>
                             <div style="flex:1;">
                                 <label class="uk-text-primary">JEDA / KOIN (ms)</label><br>
@@ -279,8 +279,8 @@
 <section id="snapshot-view" class="uk-card uk-card-default uk-padding-small uk-card-hover" style="display:none; border:1px solid black;">
    
 
-    <div class="uk-card uk-card-default uk-card-body">
-      <div class="uk-text-bold uk-margin-small">SNAPSHOT KOIN: SILAKAN PILIH EXCHANGER</div>
+    <div class="uk-card uk-card-default">
+      <div class="uk-text-bold ">SNAPSHOT KOIN: SILAKAN PILIH EXCHANGER</div>
       
 
       <div class="uk-grid-small" uk-grid>
@@ -485,7 +485,7 @@
             <!-- Kolom DEX -->
             <div class="uk-width-2-3@m">
                 <label class="uk-form-label uk-text-bold">
-                Pilih DEX (Maks 4) & Modal {KIRI, KANAN}
+                Pilih DEX  & Modal {KIRI, KANAN}
                 </label>
                 <div id="dex-checkbox-koin" class="uk-margin-small-top"></div>
             </div>
@@ -514,7 +514,7 @@
     <!-- HEADER -->
     <div class="uk-modal-header uk-flex uk-flex-between uk-flex-middle uk-padding-small">
       <div>
-        <h4 class="uk-modal-title uk-margin-remove"><span uk-icon="move"></span> Sinkronisasi Koin dari SERVER</h4>
+        <h4 class="uk-modal-title uk-margin-remove"><span uk-icon="move"></span> Sinkronisasi Koin</h4>
         <p class="uk-text-meta uk-margin-remove-top">Pilih CEX, Pair, lalu masukkan modal tiap DEX</p>
       </div>
       <button class="uk-modal-close-default" type="button" uk-close></button>
@@ -529,10 +529,10 @@
           <button class="uk-button uk-button-small uk-button-default" data-source="snapshot">Snapshot</button>
         </div>
       </div>
-      <div class="uk-grid-small uk-child-width-1-2@m uk-child-width-1-1" uk-grid>
+      <div class="uk-grid-small" uk-grid>
 
         <!-- Kolom kiri -->
-        <div>
+        <div class="uk-width-1-3@m">
           <div class="uk-card uk-card-default uk-card-body uk-padding-small">
             <h6 class="uk-heading-bullet uk-margin-small">1. Pilih CEX</h6>
             <div id="sync-filter-cex" class="uk-flex uk-flex-wrap" style="gap:6px; max-height:200px; overflow:auto;"></div>
@@ -540,13 +540,13 @@
             <h6 class="uk-heading-bullet uk-margin-small">2. Pilih Pair</h6>
             <div id="sync-filter-pair" class="uk-flex uk-flex-wrap" style="gap:6px; max-height:200px; overflow:auto;"></div>
 
-            <h6 class="uk-heading-bullet uk-margin-small">3. Pilih DEX &amp; Modal <span class="uk-text-meta">(Maks. 4)</span></h6>
+            <h6 class="uk-heading-bullet uk-margin-small">3. Pilih DEX &amp; Modal <span class="uk-text-meta"></span></h6>
             <div id="sync-dex-config" class="uk-flex uk-flex-column" style="gap:6px; max-height:300px; overflow:auto;"></div>
           </div>
         </div>
 
         <!-- Kolom kanan -->
-        <div>
+        <div class="uk-width-2-3@m">
           <div class="uk-card uk-card-default uk-card-body uk-padding-small">
             <h6 class="uk-margin-small">4. Pilih Koin Hasil Filter</h6>
             <input id="sync-search-input" class="uk-input uk-form-small uk-margin-small" type="text" placeholder="Cari koin...">
@@ -561,6 +561,8 @@
                     <th style="width:32px;">✓</th>
                     <th>Symbol</th>
                     <th>Pair</th>
+                    <th>SC</th>
+                    <th>Des</th>
                     <th>CEX</th>
                   </tr>
                 </thead>

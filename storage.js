@@ -1,8 +1,17 @@
     // IndexedDB-based storage with in-memory cache.
-    // Object store (table) names use prefix MULTICHECKER_.
+    // Uses a single application database defined in CONFIG_APP / CONFIG_DB.
     (function initIndexedDBStorage(){
-        const DB_NAME = 'MULTICHECKER_OTW_DB';
-        const STORE_KV = 'MULTICHECKER_OTW_KV';
+        const root = (typeof window !== 'undefined') ? window : {};
+        const appCfg = (root.CONFIG_APP && root.CONFIG_APP.APP) ? root.CONFIG_APP.APP : {};
+        const dbCfg = root.CONFIG_DB || {};
+        const DB_NAME = dbCfg.NAME || appCfg.NAME || 'MULTIALL-PLUS';
+        const STORE_KV = (dbCfg.STORES && dbCfg.STORES.KV) ? dbCfg.STORES.KV : 'APP_KV_STORE';
+        const STORE_SNAPSHOT = (dbCfg.STORES && dbCfg.STORES.SNAPSHOT) ? dbCfg.STORES.SNAPSHOT : null;
+        const STORE_LOCALSTORAGE = (dbCfg.STORES && dbCfg.STORES.LOCALSTORAGE) ? dbCfg.STORES.LOCALSTORAGE : null;
+        const BC_NAME = dbCfg.BROADCAST_CHANNEL || `${DB_NAME}_CHANNEL`;
+        const requiredStores = Array.from(new Set(
+            [STORE_KV, STORE_SNAPSHOT, STORE_LOCALSTORAGE].filter(Boolean)
+        ));
         const cache = {}; // runtime cache for sync reads
         let db = null;
 
@@ -14,26 +23,39 @@
                     const req = indexedDB.open(DB_NAME);
                     req.onupgradeneeded = (ev)=>{
                         const d = ev.target.result;
-                        if (!d.objectStoreNames.contains(STORE_KV)) d.createObjectStore(STORE_KV, { keyPath:'key' });
+                        requiredStores.forEach(storeName=>{
+                            if (!d.objectStoreNames.contains(storeName)) {
+                                d.createObjectStore(storeName, { keyPath:'key' });
+                            }
+                        });
                     };
                     req.onsuccess = (ev)=>{
                         const d = ev.target.result;
-                        // Ensure required store exists; if not, perform lightweight upgrade to add it
-                        if (!d.objectStoreNames.contains(STORE_KV)){
+                        const missing = requiredStores.filter(storeName => !d.objectStoreNames.contains(storeName));
+                        if (missing.length){
                             const nextVersion = (d.version || 1) + 1;
-                            d.close();
+                            try { d.close(); } catch(_){}
                             const up = indexedDB.open(DB_NAME, nextVersion);
                             up.onupgradeneeded = (e2)=>{
                                 const udb = e2.target.result;
-                                if (!udb.objectStoreNames.contains(STORE_KV)) udb.createObjectStore(STORE_KV, { keyPath:'key' });
+                                requiredStores.forEach(storeName=>{
+                                    if (!udb.objectStoreNames.contains(storeName)) {
+                                        udb.createObjectStore(storeName, { keyPath:'key' });
+                                    }
+                                });
                             };
-                            up.onsuccess = (e2)=>{ db = e2.target.result; resolve(db); };
+                            up.onsuccess = (e2)=>{
+                                db = e2.target.result;
+                                resolve(db);
+                            };
                             up.onerror = (e2)=>{ reject(e2.target.error || new Error('IDB upgrade failed')); };
+                            up.onblocked = ()=>{ reject(new Error('IDB upgrade blocked')); };
                         } else {
                             db = d; resolve(db);
                         }
                     };
                     req.onerror = (ev)=>{ reject(ev.target.error || new Error('IDB open failed')); };
+                    req.onblocked = ()=>{ reject(new Error('IDB open blocked')); };
                 } catch(e){ reject(e); }
             });
         }
@@ -117,7 +139,7 @@
         try { window.whenStorageReady = warmCacheAll(); } catch(_){}
 
         // Initialize cross-tab channel for state sync (best-effort)
-        try { window.__MC_BC = window.__MC_BC || new BroadcastChannel('MULTICHECKER_APP'); } catch(_) {}
+        try { window.__MC_BC = window.__MC_BC || new BroadcastChannel(BC_NAME); } catch(_) {}
 
         // Public API (kept sync signatures to avoid large refactor)
         window.getFromLocalStorage = function(key, defaultValue){
@@ -336,6 +358,15 @@
     function downloadTokenScannerCSV() {
         const tokenData = getFromLocalStorage(getActiveTokenKeyLocal(), []);
         const chainLabel = getActiveChainLabel();
+        const appName = (typeof window !== 'undefined' && window.CONFIG_APP && window.CONFIG_APP.APP && window.CONFIG_APP.APP.NAME)
+            ? window.CONFIG_APP.APP.NAME
+            : 'MULTIALL-PLUS';
+        const safeApp = (function(name){
+            try {
+                const safe = String(name || '').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '');
+                return safe ? safe.toUpperCase() : 'APP';
+            } catch(_) { return 'APP'; }
+        })(appName);
 
         // Header sesuai struktur
         const headers = [
@@ -370,7 +401,7 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `KOIN_MULTICHECKER_${chainLabel}.csv`;
+        a.download = `KOIN_${safeApp}_${chainLabel}.csv`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

@@ -27,12 +27,20 @@ function computeActiveDexList() {
 // Build a normalized column specification for the monitoring table header
 function getMonitoringColumnSpec(dexList) {
   const spec = [];
+  const activeDexList = Array.isArray(dexList) ? dexList : [];
   spec.push({ type: 'orderbook-left', label: 'ORDERBOOK', classes: 'uk-text-center uk-text-bolder th-orderbook' });
-  (dexList || []).forEach(d => spec.push({ type: 'dex', side: 'left', key: String(d).toLowerCase(), label: String(d).toUpperCase(), classes: 'uk-text-center uk-text-small th-dex' }));
+  activeDexList.forEach(d => spec.push({ type: 'dex', side: 'left', key: String(d).toLowerCase(), label: String(d).toUpperCase(), classes: 'uk-text-center uk-text-small th-dex' }));
   spec.push({ type: 'detail', label: 'DETAIL TOKEN', classes: 'uk-text-center uk-text-bolder th-detail' });
-  (dexList || []).forEach(d => spec.push({ type: 'dex', side: 'right', key: String(d).toLowerCase(), label: String(d).toUpperCase(), classes: 'uk-text-center uk-text-small th-dex' }));
+  activeDexList.forEach(d => spec.push({ type: 'dex', side: 'right', key: String(d).toLowerCase(), label: String(d).toUpperCase(), classes: 'uk-text-center uk-text-small th-dex' }));
   spec.push({ type: 'orderbook-right', label: 'ORDERBOOK', classes: 'uk-text-center uk-text-bolder th-orderbook' });
   return spec;
+}
+
+// Helper function to calculate total column count based on active DEX list
+function getTotalColumnCount(dexList) {
+  const activeDexCount = Array.isArray(dexList) ? dexList.length : 0;
+  // Formula: 1 (ORDERBOOK left) + activeDexCount (DEX left) + 1 (DETAIL) + activeDexCount (DEX right) + 1 (ORDERBOOK right)
+  return 3 + (activeDexCount * 2);
 }
 
 // Render the monitoring table header from a spec; exposed globally for reuse (e.g., Start Scan)
@@ -45,7 +53,7 @@ function renderMonitoringHeader(dexList) {
     thead.innerHTML = `<tr style="border-bottom: 1px solid black;">${cells.join('')}</tr>`;
   } catch(_) {}
 }
-try { if (typeof window !== 'undefined') { window.renderMonitoringHeader = renderMonitoringHeader; window.computeActiveDexList = computeActiveDexList; } } catch(_) {}
+try { if (typeof window !== 'undefined') { window.renderMonitoringHeader = renderMonitoringHeader; window.computeActiveDexList = computeActiveDexList; window.getTotalColumnCount = getTotalColumnCount; } } catch(_) {}
 
 /**
  * Render monitoring table rows for the given flat token list.
@@ -89,7 +97,13 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
                 // Get proper display label from CONFIG_DEXS
                 const dexConfig = (typeof window !== 'undefined' && window.CONFIG_DEXS) ? window.CONFIG_DEXS[dexKeyLower] : null;
                 const dexName = (dexConfig && dexConfig.label) ? String(dexConfig.label) : String(dexKey).toUpperCase();
-                const canonicalDex = String(found.dex || dexKeyLower); // used for IDs to match scanner
+                // Normalize DEX name using registry to handle aliases (kyberswap->kyber, matcha->0x)
+                let canonicalDex = String(found.dex || dexKeyLower);
+                try {
+                    if (typeof window !== 'undefined' && window.DEX && typeof window.DEX.normalize === 'function') {
+                        canonicalDex = window.DEX.normalize(canonicalDex);
+                    }
+                } catch(_) {}
                 const modal = isLeft ? (found.left ?? 0) : (found.right ?? 0);
                 // ID generation: include token ID and CEX for uniqueness across multiple rows with same symbol pair
                 const sym1 = isLeft ? String(data.symbol_in||'').toUpperCase() : String(data.symbol_out||'').toUpperCase();
@@ -211,7 +225,8 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
         // Disable the correct start button based on the table being rendered
         $('#startSCAN').prop('disabled', true);
 
-        if ($tableBody.length) $tableBody.html('<tr><td colspan="11" class="uk-text-center">No tokens to display.</td></tr>');
+        const totalCols = getTotalColumnCount(dexList);
+        if ($tableBody.length) $tableBody.html(`<tr><td colspan="${totalCols}" class="uk-text-center">No tokens to display.</td></tr>`);
         return;
     }
 
@@ -713,7 +728,8 @@ function DisplayPNL(data) {
     idPrefix, baseId, linkDEX, dexUsdRate,
     quoteToUSDT: quoteToUSDT_in,
     cexInfo,
-    rates
+    rates,
+    isFallback, fallbackSource  // REFACTORED: Tambahkan info sumber alternatif
   } = data;
 
   const elementId = String(idPrefix || '') + String(baseId || '');
@@ -731,10 +747,44 @@ function DisplayPNL(data) {
       baseId: baseId,
       idPrefix: idPrefix
     });
+    // List all cells with similar pattern for debugging
+    try {
+      const allCells = Array.from(document.querySelectorAll('[id*="' + String(cex).toUpperCase() + '"]'));
+      const relevantCells = allCells.filter(c => c.id.includes(String(Name_in || '').toUpperCase())).map(c => c.id);
+      if (relevantCells.length) {
+        console.log(`💡 Similar cells found:`, relevantCells);
+      }
+    } catch(_) {}
     return;
   }
-  // Clear any prior error background once a successful result renders
+
+  // Success log
+  console.log(`✅ [DisplayPNL] Cell FOUND & Updated:`, {
+    elementId,
+    dex: dextype,
+    pnl: profitLoss.toFixed(2),
+    isFallback,
+    fallbackSource
+  });
+  // REFACTORED: Clear any prior error background and finalize cell
   try { el.classList.remove('dex-error'); } catch(_) {}
+  // REFACTORED: Finalize cell untuk mencegah overwrite oleh error lainnya
+  try {
+    if (el.dataset) {
+      el.dataset.final = '1';
+      delete el.dataset.checking;
+      delete el.dataset.deadline;
+    }
+  } catch(_) {}
+  // REFACTORED: Clear error status span jika ada
+  try {
+    const statusSpan = el.querySelector('.dex-status');
+    if (statusSpan) {
+      // Hapus status error/checking, biarkan DisplayPNL render hasil normal
+      statusSpan.innerHTML = '';
+      statusSpan.className = 'dex-status';
+    }
+  } catch(_) {}
   // Capture existing title log (built during scan in scanner.js) to reuse on price links only
   let __titleLog = null;
   try { __titleLog = (el && el.dataset && el.dataset.titleLog) ? String(el.dataset.titleLog) : null; } catch(_) {}
@@ -825,6 +875,9 @@ function DisplayPNL(data) {
 
   let buyPrice, sellPrice, buyLink, sellLink, tipBuy, tipSell;
 
+  // REFACTORED: Tambahkan info sumber alternatif ke label DEX
+  const dexLabel = isFallback && fallbackSource ? `${DEX} via ${fallbackSource}` : DEX;
+
   if (direction === 'tokentopair') {
     buyPrice  = refCexBuy;
     sellPrice = n(dexUsdtPerToken);
@@ -833,14 +886,14 @@ function DisplayPNL(data) {
 
     tipBuy  = `USDT -> ${Name_in} | ${CEX} | ${fmtIDR(buyPrice)} | ${fmtUSD(buyPrice)} USDT/${Name_in}`;
     const inv = sellPrice > 0 ? (1/sellPrice) : 0;
-    tipSell = `${Name_in} -> ${Name_out} | ${DEX} | ${fmtIDR(sellPrice)} | ${inv>0&&isFinite(inv)?inv.toFixed(6):'N/A'} ${Name_in}/${Name_out}`;
+    tipSell = `${Name_in} -> ${Name_out} | ${dexLabel} | ${fmtIDR(sellPrice)} | ${inv>0&&isFinite(inv)?inv.toFixed(6):'N/A'} ${Name_in}/${Name_out}`;
   } else {
     buyPrice  = n(dexUsdtPerToken);
     sellPrice = refCexSell;
     buyLink   = linkDEX || '#';
     sellLink  = cexLinks.trade;      // PAIR
 
-    tipBuy  = `${Name_in} -> ${Name_out} | ${DEX} | ${fmtIDR(buyPrice)} | ${fmtUSD(buyPrice)} USDT/${Name_in}`;
+    tipBuy  = `${Name_in} -> ${Name_out} | ${dexLabel} | ${fmtIDR(buyPrice)} | ${fmtUSD(buyPrice)} USDT/${Name_in}`;
     const inv = sellPrice > 0 ? (1/sellPrice) : 0;
     tipSell = `${Name_out} -> USDT | ${CEX} | ${fmtIDR(sellPrice)} | ${inv>0&&isFinite(inv)?inv.toFixed(6):'N/A'} ${Name_in}/${Name_out}`;
   }
@@ -1041,6 +1094,8 @@ function DisplayPNL(data) {
   $mainCell.html(`${dexNameAndModal ? dexNameAndModal + '<br>' : ''}<span class="${resultWrapClass}" style="${boldStyle}">${resultHtml}</span>`);
   try {
     el.dataset.final = '1';
+    el.dataset.finalSuccess = '1';  // Mark as successful (cannot be overridden)
+    delete el.dataset.finalError;    // Clear any prior error flag
     // clear any pending checking metadata so sweepers/tickers stop
     try { delete el.dataset.deadline; } catch(_) {}
     try { delete el.dataset.checking; } catch(_) {}
@@ -1211,6 +1266,10 @@ function calculateResult(baseId, tableBodyId, amount_out, FeeSwap, sc_input, sc_
     const swapHtml = `<a href="${linkDEX}" target="_blank">${rateLabel}</a>`;
     // debug logs removed
 
+    // REFACTORED: Tambahkan info sumber alternatif dari DataDEX
+    const isFallback = DataDEX && DataDEX.isFallback === true;
+    const fallbackSource = DataDEX && DataDEX.fallbackSource ? String(DataDEX.fallbackSource) : '';
+
     return {
         type: 'update',
         idPrefix: idPrefix,
@@ -1221,7 +1280,8 @@ function calculateResult(baseId, tableBodyId, amount_out, FeeSwap, sc_input, sc_
         profitLoss, cex, Name_in, NameX, totalFee, Modal, dextype,
         priceBuyToken_CEX, priceSellToken_CEX, priceBuyPair_CEX, priceSellPair_CEX,
         FeeSwap, FeeWD, sc_input, sc_output, Name_out, totalValue, totalModal,
-        nameChain, codeChain, trx, profitLossPercent, vol
+        nameChain, codeChain, trx, profitLossPercent, vol,
+        isFallback, fallbackSource  // REFACTORED: Tambahkan info sumber alternatif
     };
 }
 

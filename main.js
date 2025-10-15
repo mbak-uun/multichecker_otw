@@ -3,7 +3,34 @@
 // =================================================================================
 
 // --- Global Variables ---
-const storagePrefix = "MULTICHECKER_";
+const MAIN_APP_META = (function(){
+    try {
+        return (typeof window !== 'undefined' && window.CONFIG_APP && window.CONFIG_APP.APP) ? window.CONFIG_APP.APP : {};
+    } catch(_) { return {}; }
+})();
+const MAIN_APP_NAME = MAIN_APP_META.NAME || 'MULTIALL-PLUS';
+const MAIN_APP_NAME_SAFE = (function(name){
+    try {
+        const safe = String(name || '').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '');
+        return safe ? safe.toUpperCase() : 'APP';
+    } catch(_) { return 'APP'; }
+})(MAIN_APP_NAME);
+const PRIMARY_DB_NAME = (function(){
+    try {
+        if (typeof window !== 'undefined' && window.CONFIG_DB && window.CONFIG_DB.NAME) return window.CONFIG_DB.NAME;
+    } catch(_) {}
+    return MAIN_APP_NAME;
+})();
+const PRIMARY_KV_STORE = (function(){
+    try {
+        if (typeof window !== 'undefined' && window.CONFIG_DB && window.CONFIG_DB.STORES && window.CONFIG_DB.STORES.KV) {
+            return window.CONFIG_DB.STORES.KV;
+        }
+    } catch(_) {}
+    return 'APP_KV_STORE';
+})();
+
+const storagePrefix = MAIN_APP_NAME_SAFE ? `${MAIN_APP_NAME_SAFE}_` : '';
 const REQUIRED_KEYS = {
     SETTINGS: 'SETTING_SCANNER'
 };
@@ -13,6 +40,25 @@ let filteredTokens = [];
 let originalTokens = [];
 var SavedSettingData = getFromLocalStorage('SETTING_SCANNER', {});
 let activeSingleChainKey = null; // Active chain key (single mode)
+
+// Apply app branding (title/header) based on CONFIG_APP metadata.
+(function applyAppBranding(){
+    try {
+        if (typeof document === 'undefined') return;
+        const name = MAIN_APP_NAME;
+        const version = MAIN_APP_META.VERSION ? String(MAIN_APP_META.VERSION) : '';
+        const headerEl = document.getElementById('app-title');
+        if (headerEl) headerEl.textContent = version ? `${name} v${version}` : name;
+        try { document.title = version ? `${name} v${version}` : name; } catch(_) {}
+        const infoEl = document.getElementById('infoAPP');
+        if (infoEl) {
+            const current = String(infoEl.textContent || '').trim();
+            if (!current || current === '???') {
+                infoEl.textContent = version ? `v${version}` : name;
+            }
+        }
+    } catch(_) {}
+})();
 
 // refactor: Toastr is centrally configured in js/notify-shim.js
 
@@ -989,7 +1035,7 @@ $("#reload").click(function () {
     });
 
     $("#stopSCAN").click(function () {
-        stopScanner();
+        if (window.App?.Scanner?.stopScanner) window.App.Scanner.stopScanner();
     });
 
     // Autorun toggle
@@ -1006,7 +1052,7 @@ $("#reload").click(function () {
                 // restore UI to idle state if not scanning
                 try {
                     $('#stopSCAN').hide().prop('disabled', true);
-                    $('#startSCAN').prop('disabled', false).removeClass('uk-button-disabled').text('Start');
+                    $('#startSCAN').prop('disabled', false).removeClass('uk-button-disabled').text('START');
                     $("#LoadDataBtn, #SettingModal, #MasterData,#UpdateWalletCEX,#chain-links-container,.sort-toggle, .edit-token-button").css("pointer-events", "auto").css("opacity", "1");
                     if (typeof setScanUIGating === 'function') setScanUIGating(false);
                     $('.header-card a, .header-card .icon').css({ pointerEvents: 'auto', opacity: 1 });
@@ -1173,8 +1219,8 @@ $("#reload").click(function () {
         // Ensure any running scan stops before updating wallets
         try {
             const st = getAppState();
-            if (st && st.run === 'YES') {
-                if (typeof stopScannerSoft === 'function') stopScannerSoft();
+            if (st && st.run === 'YES' && window.App?.Scanner?.stopScannerSoft) {
+                window.App.Scanner.stopScannerSoft();
                 // Small delay to let UI settle
                 await new Promise(r => setTimeout(r, 200));
             }
@@ -1267,7 +1313,7 @@ $("#startSCAN").click(function () {
             // Wait for DOM to settle before starting scanner (increased to 250ms for safety)
             setTimeout(() => {
                 console.log('[START] Starting scanner now...');
-                startScanner(flatTokens, settings, 'dataTableBody');
+                if (window.App?.Scanner?.startScanner) window.App.Scanner.startScanner(flatTokens, settings, 'dataTableBody');
             }, 250);
             return;
         }
@@ -1294,7 +1340,7 @@ $("#startSCAN").click(function () {
         // Wait for DOM to settle before starting scanner (increased to 250ms for safety)
         setTimeout(() => {
             console.log('[START] Starting scanner now...');
-            startScanner(toScan, settings, 'dataTableBody');
+            if (window.App?.Scanner?.startScanner) window.App.Scanner.startScanner(toScan, settings, 'dataTableBody');
         }, 250);
     });
 
@@ -1530,7 +1576,16 @@ function showSnapshotView() {
 // =================================================================================
 // Sync Modal Helpers (Server / Snapshot)
 // =================================================================================
-const SNAPSHOT_DB_CONFIG = { name: 'SNAPSHOT_DB', store: 'kv', snapshotKey: 'SNAPSHOT_DATA_KOIN' };
+const SNAPSHOT_DB_CONFIG = (function(){
+    const root = (typeof window !== 'undefined') ? window : {};
+    const appCfg = (root.CONFIG_APP && root.CONFIG_APP.APP) ? root.CONFIG_APP.APP : {};
+    const dbCfg = root.CONFIG_DB || {};
+    return {
+        name: dbCfg.NAME || appCfg.NAME || 'MULTIALL-PLUS',
+        store: (dbCfg.STORES && dbCfg.STORES.SNAPSHOT) ? dbCfg.STORES.SNAPSHOT : 'SNAPSHOT_STORE',
+        snapshotKey: 'SNAPSHOT_DATA_KOIN'
+    };
+})();
 let snapshotDbInstance = null;
 
 function setSyncSourceIndicator(label) {
@@ -1611,14 +1666,31 @@ async function openSnapshotDatabase() {
     if (typeof indexedDB === 'undefined') throw new Error('IndexedDB tidak tersedia di lingkungan ini.');
     snapshotDbInstance = await new Promise((resolve, reject) => {
         try {
-            const req = indexedDB.open(SNAPSHOT_DB_CONFIG.name, 1);
+            const req = indexedDB.open(SNAPSHOT_DB_CONFIG.name);
             req.onupgradeneeded = function(ev) {
                 const db = ev.target.result;
                 if (!db.objectStoreNames.contains(SNAPSHOT_DB_CONFIG.store)) {
                     db.createObjectStore(SNAPSHOT_DB_CONFIG.store, { keyPath: 'key' });
                 }
             };
-            req.onsuccess = function(ev) { resolve(ev.target.result); };
+            req.onsuccess = function(ev) {
+                const db = ev.target.result;
+                if (!db.objectStoreNames.contains(SNAPSHOT_DB_CONFIG.store)) {
+                    const next = (db.version || 1) + 1;
+                    db.close();
+                    const up = indexedDB.open(SNAPSHOT_DB_CONFIG.name, next);
+                    up.onupgradeneeded = function(e2) {
+                        const udb = e2.target.result;
+                        if (!udb.objectStoreNames.contains(SNAPSHOT_DB_CONFIG.store)) {
+                            udb.createObjectStore(SNAPSHOT_DB_CONFIG.store, { keyPath: 'key' });
+                        }
+                    };
+                    up.onsuccess = function(e2) { resolve(e2.target.result); };
+                    up.onerror = function(e2) { reject(e2.target.error || new Error('Gagal upgrade Snapshot DB')); };
+                } else {
+                    resolve(db);
+                }
+            };
             req.onerror = function(ev) { reject(ev.target.error || new Error('Gagal membuka Snapshot DB')); };
         } catch(err) { reject(err); }
     });
@@ -2115,9 +2187,9 @@ $(document).ready(function() {
                             const r = String(msg.val.run || 'NO').toUpperCase();
                             applyRunUI(r === 'YES');
                             if (r === 'NO') {
-                                const running = (typeof isScanRunning !== 'undefined') ? !!isScanRunning : false;
+                                const running = (typeof window.App?.Scanner?.isScanRunning !== 'undefined') ? !!window.App.Scanner.isScanRunning : false;
                                 if (running) {
-                                    if (typeof stopScannerSoft === 'function') stopScannerSoft();
+                                    if (window.App?.Scanner?.stopScannerSoft) window.App.Scanner.stopScannerSoft();
                                     location.reload();
                                 }
                             }
@@ -2505,6 +2577,9 @@ $(document).ready(function() {
             const symIn = String(token.symbol_in || '').toUpperCase();
             const symOut = String(token.symbol_out || '').toUpperCase();
             const mappedPair = pairDefs[symOut] ? symOut : 'NON';
+            const scIn = String(token.sc_in || token.contract_in || '');
+            const desIn = token.des_in ?? token.decimals_in ?? token.des ?? token.dec_in ?? '';
+
             // Cek apakah koin sudah ada di database (per-chain)
             const saved = (Array.isArray(savedTokens) ? savedTokens : []).find(s => {
                 const inMatch  = String(s.symbol_in || '').toUpperCase() === symIn;
@@ -2529,6 +2604,8 @@ $(document).ready(function() {
                     <td><input type="checkbox" class="uk-checkbox sync-token-checkbox" data-index="${baseIndex}" data-pair="${symOut}" data-source="${source}" ${isChecked ? 'checked' : ''} ${isChecked ? 'data-saved="1"' : ''}></td>
                     <td>${symIn}${statusBadge}${sourceBadge}</td>
                     <td>${symOut}${pairBadge}</td>
+                    <td class="uk-text-small mono" title="${scIn}">${String(scIn).slice(0, 6)}...${String(scIn).slice(-4)}</td>
+                    <td class="uk-text-center">${desIn}</td>
                     <td>${cexUp}</td>
                 </tr>`;
             modalBody.append(row);
@@ -2737,7 +2814,7 @@ $(document).on('click', '#histClearAll', async function(){
         try {
             const payload = await (window.exportIDB ? window.exportIDB() : Promise.resolve(null));
             if (!payload || !payload.items) { if (typeof toast !== 'undefined' && toast.error) toast.error('Gagal membuat backup.'); return; }
-            const filename = `MULTICHECKER_BACKUP_${new Date().toISOString().replace(/[:.]/g,'-')}.json`;
+            const filename = `${MAIN_APP_NAME_SAFE}_BACKUP_${new Date().toISOString().replace(/[:.]/g,'-')}.json`;
             const ok = window.downloadJSON ? window.downloadJSON(filename, payload) : false;
             if (ok) {
                 if (typeof toast !== 'undefined' && toast.success) toast.success(`Backup berhasil. ${payload.count||payload.items.length} item disalin.`);
@@ -2768,10 +2845,10 @@ $(document).on('click', '#histClearAll', async function(){
                 }
                 // Info jika DB/Store berbeda (tetap lanjut restore)
                 try {
-                    if (json.db && String(json.db) !== 'MULTICHECKER_DB') {
+                    if (json.db && String(json.db) !== String(PRIMARY_DB_NAME)) {
                         if (typeof toast !== 'undefined' && toast.warning) toast.warning(`Nama database berbeda: ${json.db}`);
                     }
-                    if (json.store && String(json.store) !== 'MULTICHECKER_KV') {
+                    if (json.store && String(json.store) !== String(PRIMARY_KV_STORE)) {
                         if (typeof toast !== 'undefined' && toast.warning) toast.warning(`Nama store berbeda: ${json.store}`);
                     }
                 } catch(_) {}

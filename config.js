@@ -1,4 +1,24 @@
-// Telegram config is now defined in secrets.js
+
+const CONFIG_APP = {
+    APP: {
+        NAME: "MULTIPLUS-SCANNER",
+        VERSION: "1.0"
+    }
+};
+
+try { if (typeof window !== 'undefined') { window.CONFIG_APP = window.CONFIG_APP || CONFIG_APP; } } catch(_){}
+
+const CONFIG_DB = {
+    NAME: CONFIG_APP.APP.NAME,
+    STORES: {
+        KV: "APP_KV_STORE",
+        SNAPSHOT: "SNAPSHOT_STORE",
+        LOCALSTORAGE: "LOCALSTORAGE_STORE"
+    },
+    BROADCAST_CHANNEL: `${CONFIG_APP.APP.NAME}_CHANNEL`
+};
+
+try { if (typeof window !== 'undefined') { window.CONFIG_DB = window.CONFIG_DB || CONFIG_DB; } } catch(_){}
 
 const CONFIG_CEX = {
     GATE: {
@@ -116,11 +136,11 @@ const CONFIG_CHAINS = {
         URL_Chain: "https://polygonscan.com", 
         ICON: "https://s2.coinmarketcap.com/static/img/coins/200x200/3890.png",
         WARNA:"#a05df6",
-        DATAJSON: 'https://multichecker.vercel.app/DATAJSON/poly.json',
+        DATAJSON: 'https://multiplus-scanner.vercel.app/JSON_KOIN/POLYGON.json',
         BaseFEEDEX : "MATICUSDT", // Corrected from POLUSDT
         RPC: 'https://polygon-pokt.nodies.app',
         GASLIMIT: 80000,
-        DEXS: [  "paraswap", "odos", "kyber", "0x", "okx", "fly"],
+        DEXS: [  "paraswap", "odos", "kyber", "0x", "okx"],
         LINKS: {
             explorer: {
                 token: (address) => `https://polygonscan.com/token/${address}`,
@@ -145,7 +165,7 @@ const CONFIG_CHAINS = {
         }
     },
     arbitrum: { 
-        Kode_Chain: 42161, Nama_Chain: "arbitrum", Nama_Pendek: "arb", URL_Chain: "https://arbiscan.io", WARNA:"#a6b0c3", ICON:"https://wiki.dextrac.com:3443/images/1/11/Arbitrum_Logo.png", DATAJSON: 'https://multichecker.vercel.app/DATAJSON/arb.json', BaseFEEDEX : "ETHUSDT", RPC: 'https://arbitrum-one-rpc.publicnode.com', GASLIMIT: 100000,
+        Kode_Chain: 42161, Nama_Chain: "arbitrum", Nama_Pendek: "arb", URL_Chain: "https://arbiscan.io", WARNA:"#a6b0c3", ICON:"https://wiki.dextrac.com:3443/images/1/11/Arbitrum_Logo.png", DATAJSON: 'https://multiplus-scanner.vercel.app/JSON_KOIN/ARBITRUM.json', BaseFEEDEX : "ETHUSDT", RPC: 'https://arbitrum-one-rpc.publicnode.com', GASLIMIT: 100000,
         LINKS: {
             explorer: {
                 token: (address) => `https://arbiscan.io/token/${address}`,
@@ -153,7 +173,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://arbiscan.io/tx/${hash}`
             }
         },
-        DEXS: [  "paraswap", "odos", "kyber", "0x", "okx", "fly"],
+        DEXS: [  "paraswap", "odos", "kyber", "0x", "okx"],
         WALLET_CEX: {
             GATE: { address : '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX : 'ARBITRUM' },
             BINANCE: { address : '0x290275e3db66394C52272398959845170E4DCb88', address2 : '0xe7804c37c13166fF0b37F5aE0BB07A3aEbb6e245', chainCEX : 'ARBITRUM' },
@@ -169,7 +189,7 @@ const CONFIG_CHAINS = {
         },           
     }, 
     ethereum: { 
-        Kode_Chain: 1, Nama_Chain: "ethereum", Nama_Pendek: "erc", URL_Chain: "https://etherscan.io", WARNA:"#8098ee", ICON:"https://icons.iconarchive.com/icons/cjdowner/cryptocurrency-flat/256/Ethereum-ETH-icon.png", DATAJSON: 'https://multichecker.vercel.app/DATAJSON/erc.json', BaseFEEDEX : "ETHUSDT", RPC: 'https://eth-mainnet.public.blastapi.io', GASLIMIT: 250000,
+        Kode_Chain: 1, Nama_Chain: "ethereum", Nama_Pendek: "erc", URL_Chain: "https://etherscan.io", WARNA:"#8098ee", ICON:"https://icons.iconarchive.com/icons/cjdowner/cryptocurrency-flat/256/Ethereum-ETH-icon.png", DATAJSON: 'https://multiplus-scanner.vercel.app/JSON_KOIN/ETHEREUM.json', BaseFEEDEX : "ETHUSDT", RPC: 'https://eth-mainnet.public.blastapi.io', GASLIMIT: 250000,
         LINKS: {
             explorer: {
                 token: (address) => `https://etherscan.io/token/${address}`,
@@ -177,7 +197,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://etherscan.io/tx/${hash}`
             }
         },
-        DEXS: [  "paraswap", "odos", "kyber", "0x", "okx", "fly"],
+        DEXS: [  "paraswap", "odos", "kyber", "0x", "okx"],
         WALLET_CEX: {
             GATE: { address : '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX : 'ETH' },
             BINANCE: { address : '0xDFd5293D8e347dFe59E90eFd55b2956a1343963d', address2 : '0x28C6c06298d514Db089934071355E5743bf21d60', address3 : '0x21a31Ee1afC51d94C2eFcCAa2092aD1028285549', chainCEX : 'ETH' },
@@ -195,7 +215,7 @@ const CONFIG_CHAINS = {
         } 
     }, 
     bsc: { 
-        Kode_Chain: 56, Nama_Chain: "bsc", Nama_Pendek: "bsc", URL_Chain: "https://bscscan.com", WARNA:"#f0af18", ICON:"https://bridge.umbria.network/assets/images/svg/bsc.svg", DATAJSON: 'https://multichecker.vercel.app/DATAJSON/bsc.json', BaseFEEDEX : "BNBUSDT", RPC: 'https://bsc-dataseed.binance.org/', GASLIMIT: 80000,
+        Kode_Chain: 56, Nama_Chain: "bsc", Nama_Pendek: "bsc", URL_Chain: "https://bscscan.com", WARNA:"#f0af18", ICON:"https://images.seeklogo.com/logo-png/44/2/binance-smart-chain-bsc-logo-png_seeklogo-446621.png", DATAJSON: 'https://multiplus-scanner.vercel.app/JSON_KOIN/BSC.json', BaseFEEDEX : "BNBUSDT", RPC: 'https://bsc-dataseed.binance.org/', GASLIMIT: 80000,
         LINKS: {
             explorer: {
                 token: (address) => `https://bscscan.com/token/${address}`,
@@ -203,7 +223,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://bscscan.com/tx/${hash}`
             }
         },
-        DEXS: [  "paraswap", "odos", "kyber", "0x", "fly", "okx"],
+        DEXS: [  "paraswap", "odos", "kyber", "0x", "okx"],
         WALLET_CEX: {
             GATE: { address : '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX : 'BSC' },
             BINANCE: { address : '0x8894E0a0c962CB723c1976a4421c95949bE2D4E3', address2 : '0xe2fc31F816A9b94326492132018C3aEcC4a93aE1', chainCEX : 'BSC' },
@@ -221,7 +241,7 @@ const CONFIG_CHAINS = {
         }        
     },
     base: { 
-        Kode_Chain: 8453, Nama_Chain: "base", Nama_Pendek: "base", URL_Chain: "https://basescan.org/", WARNA:"#1e46f9", ICON:"https://avatars.githubusercontent.com/u/108554348?v=4", DATAJSON: 'https://multichecker.vercel.app/DATAJSON/base.json', BaseFEEDEX : "ETHUSDT", RPC: 'https://base.llamarpc.com', GASLIMIT: 100000,
+        Kode_Chain: 8453, Nama_Chain: "base", Nama_Pendek: "base", URL_Chain: "https://basescan.org/", WARNA:"#1e46f9", ICON:"https://avatars.githubusercontent.com/u/108554348?v=4", DATAJSON: 'https://multiplus-scanner.vercel.app/JSON_KOIN/BASE.json', BaseFEEDEX : "ETHUSDT", RPC: 'https://base.llamarpc.com', GASLIMIT: 100000,
         LINKS: {
             explorer: {
                 token: (address) => `https://basescan.org/token/${address}`,
@@ -229,7 +249,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://basescan.org/tx/${hash}`
             }
         },
-        DEXS: [ "paraswap", "odos", "kyber", "0x", "okx", "fly"],
+        DEXS: [ "paraswap", "odos", "kyber", "0x", "okx"],
         WALLET_CEX: {
             GATE: { address: '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX: 'BASE' },
             BINANCE: { address: '0xDFd5293D8e347dFe59E90eFd55b2956a1343963d', address2: '0x28C6c06298d514Db089934071355E5743bf21d60', chainCEX: 'BASE' },
@@ -471,7 +491,7 @@ const CONFIG_DEXS = {
                 pairtotoken: 'kyber'
             },
             alternative: {
-                tokentopair: 'swoop',
+                tokentopair: 'dzap',
                 pairtotoken: 'swoop'
             }
         },
@@ -500,12 +520,12 @@ const CONFIG_DEXS = {
         builder: () => `https://app.odos.xyz`,
         fetchdex: {
             primary: {
-                tokentopair: 'odos',
-                pairtotoken: 'hinkal'
+                tokentopair: 'odos2',
+                pairtotoken: 'odos3'
             },
             alternative: {
                 tokentopair: 'dzap',
-                pairtotoken: 'swoop'
+                pairtotoken: 'swoop' // Anda bisa sesuaikan fallback jika perlu
             }
         },
         allowFallback: true,
@@ -521,49 +541,45 @@ const CONFIG_DEXS = {
             primary: {
                 tokentopair: 'okx',
                 pairtotoken: 'okx'
-            },
-            alternative: {
-                tokentopair: 'swoop',
-                pairtotoken: 'swoop'
-            }
-        },
-        allowFallback: true,
-    },
-    '1inch': {
-        label: '1inch',
-        badgeClass: 'bg-1inch',
-        
-        warna: "#b41313ff", // biru tua 1inch
-        builder: ({ chainCode, tokenAddress, pairAddress }) => 
-            `https://app.1inch.io/advanced/swap?network=${chainCode}&src=${tokenAddress}&dst=${pairAddress}`,
-        // Rute fetch per arah (utama + alternatif)
-        fetchdex: {
-            primary: {
-                tokentopair: '1inch',
-                pairtotoken: 'swoop'
-            } ,
-             allowFallback: false,
-        },
-        // allowFallback intentionally disabled untuk 1inch direct; fallback diatur oleh fetchdex
-    },
-
-    fly: {
-        label: 'FLY',
-        badgeClass: 'bg-fly',
-        proxy: true,
-        warna: "#ba28f9ff", // fly teal
-        builder: ({ chainName, tokenAddress, pairAddress }) => {
-            const net = String(chainName || '').toLowerCase() || 'ethereum';
-            return `https://app.fly.trade/swap/${net}/${String(tokenAddress).toLowerCase()}/${net}/${String(pairAddress).toLowerCase()}`;
-        },
-        fetchdex: {
-            primary: {
-                tokentopair: 'fly',
-                pairtotoken: 'fly'
-            }
+            }, 
         },
         allowFallback: false,
     },
+    // '1inch': {
+    //     label: '1inch',
+    //     badgeClass: 'bg-1inch',
+        
+    //     warna: "#b41313ff", // biru tua 1inch
+    //     builder: ({ chainCode, tokenAddress, pairAddress }) => 
+    //         `https://app.1inch.io/advanced/swap?network=${chainCode}&src=${tokenAddress}&dst=${pairAddress}`,
+    //     // Rute fetch per arah (utama + alternatif)
+    //     fetchdex: {
+    //         primary: {
+    //             tokentopair: '1inch',
+    //             pairtotoken: 'swoop'
+    //         } ,
+    //          allowFallback: false,
+    //     },
+    //     // allowFallback intentionally disabled untuk 1inch direct; fallback diatur oleh fetchdex
+    // },
+
+    // fly: {
+    //     label: 'FLY',
+    //     badgeClass: 'bg-fly',
+    //     proxy: true,
+    //     warna: "#ba28f9ff", // fly teal
+    //     builder: ({ chainName, tokenAddress, pairAddress }) => {
+    //         const net = String(chainName || '').toLowerCase() || 'ethereum';
+    //         return `https://app.fly.trade/swap/${net}/${String(tokenAddress).toLowerCase()}/${net}/${String(pairAddress).toLowerCase()}`;
+    //     },
+    //     fetchdex: {
+    //         primary: {
+    //             tokentopair: 'fly',
+    //             pairtotoken: 'fly'
+    //         }
+    //     },
+    //     allowFallback: false,
+    // },
     paraswap: {
         label: 'ParaSwap',
         badgeClass: 'bg-paraswap',
@@ -581,7 +597,7 @@ const CONFIG_DEXS = {
                 pairtotoken: 'paraswap'
             },
             alternative: {
-                tokentopair: 'swoop',
+                tokentopair: 'dzap',
                 pairtotoken: 'swoop'
             }
         },
