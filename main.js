@@ -1752,12 +1752,36 @@ async function fetchTokensFromServer(chainKey) {
     if (Array.isArray(remoteTokens)) raw = remoteTokens;
     else if (remoteTokens && Array.isArray(remoteTokens.token)) raw = remoteTokens.token;
     else raw = [];
-    return raw.map((item, idx) => {
-        const clone = Object.assign({}, item);
+    const normalizeServerTokenRecord = (item, idx) => {
+        const clone = Object.assign({}, item || {});
+        const pairDefs = (cfg && cfg.PAIRDEXS) || {};
+        const pickFallbackPair = () => {
+            const preferred = ['USDT', 'USDC', 'BUSD', 'DAI'];
+            for (const code of preferred) {
+                if (pairDefs && pairDefs[code]) return code;
+            }
+            const keys = Object.keys(pairDefs || {});
+            if (keys.length) return String(keys[0]).toUpperCase();
+            return 'NON';
+        };
+
+        clone.cex = String(clone.cex || clone.exchange || '').toUpperCase();
+        const symbolRaw = clone.symbol || clone.ticker || clone.token || clone.nama_token || clone.name || '';
+        const pairRaw = clone.symbol_out || clone.pair || clone.quote || '';
+        const scRaw = clone.sc_in || clone.sc || clone.contract || clone.address || '';
+        const decimalsRaw = clone.des_in ?? clone.decimals ?? clone.decimal ?? 0;
+
+        clone.symbol_in = String(symbolRaw || '').toUpperCase();
+        clone.symbol_out = String(pairRaw || '').toUpperCase() || pickFallbackPair();
+        clone.sc_in = String(scRaw || '').trim();
+        clone.des_in = Number(decimalsRaw) || 0;
+        clone.token_name = clone.token_name || clone.nama_token || clone.name || clone.symbol_in;
         clone._idx = idx;
         clone.__source = 'server';
         return clone;
-    });
+    };
+
+    return raw.map((item, idx) => normalizeServerTokenRecord(item, idx));
 }
 
 async function loadSyncTokensFromServer(chainKey) {
@@ -2423,6 +2447,15 @@ $(document).ready(function() {
             const key = pairDefs[p] ? p : 'NON';
             acc[key] = (acc[key]||0)+1; return acc;
         }, {});
+        const availablePairs = Object.keys(countByPair).filter(k => countByPair[k] > 0);
+        let defaultPairs = [];
+        if (availablePairs.length) {
+            const preferred = ['USDT','USDC','BUSD','DAI'];
+            defaultPairs = preferred.filter(p => availablePairs.includes(p));
+            if (!defaultPairs.length) defaultPairs = [availablePairs[0]];
+        } else {
+            defaultPairs = ['NON'];
+        }
 
         // Build CEX checkboxes (horizontal chips)
         const $cex = $('#sync-filter-cex').empty();
@@ -2442,7 +2475,7 @@ $(document).ready(function() {
         pairKeys.forEach(p => {
             const id = `sync-pair-${p}`;
             const badge = countByPair[p] || 0;
-            const checked = (p === 'USDT') ? 'checked' : '';
+            const checked = defaultPairs.includes(p) ? 'checked' : '';
             $pair.append(`<label class="uk-text-small" style="display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid #e5e5e5; border-radius:6px; background:#fafafa;">
                 <input type="checkbox" id="${id}" value="${p}" class="uk-checkbox" ${checked}>
                 <span style="font-weight:bolder;">${p}</span>
