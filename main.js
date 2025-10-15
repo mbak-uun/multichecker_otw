@@ -1640,6 +1640,314 @@ function parseSnapshotStatus(val) {
     return null;
 }
 
+function readNonPairConfig() {
+    try {
+        const pairSymbol = ($('#sync-non-pair-name').val() || '').trim().toUpperCase();
+        const pairSc = ($('#sync-non-pair-sc').val() || '').trim();
+        const desRaw = $('#sync-non-pair-des').val();
+        const desVal = desRaw === '' ? null : Number(desRaw);
+        return {
+            symbol: pairSymbol,
+            sc: pairSc,
+            des: Number.isFinite(desVal) && desVal >= 0 ? desVal : null
+        };
+    } catch(_) {
+        return { symbol:'', sc:'', des:null };
+    }
+}
+
+function toggleNonPairInputs() {
+    try {
+        const isNonChecked = $('#sync-filter-pair input[value="NON"]').is(':checked');
+        $('#sync-non-config').css('display', isNonChecked ? '' : 'none');
+    } catch(_) {}
+}
+
+try { window.toggleNonPairInputs = toggleNonPairInputs; } catch(_) {}
+
+function updateSyncSelectedCount() {
+    try {
+        const total = $('#sync-modal-tbody .sync-token-checkbox:checked').length;
+        $('#sync-selected-count').text(`Dipilih: ${total}`);
+    } catch(_) {}
+}
+try { window.updateSyncSelectedCount = updateSyncSelectedCount; } catch(_) {}
+
+const SYNC_PRICE_CACHE_TTL = 60000; // 60 detik
+function getSyncPriceCache() {
+    if (!window.__SYNC_PRICE_CACHE) window.__SYNC_PRICE_CACHE = new Map();
+    return window.__SYNC_PRICE_CACHE;
+}
+
+function formatSyncPriceValue(price) {
+    if (!Number.isFinite(price) || price <= 0) return '-';
+    if (typeof formatPrice === 'function') return formatPrice(price);
+    return price.toFixed(price >= 1 ? 4 : 6);
+}
+
+function setSyncPriceCell(cex, symbol, pair, price, renderId) {
+    const $cell = $(`#sync-modal-tbody td[data-price-cex="${cex}"][data-symbol="${symbol}"][data-pair="${pair}"]`);
+    if (!$cell.length) return;
+    const currentToken = Number($cell.data('render-id')) || 0;
+    if (renderId && currentToken && renderId !== currentToken) return;
+    if (renderId) $cell.data('render-id', renderId);
+    $cell.text(formatSyncPriceValue(price));
+}
+
+function getSyncProxyPrefix() {
+    try {
+        return (window.CONFIG_PROXY && window.CONFIG_PROXY.PREFIX) || 'https://proxykanan.awokawok.workers.dev/?';
+    } catch(_) {
+        return 'https://proxykanan.awokawok.workers.dev/?';
+    }
+}
+
+function proxSync(url) {
+    if (!url) return url;
+    try {
+        const prefix = getSyncProxyPrefix();
+        if (!prefix) return url;
+        if (url.startsWith(prefix)) return url;
+        if (/^https?:\/\//i.test(url)) return prefix + url;
+    } catch(_) {}
+    return url;
+}
+
+const SYNC_TICKER_CACHE_TTL = 60000;
+const SYNC_TICKER_CACHE = new Map();
+
+const SYNC_TICKER_ENDPOINTS = {
+    BINANCE: {
+        url: 'https://data-api.binance.vision/api/v3/ticker/price',
+        proxy: false,
+        parser: (data) => {
+            const map = new Map();
+            if (Array.isArray(data)) {
+                data.forEach(item => {
+                    const symbol = String(item?.symbol || '').toUpperCase();
+                    const price = Number(item?.price);
+                    if (!symbol || !Number.isFinite(price)) return;
+                    map.set(symbol, price);
+                });
+            }
+            return map;
+        }
+    },
+    MEXC: {
+        url: 'https://api.mexc.com/api/v3/ticker/price',
+        proxy: true,
+        parser: (data) => {
+            const map = new Map();
+            if (Array.isArray(data)) {
+                data.forEach(item => {
+                    const symbol = String(item?.symbol || '').toUpperCase();
+                    const price = Number(item?.price);
+                    if (!symbol || !Number.isFinite(price)) return;
+                    map.set(symbol, price);
+                });
+            }
+            return map;
+        }
+    },
+    GATE: {
+        url: 'https://api.gateio.ws/api/v4/spot/tickers',
+        proxy: true,
+        parser: (data) => {
+            const map = new Map();
+            if (Array.isArray(data)) {
+                data.forEach(item => {
+                    const pair = String(item?.currency_pair || '').toUpperCase();
+                    const price = Number(item?.last || item?.last_price || item?.close);
+                    if (!pair || !Number.isFinite(price)) return;
+                    map.set(pair.replace('/', '_'), price);
+                    map.set(pair.replace('_', ''), price);
+                    map.set(pair.replace('_', '-'), price);
+                });
+            }
+            return map;
+        }
+    },
+    KUCOIN: {
+        url: 'https://api.kucoin.com/api/v1/market/allTickers',
+        proxy: true,
+        parser: (data) => {
+            const map = new Map();
+            const list = data?.data?.ticker;
+            if (Array.isArray(list)) {
+                list.forEach(item => {
+                    const symbol = String(item?.symbol || '').toUpperCase();
+                    const price = Number(item?.last || item?.lastTradedPrice || item?.lastPrice || item?.close);
+                    if (!symbol || !Number.isFinite(price)) return;
+                    map.set(symbol, price);
+                    map.set(symbol.replace('-', ''), price);
+                    map.set(symbol.replace('-', '_'), price);
+                });
+            }
+            return map;
+        }
+    },
+    OKX: {
+        url: 'https://www.okx.com/api/v5/market/tickers?instType=SPOT',
+        proxy: true,
+        parser: (data) => {
+            const map = new Map();
+            const list = data?.data;
+            if (Array.isArray(list)) {
+                list.forEach(item => {
+                    const symbol = String(item?.instId || '').toUpperCase();
+                    const price = Number(item?.last || item?.lastPrice || item?.close);
+                    if (!symbol || !Number.isFinite(price)) return;
+                    map.set(symbol, price);
+                    map.set(symbol.replace('-', ''), price);
+                    map.set(symbol.replace('-', '_'), price);
+                });
+            }
+            return map;
+        }
+    },
+    BITGET: {
+        url: 'https://api.bitget.com/api/v2/spot/market/tickers',
+        proxy: true,
+        parser: (data) => {
+            const map = new Map();
+            const list = data?.data;
+            if (Array.isArray(list)) {
+                list.forEach(item => {
+                    const symbol = String(item?.symbol || '').toUpperCase();
+                    const price = Number(item?.last || item?.close || item?.latestPrice);
+                    if (!symbol || !Number.isFinite(price)) return;
+                    map.set(symbol, price);
+                });
+            }
+            return map;
+        }
+    },
+    BYBIT: {
+        url: 'https://api.bybit.com/v5/market/tickers?category=spot',
+        proxy: true,
+        parser: (data) => {
+            const map = new Map();
+            const list = data?.result?.list;
+            if (Array.isArray(list)) {
+                list.forEach(item => {
+                    const symbol = String(item?.symbol || '').toUpperCase();
+                    const price = Number(item?.lastPrice || item?.last || item?.price);
+                    if (!symbol || !Number.isFinite(price)) return;
+                    map.set(symbol, price);
+                });
+            }
+            return map;
+        }
+    },
+    INDODAX: {
+        url: 'https://indodax.com/api/ticker_all',
+        proxy: true,
+        parser: (data) => {
+            const map = new Map();
+            if (!data || typeof data !== 'object') return map;
+            const tickers = data.tickers || data.Tickers || data;
+            const rateStored = Number(getFromLocalStorage('PRICE_RATE_USDT') || 0);
+            const usdtTicker = tickers['usdt_idr'] || tickers['usdtidr'] || tickers['USDT_IDR'] || tickers['USDTIDR'];
+            const usdtRate = Number(usdtTicker?.last || usdtTicker?.buy || usdtTicker?.sell || rateStored);
+            Object.keys(tickers || {}).forEach(pair => {
+                const info = tickers[pair];
+                const lastRaw = info?.last ?? info?.close ?? info?.price ?? info?.sell ?? info?.buy;
+                const last = Number(lastRaw);
+                if (!Number.isFinite(last) || last <= 0) return;
+                const upper = String(pair || '').toUpperCase();
+                if (upper) {
+                    map.set(upper, last);
+                    map.set(upper.replace('_', ''), last);
+                    map.set(upper.replace('-', ''), last);
+                }
+                if (upper.endsWith('IDR')) {
+                    const base = upper.replace('_IDR', '').replace('IDR', '').replace('-', '').toUpperCase();
+                    const rate = Number.isFinite(usdtRate) && usdtRate > 0 ? usdtRate : rateStored;
+                    if (rate > 0 && base) {
+                        const usdtPrice = last / rate;
+                        map.set(`${base}USDT`, usdtPrice);
+                        map.set(`${base}_USDT`, usdtPrice);
+                        map.set(`${base}-USDT`, usdtPrice);
+                    }
+                }
+            });
+            return map;
+        }
+    }
+};
+
+async function fetchTickerMapForCex(cex) {
+    const key = String(cex || '').toUpperCase();
+    const cached = SYNC_TICKER_CACHE.get(key);
+    const now = Date.now();
+    if (cached && (now - cached.ts) < SYNC_TICKER_CACHE_TTL) {
+        return cached.map;
+    }
+    const endpoint = SYNC_TICKER_ENDPOINTS[key];
+    if (!endpoint) throw new Error(`Ticker endpoint untuk ${key} tidak tersedia`);
+    const targetUrl = endpoint.proxy ? proxSync(endpoint.url) : endpoint.url;
+    const resp = await $.getJSON(targetUrl);
+    const map = endpoint.parser(resp) || new Map();
+    SYNC_TICKER_CACHE.set(key, { map, ts: now });
+    return map;
+}
+
+function resolveTickerPriceFromMap(cex, map, base, quote) {
+    if (!map) return NaN;
+    const b = String(base || '').toUpperCase();
+    const q = String(quote || '').toUpperCase();
+    const candidates = [
+        `${b}${q}`,
+        `${b}_${q}`,
+        `${b}-${q}`,
+        `${b}/${q}`,
+        `${b}:${q}`
+    ];
+    for (const key of candidates) {
+        if (map.has(key)) return Number(map.get(key));
+    }
+    return NaN;
+}
+
+function queueSyncPriceFetch(job) {
+    window.__SYNC_PRICE_QUEUE = window.__SYNC_PRICE_QUEUE || [];
+    window.__SYNC_PRICE_QUEUE.push(job);
+    processSyncPriceQueue();
+}
+try { window.queueSyncPriceFetch = queueSyncPriceFetch; } catch(_) {}
+
+async function processSyncPriceQueue() {
+    if (window.__SYNC_PRICE_ACTIVE) return;
+    const queue = window.__SYNC_PRICE_QUEUE || [];
+    const next = queue.shift();
+    if (!next) return;
+    window.__SYNC_PRICE_ACTIVE = true;
+    const cache = getSyncPriceCache();
+    const cacheKey = `${next.cex}__${next.symbol}__${next.pair}`;
+    const cached = cache.get(cacheKey);
+    const now = Date.now();
+    if (cached && (now - cached.ts) < SYNC_PRICE_CACHE_TTL) {
+        setSyncPriceCell(next.cex, next.symbol, next.pair, cached.price, next.renderId);
+        window.__SYNC_PRICE_ACTIVE = false;
+        processSyncPriceQueue();
+        return;
+    }
+    try {
+        const map = await fetchTickerMapForCex(next.cex);
+        let price = resolveTickerPriceFromMap(next.cex, map, next.symbol, next.pair);
+        if (!Number.isFinite(price) || price <= 0) price = NaN;
+        if (Number.isFinite(price) && price > 0) {
+            cache.set(cacheKey, { price, ts: now });
+        }
+        setSyncPriceCell(next.cex, next.symbol, next.pair, price, next.renderId);
+    } catch(err) {
+        setSyncPriceCell(next.cex, next.symbol, next.pair, NaN, next.renderId);
+    } finally {
+        window.__SYNC_PRICE_ACTIVE = false;
+        if (queue.length) processSyncPriceQueue();
+    }
+}
+
 function normalizeSnapshotRecord(rec, chainKey) {
     if (!rec) return null;
     const cex = String(rec.cex || rec.exchange || '').toUpperCase().trim();
@@ -1855,14 +2163,14 @@ async function loadSyncTokensFromSnapshot(chainKey) {
         }
 
         $('#sync-modal-chain-name').text(chainConfig.Nama_Chain || String(activeSingleChainKey).toUpperCase());
-        $('#sync-modal-tbody').empty().html('<tr><td colspan="4">Loading...</td></tr>');
+        $('#sync-modal-tbody').empty().html('<tr><td colspan="6">Loading...</td></tr>');
         setSyncSourceIndicator('Server');
         UIkit.modal('#sync-modal').show();
 
         try {
             await loadSyncTokensFromServer(activeSingleChainKey);
         } catch (error) {
-            $('#sync-modal-tbody').html('<tr><td colspan="4">Failed to fetch token data.</td></tr>');
+            $('#sync-modal-tbody').html('<tr><td colspan="6">Failed to fetch token data.</td></tr>');
             console.error("Error fetching token JSON:", error);
             let reason = '';
             try {
@@ -1889,19 +2197,19 @@ async function loadSyncTokensFromSnapshot(chainKey) {
             return;
         }
 
-        $('#sync-modal-tbody').empty().html('<tr><td colspan="4">Loading...</td></tr>');
+        $('#sync-modal-tbody').empty().html('<tr><td colspan="6">Loading...</td></tr>');
 
         if (source === 'server') {
             try {
                 await loadSyncTokensFromServer(activeSingleChainKey);
             } catch (error) {
-                $('#sync-modal-tbody').html('<tr><td colspan="4">Gagal memuat data server.</td></tr>');
+                $('#sync-modal-tbody').html('<tr><td colspan="6">Gagal memuat data server.</td></tr>');
             }
         } else if (source === 'snapshot') {
             try {
                 await loadSyncTokensFromSnapshot(activeSingleChainKey);
             } catch (error) {
-                $('#sync-modal-tbody').html('<tr><td colspan="4">Gagal memuat data snapshot.</td></tr>');
+                $('#sync-modal-tbody').html('<tr><td colspan="6">Gagal memuat data snapshot.</td></tr>');
             }
         }
     });
@@ -1914,32 +2222,35 @@ async function loadSyncTokensFromSnapshot(chainKey) {
         const remoteTokens = $modal.data('remote-raw') || [];
         const savedTokens = $modal.data('saved-tokens') || [];
 
-        // Build selected tokens with DEX configs (global, unlimited DEX)
+        // Build selected tokens with DEX configs
         const chainKey = activeSingleChainKey.toLowerCase();
         const chainCfg = CONFIG_CHAINS[chainKey] || {};
         const pairDefs = chainCfg.PAIRDEXS || {};
         const dexList = (chainCfg.DEXS || []).map(d => String(d));
 
-        // Read global DEX selections
+        // Baca modal per DEX (format lama, semua DEX otomatis aktif)
         const selectedDexsGlobal = [];
         const dataDexsGlobal = {};
-        $('#sync-dex-config .sync-dex-global').each(function(){
-            const dx = String($(this).val());
-            if (!$(this).is(':checked')) return;
-            const leftVal = parseFloat($(`#sync-dex-config .sync-dex-global-left[data-dex="${dx}"]`).val());
-            const rightVal = parseFloat($(`#sync-dex-config .sync-dex-global-right[data-dex="${dx}"]`).val());
-            // Normalize to lowercase canonical key
+        $('#sync-dex-config .sync-dex-left').each(function(){
+            const dx = String($(this).data('dex'));
+            const leftVal = parseFloat($(this).val());
+            const rightVal = parseFloat($(`#sync-dex-config .sync-dex-right[data-dex="${dx}"]`).val());
             const dxLower = dx.toLowerCase();
             selectedDexsGlobal.push(dxLower);
-            dataDexsGlobal[dxLower] = { left: isNaN(leftVal)?0:leftVal, right: isNaN(rightVal)?0:rightVal };
+            dataDexsGlobal[dxLower] = {
+                left: Number.isFinite(leftVal) ? leftVal : 0,
+                right: Number.isFinite(rightVal) ? rightVal : 0
+            };
         });
         if (selectedDexsGlobal.length < 1) {
-            if (typeof toast !== 'undefined' && toast.warning) toast.warning('Pilih minimal 1 DEX.');
+            if (typeof toast !== 'undefined' && toast.warning) toast.warning('Konfigurasi DEX kosong.');
             return;
         }
-        // Removed 4-DEX selection cap: allow any number of DEX
 
         // debug logs removed
+
+        const nonPairConfig = readNonPairConfig();
+        const hasNonPairOverride = nonPairConfig && nonPairConfig.symbol;
 
         const selectedTokens = [];
         $('#sync-modal-tbody tr').each(function() {
@@ -1956,7 +2267,11 @@ async function loadSyncTokensFromSnapshot(chainKey) {
             const symbolIn = String(tok.symbol_in || '').toUpperCase().trim();
             const isSnapshot = (sourceOverride === 'snapshot') || String(tok.__source || '').toLowerCase() === 'snapshot';
             const pairKeyRaw = pairOverride || String(tok.symbol_out || '').toUpperCase().trim();
-            const symbolOut = pairKeyRaw || 'NON';
+            let symbolOut = pairKeyRaw || 'NON';
+            const usingCustomNon = (pairOverride === 'NON' || symbolOut === 'NON') && hasNonPairOverride;
+            if (usingCustomNon) {
+                symbolOut = String(nonPairConfig.symbol).toUpperCase();
+            }
             let scIn = tok.sc_in || tok.contract_in || '';
             const scOutRaw = tok.sc_out || tok.contract_out || '';
             const desInVal = Number(tok.des_in ?? tok.decimals_in ?? tok.des ?? tok.dec_in ?? 0);
@@ -1965,7 +2280,12 @@ async function loadSyncTokensFromSnapshot(chainKey) {
             // Map pair to config; if unknown → NON
             // NON concept: any pair NOT explicitly listed in PAIRDEXS.
             // For NON we should keep sc_out from source if provided; only fallback to PAIRDEXS['NON'] when input is missing/invalid.
-            const pairDef = pairDefs[symbolOut] || pairDefs['NON'] || { scAddressPair: '0x', desPair: 18, symbolPair: 'NON' };
+            const customPairDef = usingCustomNon ? {
+                scAddressPair: nonPairConfig.sc || '',
+                desPair: Number.isFinite(nonPairConfig.des) ? nonPairConfig.des : 18,
+                symbolPair: symbolOut
+            } : null;
+            const pairDef = pairDefs[symbolOut] || customPairDef || pairDefs['NON'] || { scAddressPair: '0x', desPair: 18, symbolPair: 'NON' };
             const isAddrInvalid = (addr) => !addr || String(addr).toLowerCase() === '0x' || String(addr).length < 6;
             let scOut = tok.sc_out || tok.contract_out || '';
             let desOut = Number.isFinite(desOutRaw) && desOutRaw > 0 ? desOutRaw : Number(pairDef.desPair);
@@ -1973,6 +2293,10 @@ async function loadSyncTokensFromSnapshot(chainKey) {
                 // Known pair in config: allow fallback to config default if source empty
                 scOut = scOut || pairDef.scAddressPair;
                 desOut = Number.isFinite(desOutRaw) && desOutRaw > 0 ? desOutRaw : Number(pairDef.desPair);
+            } else if (usingCustomNon) {
+                scOut = nonPairConfig.sc || scOut || pairDef.scAddressPair || '';
+                if (isAddrInvalid(scOut)) scOut = pairDef.scAddressPair || scOut;
+                desOut = Number.isFinite(nonPairConfig.des) ? nonPairConfig.des : (Number.isFinite(desOutRaw) && desOutRaw > 0 ? desOutRaw : Number(pairDef.desPair || 18));
             } else {
                 // NON: keep source SC if present; only fallback when invalid
                 if (isAddrInvalid(scOut)) {
@@ -2094,6 +2418,9 @@ async function loadSyncTokensFromSnapshot(chainKey) {
     }, 200));
 
     $(document).on('change', '#sync-filter-pair input[type="checkbox"]', function(){
+        if (typeof window.toggleNonPairInputs === 'function') {
+            window.toggleNonPairInputs();
+        }
         renderSyncTable(activeSingleChainKey);
     });
 
@@ -2110,7 +2437,17 @@ async function loadSyncTokensFromSnapshot(chainKey) {
         } else if (mode === 'picked') {
             $boxes.prop('checked', false);
             $('#sync-modal-tbody tr:visible .sync-token-checkbox[data-saved="1"]').prop('checked', true);
+        } else if (mode === 'clear') {
+            $boxes.prop('checked', false);
+        } else if (mode === 'snapshot') {
+            $boxes.prop('checked', false);
+            $('#sync-modal-tbody tr:visible .sync-token-checkbox[data-source="snapshot"]').prop('checked', true);
         }
+        updateSyncSelectedCount();
+    });
+
+    $(document).on('change', '#sync-modal-tbody .sync-token-checkbox', function(){
+        updateSyncSelectedCount();
     });
 
     // Removed legacy single-chain start button handler (using unified #startSCAN now)
@@ -2374,7 +2711,7 @@ $(document).ready(function() {
             const ring = '';
             const linkHTML = `
                 <span class="chain-link icon" data-chain="${chainKey}" style="display:inline-block; ${style} margin-right:4px;">
-                    <a href="${currentPage}?chain=${encodeURIComponent(chainKey)}" title="${name}">
+                    <a href="${currentPage}?chain=${encodeURIComponent(chainKey)}" title="SCANNER ${name.toUpperCase()}">
                         <img src="${icon}" alt="${name} icon" width="${width}" style="${ring}">
                     </a>
                 </span>`;
@@ -2461,9 +2798,9 @@ $(document).ready(function() {
         const $cex = $('#sync-filter-cex').empty();
         Object.keys(CONFIG_CEX || {}).forEach(cex => {
             const id = `sync-cex-${cex}`;
-            const badge = countByCex[cex] || 0;
-            $cex.append(`<label class="uk-text-small" style="display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid #e5e5e5; border-radius:6px; background:#fafafa;">
-                <input type="checkbox" id="${id}" value="${cex}" class="uk-checkbox" checked>
+           const badge = countByCex[cex] || 0;
+           $cex.append(`<label class="uk-text-small" style="display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid #e5e5e5; border-radius:6px; background:#fafafa;">
+                <input type="checkbox" id="${id}" value="${cex}" class="uk-checkbox">
                 <span style="color:${CONFIG_CEX[cex].WARNA||'#333'}; font-weight:bolder;">${cex}</span>
                 <span class="uk-text-muted">(${badge})</span>
             </label>`);
@@ -2474,24 +2811,23 @@ $(document).ready(function() {
         const pairKeys = Array.from(new Set([...Object.keys(pairDefs||{}), 'NON']));
         pairKeys.forEach(p => {
             const id = `sync-pair-${p}`;
-            const badge = countByPair[p] || 0;
             const checked = defaultPairs.includes(p) ? 'checked' : '';
             $pair.append(`<label class="uk-text-small" style="display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid #e5e5e5; border-radius:6px; background:#fafafa;">
                 <input type="checkbox" id="${id}" value="${p}" class="uk-checkbox" ${checked}>
                 <span style="font-weight:bolder;">${p}</span>
-                <span class="uk-text-muted">(${badge})</span>
             </label>`);
         });
+        toggleNonPairInputs();
 
-        // Build DEX config (no limit)
+        // Build DEX config legacy style (input per DEX tanpa checkbox global)
         const $dex = $('#sync-dex-config').empty();
         const dexList = (chain.DEXS || []).map(String);
         dexList.forEach(dx => {
             $dex.append(`
-                <div class=\"uk-flex uk-flex-middle\" style=\"gap:8px;\">
-                    <label class=\"uk-text-small\" style=\"min-width:140px;\"><input type=\"checkbox\" class=\"uk-checkbox sync-dex-global uk-text-bolder\" value=\"${dx}\"><strong> ${dx.toUpperCase()}</strong></label>
-                    <input type=\"number\" class=\"uk-input uk-form-small  sync-dex-global-left\" data-dex=\"${dx}\" placeholder=\"L\" value=\"100\">
-                    <input type=\"number\" class=\"uk-input uk-form-small  sync-dex-global-right\" data-dex=\"${dx}\" placeholder=\"R\" value=\"100\">
+                <div class="uk-flex uk-flex-middle" style="gap:6px;">
+                    <span class="uk-text-small uk-text-bold" style="width:90px;">${dx.toUpperCase()}</span>
+                    <input type="number" class="uk-input uk-form-small sync-dex-left" data-dex="${dx}" placeholder="Modal Kiri" value="100">
+                    <input type="number" class="uk-input uk-form-small sync-dex-right" data-dex="${dx}" placeholder="Modal Kanan" value="100">
                 </div>`);
         });
     };
@@ -2504,15 +2840,19 @@ $(document).ready(function() {
         const chainCfg = CONFIG_CHAINS[chainKey] || {};
         const pairDefs = chainCfg.PAIRDEXS || {};
         const sourceLabel = String($modal.data('source') || 'server').toLowerCase();
+        const selectedCexs = $('#sync-filter-cex input:checked').map(function(){ return $(this).val().toUpperCase(); }).get();
+        const selectedPairs = $('#sync-filter-pair input:checked').map(function(){ return $(this).val().toUpperCase(); }).get();
+        window.__SYNC_PRICE_QUEUE = [];
+        window.__SYNC_PRICE_ACTIVE = false;
+        const renderId = Date.now();
 
-        if (!raw.length) {
-            modalBody.html('<tr><td colspan="4">No tokens found in remote JSON.</td></tr>');
+        if (!raw.length || selectedCexs.length === 0) {
+            modalBody.html('<tr><td colspan="6">Pilih minimal 1 CEX untuk menampilkan koin.</td></tr>');
+            updateSyncSelectedCount();
             return;
         }
 
         const search = ($('#sync-search-input').val() || '').toLowerCase();
-        const selectedCexs = $('#sync-filter-cex input:checked').map(function(){ return $(this).val().toUpperCase(); }).get();
-        const selectedPairs = $('#sync-filter-pair input:checked').map(function(){ return $(this).val().toUpperCase(); }).get();
 
         const pairKeys = Object.keys(pairDefs || {});
         const defaultPairs = (selectedPairs.length
@@ -2560,7 +2900,8 @@ $(document).ready(function() {
         });
 
         if (!filtered.length) {
-            modalBody.html('<tr><td colspan="4">No tokens match filters.</td></tr>');
+            modalBody.html('<tr><td colspan="6">No tokens match filters.</td></tr>');
+            updateSyncSelectedCount();
             return;
         }
 
@@ -2603,6 +2944,9 @@ $(document).ready(function() {
             /* debug logs removed */
         } catch(e) { /* debug logs removed */ }
 
+        const priceJobKeys = new Set();
+        const priceJobs = [];
+
         filtered.forEach((token, index) => {
             const baseIndex = (typeof token.__baseIndex === 'number') ? token.__baseIndex : (token._idx ?? index);
             const source = String(token.__source || sourceLabel || 'server').toLowerCase();
@@ -2611,6 +2955,7 @@ $(document).ready(function() {
             const symOut = String(token.symbol_out || '').toUpperCase();
             const mappedPair = pairDefs[symOut] ? symOut : 'NON';
             const scIn = String(token.sc_in || token.contract_in || '');
+            const scOut = String(token.sc_out || token.contract_out || '');
             const desIn = token.des_in ?? token.decimals_in ?? token.des ?? token.dec_in ?? '';
 
             // Cek apakah koin sudah ada di database (per-chain)
@@ -2629,20 +2974,37 @@ $(document).ready(function() {
             const sourceBadge = (source === 'snapshot')
               ? ' <span class="uk-label uk-label-warning" style="font-size:10px;" title="Berhasil dimuat dari snapshot lokal">SNAPSHOT</span>'
               : '';
-            const pairBadge = pairDefs[symOut]
-              ? ''
-              : ' <span class="uk-text-danger uk-text-bold">[NON]</span>';
             const row = `
                 <tr>
                     <td><input type="checkbox" class="uk-checkbox sync-token-checkbox" data-index="${baseIndex}" data-pair="${symOut}" data-source="${source}" ${isChecked ? 'checked' : ''} ${isChecked ? 'data-saved="1"' : ''}></td>
                     <td>${symIn}${statusBadge}${sourceBadge}</td>
-                    <td>${symOut}${pairBadge}</td>
                     <td class="uk-text-small mono" title="${scIn}">${String(scIn).slice(0, 6)}...${String(scIn).slice(-4)}</td>
                     <td class="uk-text-center">${desIn}</td>
                     <td>${cexUp}</td>
+                    <td class="uk-text-right uk-text-small" data-price-cex="${cexUp}" data-symbol="${symIn}" data-pair="${symOut}">-</td>
                 </tr>`;
             modalBody.append(row);
+            const $priceCell = $(`#sync-modal-tbody td[data-price-cex="${cexUp}"][data-symbol="${symIn}"][data-pair="${symOut}"]`);
+            const eligibleForPrice = symOut && symOut !== 'NON';
+            if ($priceCell.length) {
+                $priceCell.text(eligibleForPrice ? '...' : '-').data('render-id', renderId);
+            }
+            const jobKey = `${cexUp}__${symIn}__${symOut}`;
+            if (eligibleForPrice && !priceJobKeys.has(jobKey)) {
+                priceJobKeys.add(jobKey);
+                priceJobs.push({
+                    cex: cexUp,
+                    symbol: symIn,
+                    pair: symOut,
+                    scIn,
+                    scOut,
+                    chain: chainKey,
+                    renderId
+                });
+            }
         });
+        updateSyncSelectedCount();
+        priceJobs.forEach(queueSyncPriceFetch);
     };
 });
 

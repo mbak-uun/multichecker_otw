@@ -1,7 +1,7 @@
 
 const CONFIG_APP = {
     APP: {
-        NAME: "MULTICHECKER DEV",
+        NAME: "MULTIPLUS-SCANNER",
         VERSION: "1.0"
     }
 };
@@ -491,8 +491,8 @@ const CONFIG_DEXS = {
                 pairtotoken: 'kyber'
             },
             alternative: {
-                tokentopair: 'dzap',
-                pairtotoken: 'swoop'
+                tokentopair: 'swoop',
+                pairtotoken: 'dzap'
             }
         },
         allowFallback: false,

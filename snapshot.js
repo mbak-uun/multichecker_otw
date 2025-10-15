@@ -619,8 +619,37 @@
       $('#snapshot-summary').html(html);
     }
     function renderSummary(rows){ renderBadges(computeCounts(rows)); }
+    function buildSavedTokenSet(chainKey){
+      const set = new Set();
+      try {
+        const chainLower = String(chainKey || '').toLowerCase();
+        const appendTokens = (list) => {
+          (list || []).forEach(tok => {
+            if (!tok) return;
+            const sym = String(tok.symbol_in || tok.symbol || '').toUpperCase();
+            if (!sym) return;
+            const chainTok = String(tok.chain || '').toLowerCase();
+            if (chainLower && chainTok && chainTok !== chainLower) return;
+            const cexListRaw = Array.isArray(tok.selectedCexs) && tok.selectedCexs.length ? tok.selectedCexs : [tok.cex];
+            (cexListRaw || []).forEach(cx => {
+              if (!cx) return;
+              const key = `${String(cx).toUpperCase()}__${sym}`;
+              set.add(key);
+            });
+          });
+        };
+        if (typeof getTokensChain === 'function') {
+          appendTokens(getTokensChain(chainKey));
+        }
+        if (typeof getTokensMulti === 'function') {
+          appendTokens((getTokensMulti() || []).filter(t => String(t.chain || '').toLowerCase() === chainLower));
+        }
+      } catch(_) {}
+      return set;
+    }
     function renderRows(rows, chainKey){
       $tbody.empty();
+      const savedSet = buildSavedTokenSet(chainKey);
       (rows||[]).forEach((r,idx)=>{
         const parsedPrice = Number(r.price);
         const hasPrice = r.price !== null && r.price !== undefined && r.price !== '' && Number.isFinite(parsedPrice);
@@ -633,12 +662,18 @@
         } else {
           tradeHtml = r.trade || '-';
         }
+        const symUpper = String(r.symbol||'').toUpperCase();
+        const cexUpper = String(r.cex||'').toUpperCase();
+        const savedKey = `${cexUpper}__${symUpper}`;
+        const savedBadge = savedSet.has(savedKey)
+          ? ' <span class="uk-label uk-label-success" style="font-size:10px;" title="Koin sudah tersimpan di database">[ SUDAH DIPILIH ]</span>'
+          : '';
         $tbody.append(`<tr>
           <td>${idx+1}</td>
           <td>${r.cex||'-'}</td>
           <td>${String(r.chain||chainKey||'').toUpperCase()}</td>
           <td>${r.token||''}</td>
-          <td class="mono">${String(r.symbol||'').toUpperCase()}</td>
+          <td class="mono">${symUpper}${savedBadge}</td>
           <td class="mono">${r.sc||''}</td>
           <td>${r.decimals||''}</td>
           <td>${tradeHtml}</td>
@@ -1225,17 +1260,28 @@
             case 'BITGET': (res?.data || []).forEach(t => { if (t.symbol.endsWith('USDT')) maps[cex][t.symbol.slice(0, -4)] = parseFloat(t.lastPr); }); break;
             case 'BYBIT': (res?.result?.list || []).forEach(t => { if (t.symbol.endsWith('USDT')) maps[cex][t.symbol.slice(0, -4)] = parseFloat(t.lastPrice); }); break;
             case 'INDODAX': {
-              const tickers = res?.tickers || {};
-              const usdtRate = parseFloat(tickers['usdt_idr']?.last);
-              if (Number.isFinite(usdtRate) && usdtRate > 0) {
-                Object.keys(tickers).forEach(pair => {
-                  if (pair.endsWith('_idr') && pair !== 'usdt_idr') {
-                    const sym = pair.slice(0, -4).toUpperCase();
-                    const lastIdr = parseFloat(tickers[pair].last);
-                    if (Number.isFinite(lastIdr)) maps[cex][sym] = lastIdr / usdtRate;
+              const tickers = res?.tickers || res?.Tickers || res || {};
+              const usdtTicker = tickers['usdt_idr'] || tickers['usdtidr'] || tickers['USDT_IDR'] || tickers['USDTIDR'];
+              const storedRate = Number(getFromLocalStorage('PRICE_RATE_USDT') || 0);
+              const usdtRate = Number(usdtTicker?.last || usdtTicker?.sell || usdtTicker?.buy || storedRate);
+              Object.keys(tickers).forEach(pair => {
+                const info = tickers[pair];
+                if (!info || typeof info !== 'object') return;
+                const lastRaw = info.last ?? info.close ?? info.price ?? info.sell ?? info.buy;
+                const last = Number(lastRaw);
+                if (!Number.isFinite(last) || last <= 0) return;
+                const upper = String(pair || '').toUpperCase();
+                if (upper.endsWith('IDR')) {
+                  const base = upper.replace('_IDR', '').replace('IDR', '').replace('-', '').toUpperCase();
+                  const rate = Number.isFinite(usdtRate) && usdtRate > 0 ? usdtRate : storedRate;
+                  if (rate > 0) {
+                    maps[cex][base] = last / rate;
                   }
-                });
-              }
+                } else if (upper.endsWith('USDT')) {
+                  const base = upper.replace('_USDT', '').replace('USDT', '').replace('-', '').toUpperCase();
+                  maps[cex][base] = last;
+                }
+              });
             } break;
           }
     

@@ -2441,7 +2441,7 @@ img:hover {
         // Fungsi Reset Modal
         $('#ResetModal').on('click', async function () {
             var formattedTime = getFormattedTime();
-            await $('#SaveWalletChains').trigger('click'); 
+            await $('#SaveWalletChains').trigger('click');
 
             // Memanggil fungsi untuk mengecek asset di CEX
             $('#SaveConfigCEXS').trigger('click');
@@ -2457,10 +2457,15 @@ img:hover {
             // Set modal awal ke saldo total saat ini (reset)
             localStorage.setItem('MULTI_MODALAWAL', saldoAkhir);
 
+            // Update input field modal awal dengan nilai total saat ini
+            $("#MODALAWAL").val(saldoAkhir.toFixed(2));
+
             addTableHistory(formattedTime,Number(saldoAkhir) ,Number(saldoAkhir),0,"reset");
-           // location.reload();
-            LoadTableHistory()
-            ShowLabelModal("reset");
+
+            // Reload halaman agar modal awal sesuai dengan total modal saat ini
+            setTimeout(() => {
+                location.reload();
+            }, 1000); // Delay 1 detik untuk memastikan toast notification terlihat
         });
         
         function addTableHistory(date,awal,akhir,pnl,action){ // Tambahkan data ke riwayat
