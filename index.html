@@ -15,7 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.70.0/lib/index.iife.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/uikit@3.17.11/dist/js/uikit-icons.min.js"></script> 
     
-    <link id="favicon" rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/256/17014/17014994.png">
+    <link id="favicon" rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/6488/6488055.png">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -51,15 +51,15 @@
                 
                 <!-- Kiri: Judul -->
                 <div class="uk-width-expand@s uk-width-1-1">
-                    <div class="uk-flex uk-flex-middle uk-flex-wrap">
-                        <h3 id="judul" class="uk-margin-remove" 
-                            style="font-size: 18px; line-height: 1.2; color: #000; font-weight: bold;">
+                    <div class="uk-flex uk-flex-middle uk-flex-wrap" style="align-items: center;">
+                        <h3 id="judul" class="uk-margin-remove"
+                            style="font-size: 18px; line-height: 1.4; color: #000; font-weight: bold; display: inline-flex; align-items: center;">
                             <span id="app-title">MULTIPLUS-SCANNER</span>
                             <span id="current-chain-label" style="margin-left:3px;">[ALL]</span>
                         </h3>
                         &nbsp;&nbsp;
-                        <span>[ <b> 
-                            <span class="uk-text-danger uk-text-small" id="infoAPP">???</span> 
+                        <span style="display: inline-flex; align-items: center;">[ <b>
+                            <span class="uk-text-danger uk-text-small" id="infoAPP">???</span>
                         </b> ]</span>
                     </div>
                 </div>
@@ -84,7 +84,6 @@
                        
                          <a href="https://cors-anywhere.herokuapp.com/corsdemo" class="iframe-modal-trigger" data-feature="proxy"><img class="icon" title="BUKA AKSES" width="24px"  src="https://cdn-icons-png.flaticon.com/512/890/890162.png" /></a>
 
-                         <a href="#" id="openSnapshotView" data-feature="snapshot"><img class="icon" title="SNAPSHOT KOIN EXCHANGER" width="24px" src="https://cdn2.iconfinder.com/data/icons/money-and-banking-v-3/100/money-11-1024.png" /></a>
                         <!-- Memory management removed (no localStorage) -->
                         <img class="icon" id="darkModeToggle" title="Ganti Mode Gelap/Terang" width="24px" src="https://cdn-icons-png.flaticon.com/512/3751/3751403.png" /> 
                     </div>
@@ -94,17 +93,6 @@
 </div>
 </div>
 
-    <!-- Unified Filter Card -->
-    <div id="filter-card" class="uk-card uk-card-default uk-margin-small header-card uk-card-hover">
-        <div id="filter-head" class="uk-flex uk-flex-middle uk-flex-wrap" style="gap:8px;">
-            <!-- Placeholder so renderer detects labels container -->
-            <span id="filter-head-labels" class="uk-text-small uk-text-muted" style="display:none;"></span>
-        </div>
-        <div id="filter-groups" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
-            <!-- Sync icon will be injected at the very left in per-chain mode -->
-            <span id="filter-summary" class="uk-text-small uk-text-muted" style="margin-left:auto;">TOTAL: 0</span>
-        </div>
-    </div>
 
     <div class="uk-card uk-card-default uk-padding-small uk-card-hover" id="scanner-config">
         <div class="uk-grid-small uk-flex-middle" uk-grid>
@@ -115,7 +103,7 @@
 
                 <!-- KOLOM KIRI: semua kontrol kecuali Search -->
                 <div class="uk-width-expand uk-flex uk-flex-middle uk-flex-wrap">
-                <span class=" uk-text-bolder">SCANNER:</span>
+                <span class=" uk-text-bolder">SCANNER : </span>
                 <label class="uk-margin-small-left">
                     <input class="uk-checkbox" type="checkbox" id="autoRunToggle">
                     <span class="uk-text-success">Auto Run</span>
@@ -153,13 +141,7 @@
                     <button type="button" id="stopSCAN" data-feature="scan" style="display:none;" class="uk-button uk-button-danger uk-button-small">STOP</button>
                     
                 </div>
-                <!-- Toggle: Console Log Summary (default OFF) -->
-                <div class="uk-margin-small-left">
-                    <label class="uk-flex uk-flex-middle" title="Tampilkan ringkasan log kalkulasi di console">
-                        <input class="uk-checkbox" type="checkbox" id="toggleScanLog">
-                        <span class="uk-margin-small-left">Log</span>
-                    </label>
-                </div>
+                
                 </div>
 
                 <!-- KOLOM KANAN: Search, rata kanan ≥ @m -->
@@ -170,8 +152,9 @@
                         <label class="uk-margin-small-left uk-flex uk-flex-middle">
                         <input class="uk-checkbox" type="checkbox" id="autoScrollCheckbox">
                         <span class="uk-text-warning uk-margin-small-left">Auto Scroll</span>
-                        </label>
-
+                        </label>&nbsp;&nbsp;
+                        <input class="uk-checkbox" type="checkbox" id="toggleScanLog">
+                        <span class="uk-margin-small-left">Log</span>
                         <div class="uk-margin-small-left">
                         <input type="text" id="searchInput"
                                 class="uk-input uk-form-small uk-form-primary uk-form-width-small"
@@ -202,6 +185,19 @@
             <!-- Sinyal DEX akan dimuat di sini -->
     </div>
 
+
+    <!-- Unified Filter Card -->
+    <div id="filter-card" class="uk-card uk-card-default uk-margin-small header-card uk-card-hover">
+        <div id="filter-head" class="uk-flex uk-flex-middle uk-flex-wrap" style="gap:8px;">
+            <!-- Placeholder so renderer detects labels container -->
+            <span id="filter-head-labels" class="uk-text-small uk-text-muted" style="display:none;"></span>
+        </div>
+        <div id="filter-groups" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+            <!-- Sync icon will be injected at the very left in per-chain mode -->
+            <span id="filter-summary" class="uk-text-small uk-text-muted" style="margin-left:auto;">TOTAL: 0</span>
+        </div>
+    </div>
+    
     <div class="uk-overflow-auto uk-margin-small-top" id="monitoring-scroll" style="max-height: calc(100vh - 220px); overflow: auto;">
         <table id="tabel-monitoring" class="uk-table uk-table-hover uk-table-small uk-table-striped" >
             <thead id="monitoring-thead" style="background: #5c9514;"></thead>
@@ -276,83 +272,134 @@
         </form>
 </section>
 
-<section id="snapshot-view" class="uk-card uk-card-default uk-padding-small uk-card-hover" style="display:none; border:1px solid black;">
-   
-
-    <div class="uk-card uk-card-default">
-      <div class="uk-text-bold ">SNAPSHOT KOIN: SILAKAN PILIH EXCHANGER</div>
-      
-
-      <div class="uk-grid-small" uk-grid>
-        <div class="uk-width-1-1">
-          <div id="snapshot-cex-list" class="snapshot-cex-list"></div>
+<!-- SECTION: UPDATE WALLET EXCHANGER -->
+<section id="update-wallet-section" class="uk-card uk-card-default uk-padding-small uk-card-hover" style="display:none; border:1px solid black;">
+    <div class="uk-flex uk-flex-between uk-flex-middle uk-margin-small-bottom">
+        <h4 class="uk-margin-remove uk-text-bold">UPDATE WALLET EXCHANGER</h4>
+        <div class="uk-flex uk-flex-middle" style="gap: 12px;">
+            <span class="uk-text-meta">Chain Aktif: <strong id="wallet-chain-label">-</strong></span>
+            <button id="btn-close-wallet-section" class="uk-button uk-button-default uk-button-small" type="button">
+                <span uk-icon="icon: close; ratio: 0.8"></span> KEMBALI
+            </button>
         </div>
-      </div>
-      <div class="uk-grid-small uk-margin-small" uk-grid>
-        <div class="uk-width-auto uk-flex uk-flex-middle" style="gap:8px;">
-          <span class="uk-text-meta">Chain: <strong id="snapshot-chain-label">-</strong></span>
-        </div>
-        <div class="uk-width-1-3@s" id="snapshot-chain-select-wrap">
-          <select id="snapshot-chain" class="uk-select"></select>
-        </div>
-        <div class="uk-width-2-3@s uk-flex uk-flex-middle" style="gap:8px;">
-          <button id="snapshot-btn-fetch" class="uk-button uk-button-primary uk-button-small" type="button">SYNC EXCHANGER</button>          
-          <button id="snapshot-btn-export" class="uk-button uk-button-default uk-button-small" type="button" disabled>Export CSV</button>
-          <span id="snapshot-status" class="uk-text-meta"></span>
-        </div>
-      </div>
-
-      <div class="uk-grid-small uk-margin-small uk-flex-middle" uk-grid>
-        <div class="uk-width-auto"><span class="uk-text-bold uk-text-meta">Delay (ms):</span></div>
-        <div class="uk-width-auto">
-          <label class="uk-text-meta">CEX</label>
-          <input type="number" id="snapshot-rate-cex" class="uk-input uk-form-xxsmall" style="width:90px;" min="0" value="150">
-        </div>
-        <div class="uk-width-auto">
-          <label class="uk-text-meta">WEB3</label>
-          <input type="number" id="snapshot-rate-web3" class="uk-input uk-form-xxsmall" style="width:90px;" min="0" value="150">
-        </div>
-        <div class="uk-width-auto">
-          <label class="uk-text-meta">PRICE</label>
-          <input type="number" id="snapshot-rate-price" class="uk-input uk-form-xxsmall" style="width:90px;" min="0" value="60">
-        </div>
-      </div>
     </div>
 
-    <div class="uk-flex uk-flex-middle uk-margin-small" id="snapshot-toolbar" style="gap:8px;">
-      <input id="snapshot-search" class="uk-input uk-form-xxsmall" style="max-width:260px;" placeholder="Search token/symbol/SC/CEX">
-      <div id="snapshot-summary" class="uk-flex uk-flex-wrap" style="gap:6px;"></div>
+    <!-- Info & Control Panel -->
+    <div class="uk-card uk-card-default uk-card-body uk-padding-small uk-margin-small-bottom">
+        <div class="uk-grid-small uk-flex-middle" uk-grid>
+            <div class="uk-width-expand">
+                <p class="uk-text-small uk-text-muted uk-margin-remove" id="wallet-info-text">
+                    Pilih exchanger kemudian jalankan pengecekan untuk melihat status deposit & withdraw koin.
+                </p>
+            </div>
+            <div class="uk-width-auto">
+                <button id="btn-cek-wallet-exchanger" class="uk-button uk-button-primary uk-button-small" disabled>
+                    UPDATE WALLET EXCHANGER
+                </button>
+            </div>
+        </div>
+        <!-- Alert untuk hasil update (hidden by default) -->
+        <div id="wallet-update-result" class="uk-alert uk-margin-small-top" style="display:none;">
+            <p class="uk-margin-remove"></p>
+        </div>
     </div>
 
-    <div class="uk-margin-small snapshot-table-wrap">
-      <table class="uk-table uk-table-small uk-table-divider uk-table-hover snapshot-sticky-head">
-        <thead>
-          <tr>
-            <th>No</th>
-            <th>CEX</th>
-            <th>Chain</th>
-            <th>Nama Token</th>
-            <th>Ticker</th>
-            <th>SC</th>
-            <th>Decimals</th>
-            <th>Status Trade</th>
-            <th>Price</th>
-          </tr>
-        </thead>
-        <tbody id="snapshot-tbody"></tbody>
-      </table>
-    </div>
-
-    <div id="snapshot-overlay" class="uk-flex uk-flex-middle uk-flex-center" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:9999;">
-      <div class="uk-card uk-card-default uk-card-body uk-text-center" style="min-width:360px;">
-        <div class="uk-margin-small" uk-spinner="ratio: 1.1"></div>
-        <div class="uk-margin-small msg uk-text-bold">Processing...</div>
-        <div class="uk-text-meta phase">Phase</div>
-        <progress id="snapshot-ov-progress" class="uk-progress uk-margin-small-top" value="0" max="100"></progress>
-        <div class="uk-text-meta counter">0 / 0 (0%)</div>
-      </div>
+    <!-- CEX Cards Grid (2 columns) -->
+    <div id="wallet-cex-grid" class="uk-grid-small uk-child-width-1-2@m" uk-grid>
+        <!-- CEX cards will be rendered here dynamically -->
     </div>
 </section>
+
+<div id="snapshot-modal" uk-modal>
+  <div class="uk-modal-dialog uk-width-1-1@m uk-width-4-5@l uk-margin-auto-vertical">
+    <div class="uk-modal-header uk-flex uk-flex-between uk-flex-middle uk-padding-small">
+      <div>
+        <h4 class="uk-modal-title uk-margin-remove"><span uk-icon="database"></span> Snapshot Koin</h4>
+        <p class="uk-text-meta uk-margin-remove-top">Silakan pilih exchanger lalu sinkronisasi data snapshot.</p>
+      </div>
+      <div class="uk-flex uk-flex-middle" style="gap:8px;">
+        <button id="snapshot-back" class="uk-button uk-button-default uk-button-small" type="button">
+          <span uk-icon="arrow-left"></span> Kembali
+        </button>
+        <button class="uk-modal-close-default" type="button" uk-close></button>
+      </div>
+    </div>
+    <div class="uk-modal-body uk-padding-small">
+      <div class="uk-card uk-card-default uk-card-body uk-padding-small">
+        <div class="uk-text-bold">SNAPSHOT KOIN: SILAKAN PILIH EXCHANGER</div>
+        <div class="uk-grid-small uk-margin-small" uk-grid>
+          <div class="uk-width-1-1">
+            <div id="snapshot-cex-list" class="snapshot-cex-list"></div>
+          </div>
+        </div>
+        <div class="uk-grid-small uk-margin-small" uk-grid>
+          <div class="uk-width-auto uk-flex uk-flex-middle" style="gap:8px;">
+            <span class="uk-text-meta">Chain: <strong id="snapshot-chain-label">-</strong></span>
+          </div>
+          <div class="uk-width-1-3@s" id="snapshot-chain-select-wrap">
+            <select id="snapshot-chain" class="uk-select"></select>
+          </div>
+          <div class="uk-width-2-3@s uk-flex uk-flex-middle" style="gap:8px;">
+            <button id="snapshot-btn-fetch" class="uk-button uk-button-primary uk-button-small" type="button">SYNC EXCHANGER</button>
+            <button id="snapshot-btn-export" class="uk-button uk-button-default uk-button-small" type="button" disabled>Export CSV</button>
+            <span id="snapshot-status" class="uk-text-meta"></span>
+          </div>
+        </div>
+        <div class="uk-grid-small uk-margin-small uk-flex-middle" uk-grid>
+          <div class="uk-width-auto"><span class="uk-text-bold uk-text-meta">Delay (ms):</span></div>
+          <div class="uk-width-auto">
+            <label class="uk-text-meta">CEX</label>
+            <input type="number" id="snapshot-rate-cex" class="uk-input uk-form-xxsmall" style="width:90px;" min="0" value="150">
+          </div>
+          <div class="uk-width-auto">
+            <label class="uk-text-meta">WEB3</label>
+            <input type="number" id="snapshot-rate-web3" class="uk-input uk-form-xxsmall" style="width:90px;" min="0" value="150">
+          </div>
+          <div class="uk-width-auto">
+            <label class="uk-text-meta">PRICE</label>
+            <input type="number" id="snapshot-rate-price" class="uk-input uk-form-xxsmall" style="width:90px;" min="0" value="60">
+          </div>
+        </div>
+      </div>
+
+      <div class="uk-flex uk-flex-middle uk-margin-small" id="snapshot-toolbar" style="gap:8px;">
+        <input id="snapshot-search" class="uk-input uk-form-xxsmall" style="max-width:260px;" placeholder="Search token/symbol/SC/CEX">
+        <div id="snapshot-summary" class="uk-flex uk-flex-wrap" style="gap:6px;"></div>
+      </div>
+
+      <div class="uk-margin-small snapshot-table-wrap">
+        <table class="uk-table uk-table-small uk-table-divider uk-table-hover snapshot-sticky-head">
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>CEX</th>
+              <th>Nama Token</th>
+              <th>Ticker</th>
+              <th>Status</th>
+              <th>SC</th>
+              <th>Decimals</th>
+              <th>Status Trade</th>
+              <th>Price</th>
+            </tr>
+          </thead>
+          <tbody id="snapshot-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="uk-modal-footer uk-text-right uk-padding-small">
+      <button class="uk-button uk-button-default uk-button-small uk-modal-close" type="button">Tutup</button>
+    </div>
+  </div>
+  <div id="snapshot-overlay" class="uk-flex uk-flex-middle uk-flex-center" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:9999;">
+    <div class="uk-card uk-card-default uk-card-body uk-text-center" style="min-width:360px;">
+      <div class="uk-margin-small" uk-spinner="ratio: 1.1"></div>
+      <div class="uk-margin-small msg uk-text-bold">Processing...</div>
+      <div class="uk-text-meta phase">Phase</div>
+      <progress id="snapshot-ov-progress" class="uk-progress uk-margin-small-top" value="0" max="100"></progress>
+      <div class="uk-text-meta counter">0 / 0 (0%)</div>
+    </div>
+  </div>
+</div>
 
     <section id="token-management" class="uk-card uk-card-default uk-padding-small uk-card-hover" style="display: none; border:1px solid black;" >
 
@@ -524,10 +571,20 @@
     <div class="uk-modal-body uk-padding-small">
       <div class="uk-flex uk-flex-between uk-flex-middle uk-margin-small-bottom uk-text-small">
         <div>SUMBER DATA KOIN: <span id="sync-source-indicator" class="uk-text-bold uk-text-primary">SERVER</span></div>
-        <div id="sync-source-toggle" class="uk-button-group">
-          <button class="uk-button uk-button-small uk-button-primary" data-source="server">SERVER</button>
-          <button class="uk-button uk-button-small uk-button-default" data-source="snapshot">SNAPSHOT</button>
-          <span class="uk-text-meta" style="margin-left:8px;">(Snapshot = koin sudah dipilih)</span>
+        <div class="uk-flex uk-flex-middle" style="gap:12px;">
+          <div id="sync-source-toggle" class="uk-flex uk-flex-middle" style="gap:12px;">
+            <label class="uk-flex uk-flex-middle" style="gap:6px;">
+              <input class="uk-radio" type="radio" name="sync-source" value="server" checked>
+              <span>SERVER</span>
+            </label>
+            <label class="uk-flex uk-flex-middle" style="gap:6px;">
+              <input class="uk-radio" type="radio" name="sync-source" value="snapshot">
+              <span>SNAPSHOT</span>
+            </label>
+          </div>
+          <button id="openSnapshotView" class="uk-button uk-button-default uk-button-small" type="button" title="Buka Snapshot">
+            SNAPSHOT
+          </button>
         </div>
       </div>
       <div class="uk-grid-small" uk-grid>
@@ -685,6 +742,7 @@
 <script src="app-namespace.js"></script>
 <script src="secrets.js"></script>
 <script src="config.js"></script>
+<script src="tab-manager.js"></script><!-- MULTI-TAB SUPPORT -->
 <script src="storage.js"></script>
 <script src="services/cex/registry.js"></script>
 <script src="utils.js"></script>
@@ -696,5 +754,6 @@
 <script src="ui.js"></script>
 <script src="dom-renderer.js"></script>
 <script src="scanner.js"></script>
+<script src="wallet-exchanger.js"></script>
 </body>
 </html>

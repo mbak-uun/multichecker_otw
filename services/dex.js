@@ -65,6 +65,49 @@
     return map[Number(code)] || `HTTP ${code} — Error dari server`;
   }
 
+  // Helper: Calculate gas fee in USD with custom gas price override
+  function calculateGasFeeUSD(chainName, gasEstimate, gasPriceGwei) {
+    try {
+      // Get gas price data from localStorage
+      const allGasData = (typeof getFromLocalStorage === 'function')
+        ? getFromLocalStorage("ALL_GAS_FEES")
+        : null;
+
+      if (!allGasData) return 0;
+
+      // Find gas info for this chain
+      const gasInfo = allGasData.find(g =>
+        String(g.chain || '').toLowerCase() === String(chainName || '').toLowerCase()
+      );
+
+      if (!gasInfo || !gasInfo.nativeTokenPrice) return 0;
+
+      // Get chain config for gas limit
+      const chainConfig = (typeof root.CONFIG_CHAINS !== 'undefined')
+        ? root.CONFIG_CHAINS[String(chainName || '').toLowerCase()]
+        : null;
+
+      const gasLimit = gasEstimate || (chainConfig ? chainConfig.GASLIMIT : 80000);
+
+      // Calculate fee: gasLimit * gasPriceGwei * nativeTokenPrice / 1e9
+      const feeUSD = (gasLimit * gasPriceGwei * gasInfo.nativeTokenPrice) / 1e9;
+
+      return Number.isFinite(feeUSD) && feeUSD > 0 ? feeUSD : 0;
+    } catch(e) {
+      console.error('[DEX] Error calculating gas fee:', e);
+      return 0;
+    }
+  }
+
+  // Helper: Get default swap fee from utils.js (fallback)
+  function getFeeSwap(chainName) {
+    if (typeof root.getFeeSwap === 'function') {
+      return root.getFeeSwap(chainName);
+    }
+    // Fallback if getFeeSwap not available
+    return 0;
+  }
+
   const dexStrategies = {
     kyber: {
       buildRequest: ({ chainName, sc_input, sc_output, amount_in_big }) => {
@@ -184,7 +227,8 @@
         return { amount_out, FeeSwap, dexTitle: 'FLY' };
       }
     },
-    'zero-1inch': {
+    // ZeroSwap aggregator untuk 1inch
+    'zero': {
       buildRequest: ({ sc_input, sc_output, amount_in_big, des_input, des_output, codeChain }) => {
         const baseUrl = 'https://api.zeroswap.io/quote/1inch';
         const params = new URLSearchParams({
@@ -204,7 +248,64 @@
         if (!buyAmount) throw new Error('Invalid ZeroSwap 1inch response');
         const amount_out = parseFloat(buyAmount) / Math.pow(10, des_output);
         const FeeSwap = getFeeSwap(chainName);
-        return { amount_out, FeeSwap, dexTitle: '1INCH' };
+        return { amount_out, FeeSwap, dexTitle: '1INCH', routeTool: 'ZeroSwap' };
+      }
+    },
+    // Backward compatibility alias
+    'zero-1inch': {
+      buildRequest: (...args) => dexStrategies['zero'].buildRequest(...args),
+      parseResponse: (...args) => dexStrategies['zero'].parseResponse(...args)
+    },
+    // Hinkal proxy untuk 1inch (privacy-focused)
+    'hinkal': {
+      buildRequest: ({ sc_input, sc_output, amount_in_big, SavedSettingData, codeChain }) => {
+        const userAddr = SavedSettingData?.walletMeta || '0x0000000000000000000000000000000000000000';
+        const apiUrl = 'https://ethmainnet.server.hinkal.pro/OneInchSwapData';
+
+        // Build 1inch API URL with dynamic chainId
+        const chainId = codeChain || 1; // default to Ethereum mainnet
+        const requestData = {
+          url: `https://api.1inch.dev/swap/v5.2/${chainId}/swap?` +
+            `fromTokenAddress=${sc_input}` +
+            `&toTokenAddress=${sc_output}` +
+            `&amount=${amount_in_big}` +
+            `&fromAddress=${userAddr}` +
+            `&slippage=10` +
+            `&destReceiver=${userAddr}` +
+            `&disableEstimate=true`
+        };
+
+        return {
+          url: apiUrl,
+          method: 'POST',
+          data: JSON.stringify(requestData),
+          headers: { 'Content-Type': 'application/json' }
+        };
+      },
+      parseResponse: (response, { des_output, chainName }) => {
+        const outAmount = response?.oneInchResponse?.toAmount;
+        if (!outAmount || parseFloat(outAmount) <= 0) {
+          throw new Error('Invalid Hinkal 1inch response');
+        }
+
+        const amount_out = parseFloat(outAmount) / Math.pow(10, des_output);
+
+        // Gas estimate with fallback
+        let gasEstimate = parseFloat(response?.oneInchResponse?.tx?.gas || 0);
+        if (!gasEstimate || gasEstimate === 0) gasEstimate = 350000;
+
+        // Override gas price to 0.1 Gwei for privacy calculation
+        const gweiOverride = 0.1;
+        const FeeSwap = calculateGasFeeUSD(chainName, gasEstimate, gweiOverride);
+
+        return {
+          amount_out,
+          FeeSwap,
+          dexTitle: '1INCH',
+          routeTool: 'Hinkal Privacy',
+          gasEstimate,
+          gasPrice: gweiOverride
+        };
       }
     },
     'zero-kyber': {
@@ -571,11 +672,11 @@
             const quoteRates = quoteData?.quoteRates;
 
             // Manual console log untuk respons dari provider DEX utama di Dzap
-            if (quoteRates && quoteRates[exchangeSlug]) {
-              console.log(`[DZAP ALT RESPONSE for ${exchangeSlug.toUpperCase()}]`, quoteRates[exchangeSlug]);
-            } else {
-              console.log(`[DZAP ALT RESPONSE] (Provider for ${exchangeSlug.toUpperCase()} not found, showing full response)`, response);
-            }
+            // if (quoteRates && quoteRates[exchangeSlug]) {
+            //   console.log(`[DZAP ALT RESPONSE for ${exchangeSlug.toUpperCase()}]`, quoteRates[exchangeSlug]);
+            // } else {
+            //   console.log(`[DZAP ALT RESPONSE] (Provider for ${exchangeSlug.toUpperCase()} not found, showing full response)`, response);
+            // }
 
             if (!quoteRates || Object.keys(quoteRates).length === 0) {
               return reject({ pesanDEX: 'DZAP quote rates not found' });

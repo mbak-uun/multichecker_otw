@@ -144,70 +144,6 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
         return html;
     }
 
-    function buildDetailCell(data, chainConfig, idPrefix, warnaChain) {
-        const urlScIn = chainConfig.URL_Chain ? `${chainConfig.URL_Chain}/token/${data.sc_in}` : '#';
-        const urlScOut = chainConfig.URL_Chain ? `${chainConfig.URL_Chain}/token/${data.sc_out}` : '#';
-        const urlsCEX = GeturlExchanger(data.cex, data.symbol_in, data.symbol_out) || {};
-        const tradeTokenUrl = safeUrl(urlsCEX.tradeToken, urlScIn);
-        const tradePairUrl  = safeUrl(urlsCEX.tradePair,  urlScOut);
-        const withdrawTokenUrl = safeUrl(urlsCEX.withdrawTokenUrl || urlsCEX.withdrawUrl, urlScIn);
-        const depositTokenUrl  = safeUrl(urlsCEX.depositTokenUrl  || urlsCEX.depositUrl,  urlScIn);
-        const withdrawPairUrl  = safeUrl(urlsCEX.withdrawPairUrl  || urlsCEX.withdrawUrl, urlScOut);
-        const depositPairUrl   = safeUrl(urlsCEX.depositPairUrl   || urlsCEX.depositUrl,  urlScOut);
-
-        const linkToken = createHoverLink(tradeTokenUrl, (data.symbol_in||'').toUpperCase());
-        const linkPair  = createHoverLink(tradePairUrl,  (data.symbol_out||'').toUpperCase());
-        const WD_TOKEN = linkifyStatus(data.withdrawToken, 'WD', withdrawTokenUrl);
-        const DP_TOKEN = linkifyStatus(data.depositToken,  'DP', depositTokenUrl);
-        const WD_PAIR  = linkifyStatus(data.withdrawPair,  'WD', withdrawPairUrl);
-        const DP_PAIR  = linkifyStatus(data.depositPair,   'DP', depositPairUrl);
-
-        const chainData = getChainData(data.chain);
-        const walletObj = chainData?.CEXCHAIN?.[data.cex] || {};
-        const chainCEX  = (walletObj?.chainCEX || '').toUpperCase();
-        const symbolIn  = (data.symbol_in||'').toUpperCase();
-        const symbolOut = (data.symbol_out||'').toUpperCase();
-
-        const linkStokToken = chainCEX ? `<b>${chainCEX}:</b> ${symbolIn}` : `${symbolIn}`;
-        const linkStokPair  = chainCEX ? `<b>${chainCEX}:</b> ${symbolOut}`: `${symbolOut}`;
-
-        const linkSCtoken = chainConfig.URL_Chain ? `<a href="${chainConfig.URL_Chain}/token/${data.sc_in}" target="_blank">SC_TOKEN</a>` : 'SC_TOKEN';
-        const linkSCpair  = chainConfig.URL_Chain ? `<a href="${chainConfig.URL_Chain}/token/${data.sc_out}" target="_blank">SC_PAIR</a>` : 'SC_PAIR';
-
-        const linkUNIDEX = generateDexLink('unidex', chainData?.Nama_Chain || data.chain, chainData?.Kode_Chain, symbolIn, data.sc_in, symbolOut, data.sc_out) || '';
-        const linkOKDEX  = generateDexLink('okx',    chainData?.Nama_Chain || data.chain, chainData?.Kode_Chain, symbolIn, data.sc_in, symbolOut, data.sc_out) || '';
-        const linkDEFIL  = generateDexLink('defillama', chainData?.Nama_Chain || data.chain, chainData?.Kode_Chain, symbolIn, data.sc_in, symbolOut, data.sc_out) || '';
-        const linkLiFi   = generateDexLink('lifi',   chainData?.Nama_Chain || data.chain, chainData?.Kode_Chain, symbolIn, data.sc_in, symbolOut, data.sc_out) || '';
-
-        return `
-            <td style="vertical-align: middle;">
-                <span class="uk-text-small uk-text-muted">
-                    <span id="${idPrefix}EditMulti-${data.id}"
-                          data-id="${data.id}"
-                          data-chain="${String(data.chain).toLowerCase()}"
-                          data-cex="${String(data.cex).toUpperCase()}"
-                          data-symbol-in="${String(data.symbol_in).toUpperCase()}"
-                          data-symbol-out="${String(data.symbol_out).toUpperCase()}"
-                          title="UBAH DATA KOIN" uk-icon="icon: settings; ratio: 0.7" class="uk-text-dark uk-text-bolder edit-token-button" style="cursor:pointer"></span></span>
-                <span class="detail-line"><span style="color: ${warnaChain}; font-weight:bolder;">${linkToken} </span>
-                ⇄ <span style="color: ${warnaChain}; font-weight:bolder;">${linkPair} </span>
-                <span id="${idPrefix}DelMulti-${data.id}"
-                      data-id="${data.id}"
-                      data-chain="${String(data.chain).toLowerCase()}"
-                      data-cex="${String(data.cex).toUpperCase()}"
-                      data-symbol-in="${String(data.symbol_in).toUpperCase()}"
-                      data-symbol-out="${String(data.symbol_out).toUpperCase()}"
-                      title="HAPUS DATA KOIN"
-                      uk-icon="icon: trash; ratio: 0.6"
-                      class="uk-text-danger uk-text-bolder delete-token-button"
-                      style="cursor:pointer;"></span></span>
-               
-                <span class="detail-line uk-text-bolder">${WD_TOKEN}~ ${DP_TOKEN} | ${WD_PAIR}~ ${DP_PAIR}</span>
-                <span class="detail-line"><span class="uk-text-primary uk-text-bolder">${(data.symbol_in||'').toUpperCase()}</span> ${linkSCtoken} : ${linkStokToken}</span>
-                <span class="detail-line"><span class="uk-text-primary uk-text-bolder">${(data.symbol_out||'').toUpperCase()}</span> ${linkSCpair} : ${linkStokPair}</span>
-                <span class="detail-line">${linkUNIDEX} ${linkOKDEX} ${linkDEFIL} ${linkLiFi}</span>
-            </td>`;
-    }
     const dexList = computeActiveDexList();
     if (tableBodyId === 'dataTableBody') { RenderCardSignal(); }
     renderMonitoringHeader(dexList);
@@ -300,26 +236,24 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
         const linkSCtoken = createHoverLink(urlScIn, '[SC]', 'uk-text-primary');
         const linkSCpair = createHoverLink(urlScOut, '[SC]', 'uk-text-primary');
 
-        const linkOKDEX = createHoverLink(`https://www.okx.com/web3/dex-swap?inputChain=${chainConfig.Kode_Chain}&inputCurrency=${data.sc_in}&outputChain=501&outputCurrency=${data.sc_out}`, '#OKX', 'uk-text-dark');
+        const linkOKDEX = createHoverLink(`https://www.okx.com/web3/dex-swap?inputChain=${chainConfig.Kode_Chain}&inputCurrency=${data.sc_in}&outputChain=501&outputCurrency=${data.sc_out}`, '#OKX', 'uk-text-primary');
         const linkUNIDEX = createHoverLink(`https://app.unidex.exchange/?chain=${chainConfig.Nama_Chain}&from=${data.sc_in}&to=${data.sc_out}`, '#UNX', 'uk-text-success');
-        const linkDEFIL = createHoverLink(`https://swap.defillama.com/?chain=${chainConfig.Nama_Chain}&from=${data.sc_in}&to=${data.sc_out}`, '#DFL', 'uk-text-primary');
-        const linkLiFi = createHoverLink(`https://jumper.exchange/?fromChain=${chainConfig.Kode_Chain}&fromToken=${data.sc_in}&toChain=${chainConfig.Kode_Chain}&toToken==${data.sc_out}`, '#JMX', 'uk-text-danger');
+        const linkDEFIL = createHoverLink(`https://swap.defillama.com/?chain=${chainConfig.Nama_Chain}&from=${data.sc_in}&to=${data.sc_out}`, '#DFL', 'uk-text-danger');
 
         const rowId = `DETAIL_${String(data.cex).toUpperCase()}_${String(data.symbol_in).toUpperCase()}_${String(data.symbol_out).toUpperCase()}_${String(data.chain).toUpperCase()}`.replace(/[^A-Z0-9_]/g,'');
         const chainShort = (data.chain || '').substring(0,3).toUpperCase();
 
         rowHtml += `
             <td id="${idPrefix}${rowId}" class="uk-text-center uk-background td-detail" style="text-align: center; border:1px solid black; width:10%; padding:10px;">
-                <span class="detail-line">[${index + 1}] <span style="color: ${warnaCex}; font-weight:bolder;">${data.cex} </span>
-                on <span style="color: ${warnaChain}; font-weight:bolder;">${chainShort} </span>
+                <span class="detail-line">[${index + 1}] 
+                <span style="color: ${warnaChain}; font-weight:bolder;">${linkToken} </span> ⇄ <span style="color: ${warnaChain}; font-weight:bolder;">${linkPair} </span>
                 <span id="${idPrefix}EditMulti-${data.id}" data-id="${data.id}"
                 data-chain="${String(data.chain).toLowerCase()}"
                       data-cex="${String(data.cex).toUpperCase()}"
                       data-symbol-in="${String(data.symbol_in).toUpperCase()}"
                       data-symbol-out="${String(data.symbol_out).toUpperCase()}"
-                       title="UBAH DATA KOIN" uk-icon="icon: settings; ratio: 0.7" class="uk-text-dark uk-text-bolder edit-token-button" style="cursor:pointer"></span></span>
-                <span class="detail-line"><span style="color: ${warnaChain}; font-weight:bolder;">${linkToken} </span>
-                ⇄ <span style="color: ${warnaChain}; font-weight:bolder;">${linkPair} </span>
+                       title="UBAH DATA KOIN" uk-icon="icon: settings; ratio: 0.7" class="uk-text-dark uk-text-bolder edit-token-button" style="cursor:pointer"></span>
+                
                 <span id="${idPrefix}DelMulti-${data.id}"
                       data-id="${data.id}"
                       data-chain="${String(data.chain).toLowerCase()}"
@@ -329,12 +263,15 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
                       title="HAPUS DATA KOIN"
                       uk-icon="icon: trash; ratio: 0.6"
                       class="uk-text-danger uk-text-bolder delete-token-button"
-                      style="cursor:pointer;"></span></span>
-               
+                      style="cursor:pointer;">
+                </span>
+                </span>
+                               <span style="color: ${warnaCex}; font-weight:bolder;">${data.cex} </span> on <span style="color: ${warnaChain}; font-weight:bolder;">${chainShort} </span>
+
                 <span class="detail-line uk-text-bolder">${WD_TOKEN}~ ${DP_TOKEN} | ${WD_PAIR}~ ${DP_PAIR}</span>
                 <span class="detail-line"><span class="uk-text-primary uk-text-bolder">${(data.symbol_in||'').toUpperCase()}</span> ${linkSCtoken} : ${linkStokToken}</span>
                 <span class="detail-line"><span class="uk-text-primary uk-text-bolder">${(data.symbol_out||'').toUpperCase()}</span> ${linkSCpair} : ${linkStokPair}</span>
-                <span class="detail-line">${linkUNIDEX} ${linkOKDEX} ${linkDEFIL} ${linkLiFi}</span>
+                <span class="detail-line">${linkUNIDEX} ${linkOKDEX} ${linkDEFIL}</span>
             </td>`;
 
         // refactor: render slot DEX kanan via helper
@@ -523,29 +460,23 @@ function renderTokenManagementList() {
             const name = String(cx).toUpperCase();
             const col = (CONFIG_CEX?.[name]?.WARNA) || '#000';
             const d = (r.dataCexs || {})[name] || {};
-            const dpTok = (d.depositToken === true) ? true : (d.depositToken === false ? false : undefined);
-            const dpPr  = (d.depositPair  === true) ? true : (d.depositPair  === false ? false : undefined);
-            const wdTok = (d.withdrawToken === true) ? true : (d.withdrawToken === false ? false : undefined);
-            const wdPr  = (d.withdrawPair  === true) ? true : (d.withdrawPair  === false ? false : undefined);
+            
+            // REFACTORED: Tampilkan status WD/DP secara terpisah untuk Token dan Pair agar konsisten dengan tabel scanning.
+            const renderStatus = (flag, label) => {
+                if (flag === true) return `<span class="uk-text-success">${label}</span>`; // WD, DP
+                if (flag === false) return `<span class="uk-text-danger">${label === 'WD' ? 'WX' : 'DX'}</span>`; // WX, DX
+                return `<span class="uk-text-muted">?${label}</span>`;
+            };
 
-            function aggFlag(a, b){
-                if (a === true || b === true) return true;
-                if (a === false || b === false) return false;
-                return undefined;
-            }
-            const dp = aggFlag(dpTok, dpPr);
-            const wd = aggFlag(wdTok, wdPr);
+            const dpTokLabel = renderStatus(d.depositToken, 'DP');
+            const wdTokLabel = renderStatus(d.withdrawToken, 'WD');
+            const dpPairLabel = renderStatus(d.depositPair, 'DP');
+            const wdPairLabel = renderStatus(d.withdrawPair, 'WD');
 
-            function renderIndicator(flag, onText, offText, unkText, title){
-                if (flag === true)  return `<span class=\"uk-text-success\" title=\"${title}\">${onText}</span>`;
-                if (flag === false) return `<span class=\"uk-text-danger\" title=\"${title}\">${offText}</span>`;
-                return `<span style=\"color:#000\" title=\"${title}\">${unkText}</span>`;
-            }
-            const title = `Deposit(Token:${dpTok===true?'✔':dpTok===false?'✖':'?'} / Pair:${dpPr===true?'✔':dpPr===false?'✖':'?'}) | Withdraw(Token:${wdTok===true?'✔':wdTok===false?'✖':'?'} / Pair:${wdPr===true?'✔':wdPr===false?'✖':'?'})`;
-            const depLabel = renderIndicator(dp, 'DP', 'DX', 'DP?', title);
-            const wdrLabel = renderIndicator(wd, 'WD', 'WX', 'WD?', title);
-            const sup = `<span style=\"font-size:12px; margin-left:4px; margin-right:4px;\">${depLabel}&nbsp;${wdrLabel}</span>`;
-            return ` <span class=\"cex-chip\" style=\"font-weight:bolder;color:${col}\">${name} [${sup}]</span>`;
+            const tokenStatus = `${wdTokLabel}/${dpTokLabel}`;
+            const pairStatus = `${wdPairLabel}/${dpPairLabel}`;
+
+            return ` <span class="cex-chip" style="font-weight:bolder;color:${col}" title="Status WD/DP untuk ${name}">${name} [${tokenStatus} | ${pairStatus}]</span>`;
         }).join(' ');
 
         const chainName = (CONFIG_CHAINS?.[String(r.chain).toLowerCase()]?.Nama_Chain) || r.chain;
@@ -759,13 +690,13 @@ function DisplayPNL(data) {
   }
 
   // Success log
-  console.log(`✅ [DisplayPNL] Cell FOUND & Updated:`, {
-    elementId,
-    dex: dextype,
-    pnl: profitLoss.toFixed(2),
-    isFallback,
-    fallbackSource
-  });
+  // console.log(`✅ [DisplayPNL] Cell FOUND & Updated:`, {
+  //   elementId,
+  //   dex: dextype,
+  //   pnl: profitLoss.toFixed(2),
+  //   isFallback,
+  //   fallbackSource
+  // });
   // REFACTORED: Clear any prior error background and finalize cell
   try { el.classList.remove('dex-error'); } catch(_) {}
   // REFACTORED: Finalize cell untuk mencegah overwrite oleh error lainnya
@@ -1102,7 +1033,6 @@ function DisplayPNL(data) {
   } catch(_) {}
 }
 
-/** Append a compact item to the DEX signal panel and play audio. */
 function InfoSinyal(DEXPLUS, TokenPair, PNL, totalFee, cex, NameToken, NamePair, profitLossPercent, modal, nameChain, codeChain, trx, idPrefix, domIdOverride) {
   const chainData = getChainData(nameChain);
   const chainShort = String(chainData?.SHORT_NAME || chainData?.Nama_Chain || nameChain).toUpperCase();
@@ -1150,8 +1080,8 @@ function InfoSinyal(DEXPLUS, TokenPair, PNL, totalFee, cex, NameToken, NamePair,
 
   const audio = new Audio('audio.mp3');
   audio.play();
-}
- 
+} 
+
 /**
  * Compute rates, value, and PNL for a DEX route result; return data for DisplayPNL.
  */

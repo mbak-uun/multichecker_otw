@@ -647,6 +647,12 @@
       } catch(_) {}
       return set;
     }
+    function formatScDisplay(scRaw){
+      const sc = String(scRaw || '');
+      if (!sc) return '-';
+      if (sc.length <= 12) return sc;
+      return `${sc.slice(0, 6)}...${sc.slice(-4)}`;
+    }
     function renderRows(rows, chainKey){
       $tbody.empty();
       const savedSet = buildSavedTokenSet(chainKey);
@@ -665,16 +671,18 @@
         const symUpper = String(r.symbol||'').toUpperCase();
         const cexUpper = String(r.cex||'').toUpperCase();
         const savedKey = `${cexUpper}__${symUpper}`;
-        const savedBadge = savedSet.has(savedKey)
-          ? ' <span class="uk-label uk-label-success" style="font-size:10px;" title="Koin sudah tersimpan di database">[ SUDAH DIPILIH ]</span>'
-          : '';
+        const statusHtml = savedSet.has(savedKey)
+          ? '<span class="uk-text-success uk-text-bold">Sudah Dipilih</span>'
+          : '<span class="uk-text-muted">-</span>';
+        const scRaw = String(r.sc || '');
+        const scDisplay = formatScDisplay(scRaw);
         $tbody.append(`<tr>
           <td>${idx+1}</td>
-          <td>${r.cex||'-'}</td>
-          <td>${String(r.chain||chainKey||'').toUpperCase()}</td>
+          <td>${cexUpper || '-'}</td>
           <td>${r.token||''}</td>
-          <td class="mono">${symUpper}${savedBadge}</td>
-          <td class="mono">${r.sc||''}</td>
+          <td class="mono">${symUpper}</td>
+          <td>${statusHtml}</td>
+          <td class="mono" title="${scRaw}">${scDisplay}</td>
           <td>${r.decimals||''}</td>
           <td>${tradeHtml}</td>
           <td>${price}</td>
@@ -1419,6 +1427,32 @@
 
     $('#snapshot-btn-fetch').on('click', fetchAll);
 
+  function getSnapshotModalInstance() {
+    try {
+      const ui = (ROOT && ROOT.UIkit) ? ROOT.UIkit : (typeof UIkit !== 'undefined' ? UIkit : null);
+      if (ui && typeof ui.modal === 'function') {
+        return ui.modal('#snapshot-modal');
+      }
+    } catch(_) {}
+    return null;
+  }
+
+  (function bindSnapshotModalHooks(){
+    try {
+      const modalEl = document.getElementById('snapshot-modal');
+      const ui = (ROOT && ROOT.UIkit) ? ROOT.UIkit : (typeof UIkit !== 'undefined' ? UIkit : null);
+      if (modalEl && ui && ui.util && typeof ui.util.on === 'function') {
+        ui.util.on(modalEl, 'hide', function(){
+          $('#snapshot-modal').removeData('return-to-sync');
+        });
+      } else if (modalEl) {
+        modalEl.addEventListener('hide', function(){
+          $('#snapshot-modal').removeData('return-to-sync');
+        });
+      }
+    } catch(_) {}
+  })();
+
   window.SnapshotModule = {
     async init(){
       snapshotInitTriggered = true;
@@ -1432,11 +1466,20 @@
       if (!initResult) {
         await loadChainData(false, key);
       }
-      $('#snapshot-view').show();
+      const modal = getSnapshotModalInstance();
+      if (modal) {
+        try { modal.show(); } catch(_) {}
+      } else {
+        $('#snapshot-modal').addClass('uk-open').show();
+      }
     },
     hide(){
       hideOverlay();
-      $('#snapshot-view').hide();
+      const modal = getSnapshotModalInstance();
+      if (modal) {
+        try { modal.hide(); } catch(_) {}
+      }
+      $('#snapshot-modal').removeClass('uk-open').hide().removeData('return-to-sync');
     }
   };
 })();

@@ -464,7 +464,12 @@ function bootApp() {
         // REFACTORED
         if (typeof renderSettingsForm === 'function') renderSettingsForm();
         $('#form-setting-app').show();
-        $('#filter-card, #scanner-config, #token-management, #iframe-container, #snapshot-view').hide();
+        $('#filter-card, #scanner-config, #token-management, #iframe-container').hide();
+        try {
+            if (window.SnapshotModule && typeof window.SnapshotModule.hide === 'function') {
+                window.SnapshotModule.hide();
+            }
+        } catch(_) {}
         // REFACTORED
         if ($('#dataTableBody').length) { $('#dataTableBody').closest('.uk-overflow-auto').hide(); }
         if ($('#form-setting-app').length && $('#form-setting-app')[0] && typeof $('#form-setting-app')[0].scrollIntoView === 'function') {
@@ -479,7 +484,11 @@ function bootApp() {
         $('#form-setting-app').hide();
         // Restore primary sections
         $('#filter-card, #scanner-config').show();
-        $('#snapshot-view').hide();
+        try {
+            if (window.SnapshotModule && typeof window.SnapshotModule.hide === 'function') {
+                window.SnapshotModule.hide();
+            }
+        } catch(_) {}
         if ($('#dataTableBody').length) { $('#dataTableBody').closest('.uk-overflow-auto').show(); }
     }
     if (state === 'READY') {
@@ -849,7 +858,6 @@ async function deferredInit() {
                         window.SnapshotModule.hide();
                     }
                 } catch(_) {}
-                $('#snapshot-view').hide();
                 renderTokenManagementList();
             }
         } catch(_) {}
@@ -1069,7 +1077,12 @@ $("#reload").click(function () {
 
     $("#SettingConfig").on("click", function () {
         // Hide all other sections to prevent stacking when opening Settings
-        $('#filter-card, #scanner-config, #token-management, #iframe-container, #snapshot-view, #sinyal-container, #header-table').hide();
+        $('#filter-card, #scanner-config, #token-management, #iframe-container, #sinyal-container, #header-table, #update-wallet-section').hide();
+        try {
+            if (window.SnapshotModule && typeof window.SnapshotModule.hide === 'function') {
+                window.SnapshotModule.hide();
+            }
+        } catch(_) {}
         try { $('#dataTableBody').closest('.uk-overflow-auto').hide(); } catch(_) {}
         $('#form-setting-app').show();
         try { document.getElementById('form-setting-app').scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(_) {}
@@ -1079,7 +1092,7 @@ $("#reload").click(function () {
     $('#ManajemenKoin').on('click', function(e){
       e.preventDefault();
       // Hide all other views to avoid stacking with manager UI
-      $('#scanner-config,  #sinyal-container, #header-table').hide();
+      $('#scanner-config,  #sinyal-container, #header-table, #update-wallet-section').hide();
       $('#dataTableBody').closest('.uk-overflow-auto').hide();
       $('#iframe-container').hide();
       $('#form-setting-app').hide();
@@ -1090,7 +1103,6 @@ $("#reload").click(function () {
             window.SnapshotModule.hide();
         }
       } catch(_) {}
-      $('#snapshot-view').hide();
       renderTokenManagementList();
     });
 
@@ -1194,6 +1206,17 @@ $("#reload").click(function () {
     });
 
     $('#UpdateWalletCEX').on('click', async () => {
+        // NEW UI: Show wallet exchanger section instead of running immediately
+        try {
+            if (window.App?.WalletExchanger?.show) {
+                window.App.WalletExchanger.show();
+                return;
+            }
+        } catch(err) {
+            console.error('[UpdateWalletCEX] Error showing wallet exchanger section:', err);
+        }
+
+        // FALLBACK: Old behavior (direct execution) if new UI not available
         // Pre-check: require at least 1 CEX selected in filter chips
         try {
             const m = getAppMode();
@@ -1236,6 +1259,12 @@ $("#startSCAN").click(function () {
             const dexList = (window.computeActiveDexList ? window.computeActiveDexList() : Object.keys(window.CONFIG_DEXS || {}));
             if (window.renderMonitoringHeader) window.renderMonitoringHeader(dexList);
         } catch(_) {}
+
+        // === GLOBAL SCANNING LOCK CHECK (DISABLED FOR MULTI-TAB SUPPORT) ===
+        // REMOVED: Global lock logic that prevented multi-tab scanning
+        // Each tab can now scan independently using Tab Manager for coordination
+        // See tab-manager.js for multi-tab communication system
+
         // Prevent starting if app state indicates a run is already active
         try {
             const stClick = getAppState();
@@ -1545,6 +1574,7 @@ $("#startSCAN").click(function () {
 function showMainScannerView() {
     $('#iframe-container').hide();
     $('#token-management').hide();
+    $('#update-wallet-section').hide();
     try {
         if (window.SnapshotModule && typeof window.SnapshotModule.hide === 'function') {
             window.SnapshotModule.hide();
@@ -1554,23 +1584,16 @@ function showMainScannerView() {
     $('#form-setting-app').hide();
     $('#scanner-config, #sinyal-container, #header-table').show();
     $('#dataTableBody').closest('.uk-overflow-auto').show();
-    $('#snapshot-view').hide();
 }
 
 function showSnapshotView() {
-    $('#iframe-container').hide();
-    $('#token-management').hide();
-    $('#scanner-config, #sinyal-container, #header-table').hide();
-    $('#dataTableBody').closest('.uk-overflow-auto').hide();
-    $('#filter-card').hide();
-    $('#form-setting-app').hide();
     try {
         if (window.SnapshotModule && typeof window.SnapshotModule.show === 'function') {
             window.SnapshotModule.show();
             return;
         }
     } catch(_) {}
-    $('#snapshot-view').show();
+    $('#snapshot-modal').addClass('uk-open').show();
 }
 
 // =================================================================================
@@ -1594,6 +1617,19 @@ function setSyncSourceIndicator(label) {
     } catch(_) {}
 }
 
+function setSyncSourceControl(sourceKey) {
+    try {
+        const normalized = String(sourceKey || 'server').toLowerCase();
+        const $radios = $('#sync-source-toggle input[name="sync-source"]');
+        if ($radios.length) {
+            $radios.each(function(){
+                const val = String($(this).val() || '').toLowerCase();
+                $(this).prop('checked', val === normalized);
+            });
+        }
+    } catch(_) {}
+}
+
 function resetSyncModalSelections() {
     try {
         $('#sync-search-input').val('');
@@ -1604,20 +1640,22 @@ function resetSyncModalSelections() {
 function setSyncModalData(chainKey, rawTokens, savedTokens, sourceLabel) {
     try {
         const chainLower = String(chainKey || '').toLowerCase();
+        const normalizedSource = (String(sourceLabel || 'server').toLowerCase().includes('snapshot')) ? 'snapshot' : 'server';
         const list = Array.isArray(rawTokens) ? rawTokens.map((item, idx) => {
             const clone = Object.assign({}, item);
             if (typeof clone._idx !== 'number') clone._idx = idx;
-            if (!clone.__source) clone.__source = String(sourceLabel || 'server').toLowerCase();
+            if (!clone.__source) clone.__source = normalizedSource;
             return clone;
         }) : [];
         const $modal = $('#sync-modal');
         $modal.data('remote-raw', list);
         const savedList = Array.isArray(savedTokens) ? savedTokens : [];
         $modal.data('saved-tokens', savedList);
-        $modal.data('source', String(sourceLabel || 'server').toLowerCase());
+        $modal.data('source', normalizedSource);
         resetSyncModalSelections();
         const labelText = `${sourceLabel || 'Server'} (${list.length})`;
         setSyncSourceIndicator(labelText);
+        setSyncSourceControl(normalizedSource);
         buildSyncFilters(chainLower);
         renderSyncTable(chainLower);
     } catch(error) {
@@ -2108,7 +2146,7 @@ async function loadSyncTokensFromSnapshot(chainKey) {
     const raw = await loadSnapshotRecords(key);
     if (!raw.length) throw new Error('Snapshot kosong untuk chain ini.');
     const savedTokens = getTokensChain(chainKey);
-    setSyncModalData(chainKey, raw, savedTokens, 'Snapshot Lokal');
+    setSyncModalData(chainKey, raw, savedTokens, 'Snapshot');
     try { if (typeof toast !== 'undefined' && toast.success) toast.success(`Berhasil memuat ${raw.length} koin dari snapshot lokal`); } catch(_) {}
 }
 
@@ -2116,7 +2154,7 @@ async function loadSyncTokensFromSnapshot(chainKey) {
 
 // Iframe View Handler
     $(document).on('click', '.iframe-modal-trigger', function(e) {
-        $("#filter-card").hide();
+        $("#filter-card,#update-wallet-section").hide();
         e.preventDefault();
         const targetUrl = $(this).attr('href');
         //const viewTitle = $(this).find('img').attr('title') || 'Content';
@@ -2130,7 +2168,6 @@ async function loadSyncTokensFromSnapshot(chainKey) {
                 window.SnapshotModule.hide();
             }
         } catch(_) {}
-        $('#snapshot-view').hide();
 
         // Show iframe view
         //$('#iframe-title').text(viewTitle);
@@ -2140,10 +2177,50 @@ async function loadSyncTokensFromSnapshot(chainKey) {
 
     $(document).on('click', '#openSnapshotView', function(e){
         e.preventDefault();
+        const launchedFromSync = $(this).closest('#sync-modal').length > 0;
+        if (launchedFromSync) {
+            $('#snapshot-modal').data('return-to-sync', true);
+            try {
+                const modal = (typeof UIkit !== 'undefined' && typeof UIkit.modal === 'function') ? UIkit.modal('#sync-modal') : null;
+                if (modal) {
+                    modal.hide();
+                } else {
+                    $('#sync-modal').removeClass('uk-open').hide();
+                }
+            } catch(_) {
+                $('#sync-modal').removeClass('uk-open').hide();
+            }
+        } else {
+            $('#snapshot-modal').removeData('return-to-sync');
+        }
         showSnapshotView();
     });
 
     $(document).on('click', '#snapshot-back', function(){
+        const shouldReturnToSync = !!$('#snapshot-modal').data('return-to-sync');
+        try {
+            if (window.SnapshotModule && typeof window.SnapshotModule.hide === 'function') {
+                window.SnapshotModule.hide();
+            } else {
+                $('#snapshot-modal').removeClass('uk-open').hide();
+            }
+        } catch(_) {
+            $('#snapshot-modal').removeClass('uk-open').hide();
+        }
+        if (shouldReturnToSync) {
+            try {
+                const syncModal = (typeof UIkit !== 'undefined' && typeof UIkit.modal === 'function') ? UIkit.modal('#sync-modal') : null;
+                if (syncModal) {
+                    syncModal.show();
+                } else {
+                    $('#sync-modal').addClass('uk-open').show();
+                }
+            } catch(_) {
+                $('#sync-modal').addClass('uk-open').show();
+            }
+            $('#snapshot-modal').removeData('return-to-sync');
+            return;
+        }
         showMainScannerView();
     });
 
@@ -2165,6 +2242,7 @@ async function loadSyncTokensFromSnapshot(chainKey) {
         $('#sync-modal-chain-name').text(chainConfig.Nama_Chain || String(activeSingleChainKey).toUpperCase());
         $('#sync-modal-tbody').empty().html('<tr><td colspan="6">Loading...</td></tr>');
         setSyncSourceIndicator('Server');
+        setSyncSourceControl('server');
         UIkit.modal('#sync-modal').show();
 
         try {
@@ -2183,33 +2261,32 @@ async function loadSyncTokensFromSnapshot(chainKey) {
     });
 
     // Handler untuk toggle sumber data (Server/Snapshot) di modal sinkronisasi
-    $(document).on('click', '#sync-source-toggle .uk-button', async function() {
-        const $button = $(this);
-        if ($button.hasClass('uk-button-primary')) return; // Sudah aktif, tidak perlu aksi
+    $(document).on('change', '#sync-source-toggle input[name="sync-source"]', async function() {
+        if (!$(this).is(':checked')) return;
+        const source = String($(this).val() || '').toLowerCase();
+        setSyncSourceControl(source);
 
-        // Update tampilan tombol
-        $('#sync-source-toggle .uk-button').removeClass('uk-button-primary').addClass('uk-button-default');
-        $button.removeClass('uk-button-default').addClass('uk-button-primary');
-
-        const source = $button.data('source');
         if (!activeSingleChainKey) {
             if (typeof toast !== 'undefined' && toast.error) toast.error("No active chain selected.");
             return;
         }
 
         $('#sync-modal-tbody').empty().html('<tr><td colspan="6">Loading...</td></tr>');
+        $('#sync-modal').data('source', source);
 
         if (source === 'server') {
             try {
                 await loadSyncTokensFromServer(activeSingleChainKey);
             } catch (error) {
                 $('#sync-modal-tbody').html('<tr><td colspan="6">Gagal memuat data server.</td></tr>');
+                setSyncSourceIndicator('Server (0)');
             }
         } else if (source === 'snapshot') {
             try {
                 await loadSyncTokensFromSnapshot(activeSingleChainKey);
             } catch (error) {
                 $('#sync-modal-tbody').html('<tr><td colspan="6">Gagal memuat data snapshot.</td></tr>');
+                setSyncSourceIndicator('Snapshot (0)');
             }
         }
     });
@@ -2441,7 +2518,7 @@ async function loadSyncTokensFromSnapshot(chainKey) {
             $boxes.prop('checked', false);
         } else if (mode === 'snapshot') {
             $boxes.prop('checked', false);
-            $('#sync-modal-tbody tr:visible .sync-token-checkbox[data-source="snapshot"]').prop('checked', true);
+            $('#sync-modal-tbody tr:visible .sync-token-checkbox[data-source="snapshot"]').not('[data-saved="1"]').prop('checked', true);
         }
         updateSyncSelectedCount();
     });
@@ -2509,6 +2586,11 @@ $(document).ready(function() {
 
     const appStateInit = getAppState();
     applyRunUI(appStateInit.run === 'YES');
+
+    // === CHECK GLOBAL SCAN LOCK ON PAGE LOAD (DISABLED FOR MULTI-TAB) ===
+    // REMOVED: Global lock check on page load
+    // Multi-tab scanning is now supported via Tab Manager (tab-manager.js)
+
     // Re-apply once IndexedDB cache is fully warmed to avoid false negatives
     try {
         if (window.whenStorageReady && typeof window.whenStorageReady.then === 'function') {
@@ -2516,6 +2598,7 @@ $(document).ready(function() {
                 try {
                     const st = getAppState();
                     applyRunUI(st && st.run === 'YES');
+                    // REMOVED: Global lock re-check (multi-tab support enabled)
                 } catch(_) {}
             });
         }
@@ -2530,6 +2613,15 @@ $(document).ready(function() {
                 try {
                     const keyStr = String(msg.key || '');
                     const keyUpper = keyStr.toUpperCase();
+
+                    // === HANDLE GLOBAL_SCAN_LOCK CHANGES (DISABLED FOR MULTI-TAB) ===
+                    // REMOVED: Cross-tab lock synchronization
+                    // Multi-tab scanning is now supported independently via Tab Manager
+                    if (keyUpper === 'GLOBAL_SCAN_LOCK') {
+                        // Ignore lock messages - each tab manages its own scanning state
+                        return;
+                    }
+
                     if (!keyUpper.startsWith('FILTER_')) return; // only react to FILTER_* changes
 
                     // Update in-memory cache first
@@ -2841,7 +2933,7 @@ $(document).ready(function() {
         const pairDefs = chainCfg.PAIRDEXS || {};
         const sourceLabel = String($modal.data('source') || 'server').toLowerCase();
         const selectedCexs = $('#sync-filter-cex input:checked').map(function(){ return $(this).val().toUpperCase(); }).get();
-        const selectedPairs = $('#sync-filter-pair input:checked').map(function(){ return $(this).val().toUpperCase(); }).get();
+        const preferredPairs = $('#sync-filter-pair input:checked').map(function(){ return $(this).val().toUpperCase(); }).get();
         window.__SYNC_PRICE_QUEUE = [];
         window.__SYNC_PRICE_ACTIVE = false;
         const renderId = Date.now();
@@ -2855,8 +2947,8 @@ $(document).ready(function() {
         const search = ($('#sync-search-input').val() || '').toLowerCase();
 
         const pairKeys = Object.keys(pairDefs || {});
-        const defaultPairs = (selectedPairs.length
-            ? selectedPairs
+        const defaultPairs = (preferredPairs.length
+            ? preferredPairs
             : (pairDefs.USDT ? ['USDT'] : (pairKeys.length ? pairKeys : ['NON'])));
 
         const expanded = [];
@@ -2893,8 +2985,6 @@ $(document).ready(function() {
             const cexUp = String(t.cex || '').toUpperCase();
             if (selectedCexs.length && !selectedCexs.includes(cexUp)) return false;
             const pairUp = String(t.symbol_out || '').toUpperCase();
-            const mappedPair = pairDefs[pairUp] ? pairUp : 'NON';
-            if (selectedPairs.length && !selectedPairs.includes(mappedPair)) return false;
             const text = `${t.symbol_in || ''} ${pairUp} ${cexUp}`.toLowerCase();
             return !search || text.includes(search);
         });
@@ -2953,7 +3043,6 @@ $(document).ready(function() {
             const cexUp = String(token.cex || '').toUpperCase();
             const symIn = String(token.symbol_in || '').toUpperCase();
             const symOut = String(token.symbol_out || '').toUpperCase();
-            const mappedPair = pairDefs[symOut] ? symOut : 'NON';
             const scIn = String(token.sc_in || token.contract_in || '');
             const scOut = String(token.sc_out || token.contract_out || '');
             const desIn = token.des_in ?? token.decimals_in ?? token.des ?? token.dec_in ?? '';
@@ -2971,7 +3060,8 @@ $(document).ready(function() {
             const statusBadge = saved
               ? ' <span class="uk-label uk-label-success" style="font-size:10px;" title="Koin sudah tersimpan di database">[ SUDAH DIPILIH ]</span>'
               : '';
-            const sourceBadge = (source === 'snapshot')
+            const showSourceBadge = !saved && source === 'snapshot';
+            const sourceBadge = showSourceBadge
               ? ' <span class="uk-label uk-label-warning" style="font-size:10px;" title="Berhasil dimuat dari snapshot lokal">SNAPSHOT</span>'
               : '';
             const row = `

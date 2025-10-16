@@ -449,20 +449,18 @@ function safeUrl(u, fallback) {
 function linkifyStatus(flag, label, urlOk, colorOk = 'green') {
     // Selalu pertahankan hyperlink bila URL tersedia; ubah hanya teks + warna
     const safe = (u) => (u && /^https?:\/\//i.test(u)) ? u : '#';
-    let text = label;
-    let color = colorOk;
+    let text, color, className;
     if (flag === true) {
-        text = label; // e.g., 'WD' / 'DP'
-        color = colorOk || 'green';
+        text = label; // WD, DP
+        className = 'uk-text-success';
     } else if (flag === false) {
-        text = (label === 'DP') ? 'DX' : 'WX';
-        color = 'red';
+        text = (label === 'DP') ? 'DX' : 'WX'; // DX, WX
+        className = 'uk-text-danger';
     } else {
-        // Unknown / belum sinkron → tampilkan "WD ?" atau "DP ?"
-        text = `${label}?`;
-        color = 'black';
+        text = `?${label}`; // ?WD, ?DP
+        className = 'uk-text-muted';
     }
-    return `<a href="${safe(urlOk)}" target="_blank" rel="noopener noreferrer" class="uk-text-bold" style="color:${color};">${text}</a>`;
+    return `<a href="${safe(urlOk)}" target="_blank" rel="noopener noreferrer" class="uk-text-bold ${className}">${text}</a>`;
 }
 
 // refactor: remove getStatusLabel (tidak dipakai); gunakan linkifyStatus untuk status DP/WD.

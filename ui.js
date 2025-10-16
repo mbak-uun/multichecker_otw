@@ -250,8 +250,26 @@ function RenderCardSignal() {
 // Expose updater to switch theme for signal cards when dark mode toggles
 window.updateSignalTheme = function() {
     try {
-        // refactor: use shared dark-mode helper
-        const isDark = (window.isDarkMode && window.isDarkMode()) || (document.body && document.body.classList.contains('dark-mode'));
+        // refactor: ikuti dark mode aplikasi saja (abaikan preferensi OS)
+        const bodyHasDark = (typeof document !== 'undefined') &&
+                            document.body &&
+                            document.body.classList &&
+                            document.body.classList.contains('dark-mode');
+        let isDark = false;
+        if (bodyHasDark) {
+            isDark = true;
+        } else {
+            try {
+                if (typeof getTheme === 'function' && String(getTheme()).toLowerCase().indexOf('dark') !== -1) {
+                    isDark = true;
+                } else if (typeof getDarkMode === 'function' && !!getDarkMode()) {
+                    isDark = true;
+                } else if (typeof window !== 'undefined' && typeof window.isDarkMode === 'function' && window.isDarkMode()) {
+                    isDark = true;
+                }
+            } catch(_) {}
+        }
+
         let chainColor = '#5c9514';
         const m = (typeof getAppMode === 'function') ? getAppMode() : { type: 'multi' };
         if (m.type === 'single') {
@@ -260,19 +278,24 @@ window.updateSignalTheme = function() {
         }
         const container = document.getElementById('sinyal-container');
         if (!container) return;
-        const cards = container.querySelectorAll('.uk-card');
+        const cards = container.querySelectorAll('.signal-card');
         cards.forEach(card => {
-            // Body warna: putih (light), abu-abu gelap (dark)
-            card.style.background = isDark ? '#424743ff' : '#ffffffff';
-            card.style.color = isDark ? '#d8ff41' : '#000000';
+            // Pas-kan body card dengan palet dark mode aplikasi
+            card.style.backgroundColor = isDark ? '#2c2c2e' : '#ffffff';
+            card.style.color = isDark ? '#e7e7ec' : '#000000';
+            const body = card.querySelector('.uk-card-body');
+            if (body) {
+                body.style.backgroundColor = isDark ? '#2c2c2e' : '#ffffff';
+                body.style.color = isDark ? '#e7e7ec' : '#000000';
+            }
             const header = card.querySelector('.uk-card-header');
             if (header) {
-                // Header warna: chainColor (light), hitam (dark)
-                header.style.backgroundColor = isDark ? '#000000' : chainColor;
-                header.style.color = '#d8ff41';
+                header.style.backgroundColor = isDark ? '#1f2024' : chainColor;
+                header.style.color = isDark ? '#f3f4f6' : '#ffffff';
+                header.style.borderBottomColor = isDark ? '#383a40' : '#000000';
             }
             const span = card.querySelector('[id^="sinyal"]');
-            if (span) span.style.color = isDark ? '#d8ff41' : '#000000';
+            if (span) span.style.color = isDark ? '#e7e7ec' : '#000000';
         });
     } catch(_) {}
 };

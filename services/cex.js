@@ -721,7 +721,27 @@
 
       $('#loadingOverlay').fadeOut(150);
 
-      // Reload the page after successful update to ensure all views reflect changes
+      // Refresh wallet exchanger UI if visible (instead of reload)
+      try {
+          if ($('#update-wallet-section').is(':visible') && root.App?.WalletExchanger?.renderCexCards) {
+              // Re-render CEX cards to show updated wallet status
+              setTimeout(() => {
+                  root.App.WalletExchanger.renderCexCards();
+
+                  // Show update result notification
+                  const failedList = failed.map(f => String(f.cex||'').toUpperCase());
+                  const hasSuccess = aggregated.length > 0;
+                  if (root.App?.WalletExchanger?.showUpdateResult) {
+                      root.App.WalletExchanger.showUpdateResult(hasSuccess, failedList);
+                  }
+
+                  infoSet('✅ Tampilan diperbarui. Anda dapat melihat hasil update wallet exchanger di bawah ini.');
+              }, 300);
+              return; // Don't reload if wallet section is visible
+          }
+      } catch(_) {}
+
+      // Reload the page only if NOT in wallet exchanger view
       // Slightly longer delay to allow async IDB writes (history, wallet status) to settle
       try { if (aggregated.length > 0) setTimeout(() => location.reload(), 800); } catch(_) {}
   }

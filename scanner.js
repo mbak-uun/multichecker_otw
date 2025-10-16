@@ -65,11 +65,33 @@ function clearDexTickerById(id){
 // ID untuk loop `requestAnimationFrame` yang meng-update UI.
 let animationFrameId;
 // Flag boolean yang menandakan apakah proses pemindaian sedang berjalan atau tidak.
+// NOTE: Ini adalah per-tab state, tidak akan conflict dengan tab lain
 let isScanRunning = false;
 // Counter untuk melacak jumlah request DEX yang masih berjalan (termasuk fallback).
 let activeDexRequests = 0;
 // Resolver yang menunggu seluruh request DEX selesai sebelum finalisasi.
 let dexRequestWaiters = [];
+
+/**
+ * Helper function untuk check apakah tab ini sedang scanning
+ * Menggunakan sessionStorage untuk per-tab isolation
+ */
+function isThisTabScanning() {
+    try {
+        // Check internal flag
+        if (isScanRunning) return true;
+
+        // Check session storage sebagai backup
+        if (typeof sessionStorage !== 'undefined') {
+            const tabScanning = sessionStorage.getItem('TAB_SCANNING');
+            return tabScanning === 'YES';
+        }
+
+        return false;
+    } catch(e) {
+        return isScanRunning;
+    }
+}
 
 function markDexRequestStart() {
     try { activeDexRequests += 1; } catch(_) { activeDexRequests = 1; }
@@ -242,6 +264,36 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
     } catch(_) {}
 
     // --- PERSIAPAN STATE & UI SEBELUM SCAN ---
+
+    // === NOTIFY TAB MANAGER ABOUT SCAN START ===
+    try {
+        const chainLabel = allowedChains.map(c => String(c).toUpperCase()).join(', ');
+
+        // Set per-tab scanning lock (sessionStorage - tidak conflict antar tab)
+        if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem('TAB_SCANNING', 'YES');
+            sessionStorage.setItem('TAB_SCAN_CHAIN', chainLabel);
+            sessionStorage.setItem('TAB_SCAN_START', Date.now().toString());
+        }
+
+        // Notify TabManager untuk broadcast ke tab lain
+        if (window.TabManager && typeof window.TabManager.notifyScanStart === 'function') {
+            window.TabManager.notifyScanStart(chainLabel);
+            console.log(`[SCANNER] Tab ${window.getTabId()} started scanning: ${chainLabel}`);
+        }
+
+        // Set global lock for tracking only (NOT used for blocking multi-tab scanning)
+        // Multi-tab scanning is fully supported - each tab scans independently
+        // This lock is kept for monitoring/debugging purposes via Tab Manager
+        saveToLocalStorage('GLOBAL_SCAN_LOCK', {
+            isScanning: true,
+            chain: chainLabel,
+            tabId: window.getTabId ? window.getTabId() : 'UNKNOWN',
+            timestamp: Date.now()
+        });
+    } catch(e) {
+        console.error('[SCANNER] Error setting scan start state:', e);
+    }
 
     // Set state aplikasi menjadi 'berjalan' (run: 'YES').
     setAppState({ run: 'YES' });
@@ -426,12 +478,12 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
 
         // Proses item dari antrian selama masih ada dan budget waktu belum habis.
         if (uiUpdateQueue.length > 0) {
-            console.log(`[PROCESS QUEUE] Processing ${uiUpdateQueue.length} items in queue`);
+            //(`[PROCESS QUEUE] Processing ${uiUpdateQueue.length} items in queue`);
         }
         while (uiUpdateQueue.length) {
             const updateData = uiUpdateQueue.shift();
             if (updateData) {
-                console.log(`[PROCESS ITEM]`, { type: updateData?.type, id: updateData?.id || updateData?.idPrefix + updateData?.baseId });
+               // console.log(`[PROCESS ITEM]`, { type: updateData?.type, id: updateData?.id || updateData?.idPrefix + updateData?.baseId });
             }
             // Jika item adalah error, update sel dengan pesan error.
             if (updateData && updateData.type === 'error') {
@@ -921,7 +973,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                         try { if (window.SCAN_LOG_ENABLED) console.log(lines); } catch(_) {}
                                     } catch(_) {}
                                     // Masukkan hasil kalkulasi ke antrian pembaruan UI.
-                                    console.log(`[PUSH TO QUEUE] Pushing update to uiUpdateQueue`, { idCELL, isFallback, type: update.type });
+                                   // console.log(`[PUSH TO QUEUE] Pushing update to uiUpdateQueue`, { idCELL, isFallback, type: update.type });
                                     uiUpdateQueue.push(update);
                                     if (!isScanRunning) {
                                         try {
@@ -958,7 +1010,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                     if (dexConfig && dexConfig.allowFallback) {
                                         // REFACTORED: Tidak update UI dengan error dari primary DEX
                                         // Langsung tampilkan status fallback (SWOOP) tanpa menampilkan error primary
-                                        console.log(`[FALLBACK] Primary DEX ${dex.toUpperCase()} error, trying fallback...`, { idCELL, error: msg });
+                                       // console.log(`[FALLBACK] Primary DEX ${dex.toUpperCase()} error, trying fallback...`, { idCELL, error: msg });
                                         updateDexCellStatus('fallback', dex, '');
                                         // Mulai countdown untuk SWOOP fallback (menggunakan speedScan dari setting user)
                                         try {
@@ -1025,7 +1077,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                                     source = routeTool;
                                                 }
                                             }
-                                            console.log(`[FALLBACK SUCCESS] ${dex.toUpperCase()} fallback succeeded via ${source}`, { idCELL, amount_out: fallbackRes.amount_out });
+                                           // console.log(`[FALLBACK SUCCESS] ${dex.toUpperCase()} fallback succeeded via ${source}`, { idCELL, amount_out: fallbackRes.amount_out });
                                             handleSuccess(fallbackRes, true, source);
                                         })
                                         // Jika fallback juga gagal, tampilkan error final.
@@ -1044,7 +1096,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                             } catch(_) {}
                                             try { clearDexTickerById(idCELL); } catch(_) {}
                                             // REFACTORED: Tampilkan error dari alternatif, bukan error dari primary
-                                            console.log(`[FALLBACK ERROR] ${dex.toUpperCase()} fallback also failed`, { idCELL, error: finalMessage });
+                                            //console.log(`[FALLBACK ERROR] ${dex.toUpperCase()} fallback also failed`, { idCELL, error: finalMessage });
                                             updateDexCellStatus('fallback_error', dex, finalMessage);
                                             try {
                                                 // Align console info with requested orderbook logic
@@ -1279,17 +1331,17 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
         updateProgress(tokensToProcess.length, tokensToProcess.length, startTime, 'SELESAI');
 
         // REFACTORED: Tunggu semua request DEX (termasuk fallback) benar-benar selesai.
-        console.log('[FINAL] Waiting for pending DEX requests to settle...');
+       //('[FINAL] Waiting for pending DEX requests to settle...');
         await waitForPendingDexRequests(8000);
         if (activeDexRequests > 0) {
             console.warn(`[FINAL] Continuing with ${activeDexRequests} pending DEX request(s) after timeout window.`);
         }
 
         // Trigger final processUiUpdates untuk memastikan semua item di queue diproses
-        console.log(`[FINAL] Queue length before final processing: ${uiUpdateQueue.length}`);
+       // console.log(`[FINAL] Queue length before final processing: ${uiUpdateQueue.length}`);
 
         if (uiUpdateQueue.length > 0) {
-            console.log(`[FINAL] Processing remaining ${uiUpdateQueue.length} items in queue...`);
+           // console.log(`[FINAL] Processing remaining ${uiUpdateQueue.length} items in queue...`);
 
             // Process semua item yang ada di queue
             while (uiUpdateQueue.length > 0) {
@@ -1320,22 +1372,49 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                     }
                     continue;
                 }
-                console.log(`[FINAL PROCESS]`, { idCELL: updateData.idPrefix + updateData.baseId });
+               // console.log(`[FINAL PROCESS]`, { idCELL: updateData.idPrefix + updateData.baseId });
                 try {
                     DisplayPNL(updateData);
                 } catch(e) {
                     console.error('[FINAL PROCESS ERROR]', e);
                 }
             }
-            console.log('[FINAL] All items processed.');
+           // console.log('[FINAL] All items processed.');
         } else {
-            console.log('[FINAL] No items in queue to process.');
+           // console.log('[FINAL] No items in queue to process.');
         }
 
         // Set flag dan hentikan loop UI.
         isScanRunning = false;
         cancelAnimationFrame(animationFrameId);
         setPageTitleForRun(false);
+
+        // === NOTIFY TAB MANAGER ABOUT SCAN STOP ===
+        try {
+            // Clear per-tab scanning state
+            if (typeof sessionStorage !== 'undefined') {
+                sessionStorage.removeItem('TAB_SCANNING');
+                sessionStorage.removeItem('TAB_SCAN_CHAIN');
+                sessionStorage.removeItem('TAB_SCAN_START');
+            }
+
+            // Notify TabManager untuk broadcast ke tab lain
+            if (window.TabManager && typeof window.TabManager.notifyScanStop === 'function') {
+                window.TabManager.notifyScanStop();
+                console.log(`[SCANNER] Tab ${window.getTabId()} stopped scanning`);
+            }
+
+            // Release global lock (tracking only - does NOT block other tabs)
+            saveToLocalStorage('GLOBAL_SCAN_LOCK', {
+                isScanning: false,
+                chain: null,
+                tabId: window.getTabId ? window.getTabId() : 'UNKNOWN',
+                timestamp: Date.now()
+            });
+        } catch(e) {
+            console.error('[SCANNER] Error releasing scan state:', e);
+        }
+
         // Aktifkan kembali UI.
         form_on();
         $("#stopSCAN").hide().prop("disabled", true);
@@ -1397,8 +1476,34 @@ async function stopScanner() {
     window.__autoRunInterval = null;
     setPageTitleForRun(false);
     if (typeof form_on === 'function') form_on();
-    // Set flag agar halaman yang di-reload tahu bahwa scan dihentikan.
-    try { sessionStorage.setItem('APP_FORCE_RUN_NO', '1'); } catch(_) {}
+
+    // === NOTIFY TAB MANAGER ABOUT MANUAL STOP ===
+    try {
+        // Clear per-tab scanning state
+        if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.removeItem('TAB_SCANNING');
+            sessionStorage.removeItem('TAB_SCAN_CHAIN');
+            sessionStorage.removeItem('TAB_SCAN_START');
+            sessionStorage.setItem('APP_FORCE_RUN_NO', '1');
+        }
+
+        // Notify TabManager untuk broadcast ke tab lain
+        if (window.TabManager && typeof window.TabManager.notifyScanStop === 'function') {
+            window.TabManager.notifyScanStop();
+            console.log(`[SCANNER] Tab ${window.getTabId()} stopped scanning (manual stop)`);
+        }
+
+        // Release global lock (tracking only - does NOT block other tabs)
+        saveToLocalStorage('GLOBAL_SCAN_LOCK', {
+            isScanning: false,
+            chain: null,
+            tabId: window.getTabId ? window.getTabId() : 'UNKNOWN',
+            timestamp: Date.now()
+        });
+    } catch(e) {
+        console.error('[SCANNER] Error releasing scan state on manual stop:', e);
+    }
+
     // Simpan state 'run:NO' dan update indikator UI sebelum reload.
     await persistRunStateNo();
     location.reload();
@@ -1411,6 +1516,33 @@ async function stopScanner() {
 function stopScannerSoft() {
     isScanRunning = false;
     try { cancelAnimationFrame(animationFrameId); } catch(_) {}
+
+    // === NOTIFY TAB MANAGER ABOUT SOFT STOP ===
+    try {
+        // Clear per-tab scanning state
+        if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.removeItem('TAB_SCANNING');
+            sessionStorage.removeItem('TAB_SCAN_CHAIN');
+            sessionStorage.removeItem('TAB_SCAN_START');
+        }
+
+        // Notify TabManager untuk broadcast ke tab lain
+        if (window.TabManager && typeof window.TabManager.notifyScanStop === 'function') {
+            window.TabManager.notifyScanStop();
+            console.log(`[SCANNER] Tab ${window.getTabId()} soft stopped scanning`);
+        }
+
+        // Release global lock (tracking only - does NOT block other tabs)
+        saveToLocalStorage('GLOBAL_SCAN_LOCK', {
+            isScanning: false,
+            chain: null,
+            tabId: window.getTabId ? window.getTabId() : 'UNKNOWN',
+            timestamp: Date.now()
+        });
+    } catch(e) {
+        console.error('[SCANNER] Error releasing scan state on soft stop:', e);
+    }
+
     // Simpan state 'run:NO' tanpa me-reload halaman.
     try { (async()=>{ await persistRunStateNo(); })(); } catch(_) {}
     clearInterval(window.__autoRunInterval);
@@ -1481,6 +1613,14 @@ if (typeof window !== 'undefined' && window.App && typeof window.App.register ==
         startScanner,
         stopScanner,
         stopScannerSoft,
-        isScanRunning: () => isScanRunning
+        // Return per-tab scanning state (not global)
+        isScanRunning: () => isThisTabScanning(),
+        // Expose helper untuk external access
+        isThisTabScanning: isThisTabScanning
     });
+}
+
+// Expose untuk backward compatibility
+if (typeof window !== 'undefined') {
+    window.isThisTabScanning = isThisTabScanning;
 }
