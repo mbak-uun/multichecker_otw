@@ -246,7 +246,7 @@
         // Clean up tabs that haven't sent heartbeat in 15 seconds
         cleanupDeadTabs() {
             const now = Date.now();
-            const timeout = 15000; // 15 seconds
+            const timeout = 25000; // 15 seconds
 
             for (const [tabId, info] of this.otherTabs.entries()) {
                 if (now - info.lastSeen > timeout) {

@@ -1096,6 +1096,7 @@ $("#reload").click(function () {
       $('#dataTableBody').closest('.uk-overflow-auto').hide();
       $('#iframe-container').hide();
       $('#form-setting-app').hide();
+      $('#filter-card').show(); // Tampilkan filter card secara eksplisit
       // unified table; nothing to hide
       $('#token-management').show();
       try {
@@ -1571,34 +1572,20 @@ $("#startSCAN").click(function () {
         }
     });
 
-function showMainScannerView() {
-    $('#iframe-container').hide();
-    $('#token-management').hide();
-    $('#update-wallet-section').hide();
-    try {
-        if (window.SnapshotModule && typeof window.SnapshotModule.hide === 'function') {
-            window.SnapshotModule.hide();
-        }
-    } catch(_) {}
-    $('#filter-card').show();
-    $('#form-setting-app').hide();
-    $('#scanner-config, #sinyal-container, #header-table').show();
-    $('#dataTableBody').closest('.uk-overflow-auto').show();
-}
-
-function showSnapshotView() {
-    try {
-        if (window.SnapshotModule && typeof window.SnapshotModule.show === 'function') {
-            window.SnapshotModule.show();
-            return;
-        }
-    } catch(_) {}
-    $('#snapshot-modal').addClass('uk-open').show();
-}
-
 // =================================================================================
 // Sync Modal Helpers (Server / Snapshot)
 // =================================================================================
+// REFACTORED: Snapshot operations now unified in snapshot-new.js
+// - processSnapshotForCex() handles all CEX data fetching and enrichment
+// - saveToSnapshot() moved to snapshot-new.js (exported via window.SnapshotModule)
+// - Single IndexedDB storage for all snapshot data (SNAPSHOT_DATA_KOIN key)
+//
+// This file only handles:
+// - Loading snapshot data to modal UI
+// - Fetching from remote JSON server (fallback)
+// - Modal interaction handlers
+// =================================================================================
+
 const SNAPSHOT_DB_CONFIG = (function(){
     const root = (typeof window !== 'undefined') ? window : {};
     const appCfg = (root.CONFIG_APP && root.CONFIG_APP.APP) ? root.CONFIG_APP.APP : {};
@@ -1613,21 +1600,123 @@ let snapshotDbInstance = null;
 
 function setSyncSourceIndicator(label) {
     try {
-        $('#sync-source-indicator').text(label || 'Server');
+        $('#sync-source-indicator').text(label || '-');
     } catch(_) {}
 }
 
-function setSyncSourceControl(sourceKey) {
+// ====================================================================================
+// SNAPSHOT PROCESS FUNCTIONS
+// ====================================================================================
+
+// Overlay helpers
+function showSyncOverlay(msg, phase = '') {
     try {
-        const normalized = String(sourceKey || 'server').toLowerCase();
-        const $radios = $('#sync-source-toggle input[name="sync-source"]');
-        if ($radios.length) {
-            $radios.each(function(){
-                const val = String($(this).val() || '').toLowerCase();
-                $(this).prop('checked', val === normalized);
-            });
+        $('#sync-overlay .msg').text(msg || 'Memproses...');
+        $('#sync-overlay .phase').text(phase || '');
+        $('#sync-overlay .counter').text('0 / 0 (0%)');
+        $('#sync-ov-progress').val(0);
+        $('#sync-overlay').css('display', 'flex');
+    } catch(_) {}
+}
+window.showSyncOverlay = showSyncOverlay;
+
+function hideSyncOverlay() {
+    try {
+        $('#sync-overlay').css('display', 'none');
+    } catch(_) {}
+}
+window.hideSyncOverlay = hideSyncOverlay;
+
+function updateSyncOverlayProgress(current, total, phase = '') {
+    try {
+        const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+        $('#sync-ov-progress').val(pct);
+        $('#sync-overlay .counter').text(`${current} / ${total} (${pct}%)`);
+        if (phase) $('#sync-overlay .phase').text(phase);
+    } catch(_) {}
+}
+window.updateSyncOverlayProgress = updateSyncOverlayProgress;
+
+function setSyncOverlayMessage(msg, phase) {
+    try {
+        if (typeof msg !== 'undefined' && msg !== null) {
+            $('#sync-overlay .msg').text(msg);
+        }
+        if (typeof phase !== 'undefined') {
+            $('#sync-overlay .phase').text(phase || '');
         }
     } catch(_) {}
+}
+try { window.setSyncOverlayMessage = setSyncOverlayMessage; } catch(_) {}
+
+// Ensure snapshot-new.js has initialized the global module before use
+let snapshotModuleLoader = null;
+async function ensureSnapshotModuleLoaded() {
+    const isReady = () => window.SnapshotModule && typeof window.SnapshotModule.processSnapshotForCex === 'function';
+    if (isReady()) return window.SnapshotModule;
+    if (snapshotModuleLoader) return snapshotModuleLoader;
+
+    snapshotModuleLoader = new Promise((resolve, reject) => {
+        let timer = null;
+        const start = Date.now();
+        const timeout = 10000;
+        const tickInterval = 100;
+
+        const finishIfReady = () => {
+            if (isReady()) {
+                if (timer) clearInterval(timer);
+                resolve(window.SnapshotModule);
+                return true;
+            }
+            return false;
+        };
+
+        const existingScript = Array.from(document.getElementsByTagName('script'))
+            .find(s => typeof s.src === 'string' && s.src.includes('snapshot-new.js'));
+
+        const attachListeners = (scriptEl) => {
+            if (!scriptEl) return;
+            scriptEl.addEventListener('load', () => finishIfReady(), { once: true });
+            scriptEl.addEventListener('error', () => {
+                if (timer) clearInterval(timer);
+                reject(new Error('Snapshot module gagal dimuat'));
+            }, { once: true });
+        };
+
+        if (!existingScript) {
+            const head = document.head || document.getElementsByTagName('head')[0];
+            if (!head) {
+                reject(new Error('Tidak dapat menemukan elemen <head> untuk memuat snapshot module'));
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = 'snapshot-new.js';
+            script.async = false;
+            attachListeners(script);
+            head.appendChild(script);
+        } else {
+            attachListeners(existingScript);
+        }
+
+        if (finishIfReady()) return;
+
+        timer = setInterval(() => {
+            if (finishIfReady()) return;
+            if ((Date.now() - start) >= timeout) {
+                clearInterval(timer);
+                reject(new Error('Snapshot module belum siap (timeout)'));
+            }
+        }, tickInterval);
+    }).finally(() => {
+        snapshotModuleLoader = null;
+    });
+
+    return snapshotModuleLoader;
+}
+
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function resetSyncModalSelections() {
@@ -1639,6 +1728,13 @@ function resetSyncModalSelections() {
 
 function setSyncModalData(chainKey, rawTokens, savedTokens, sourceLabel) {
     try {
+        console.log('setSyncModalData called:', {
+            chainKey,
+            rawTokensLength: rawTokens?.length,
+            savedTokensLength: savedTokens?.length,
+            sourceLabel
+        });
+
         const chainLower = String(chainKey || '').toLowerCase();
         const normalizedSource = (String(sourceLabel || 'server').toLowerCase().includes('snapshot')) ? 'snapshot' : 'server';
         const list = Array.isArray(rawTokens) ? rawTokens.map((item, idx) => {
@@ -1647,6 +1743,9 @@ function setSyncModalData(chainKey, rawTokens, savedTokens, sourceLabel) {
             if (!clone.__source) clone.__source = normalizedSource;
             return clone;
         }) : [];
+
+        console.log('Processed list:', list.length, 'items');
+
         const $modal = $('#sync-modal');
         $modal.data('remote-raw', list);
         const savedList = Array.isArray(savedTokens) ? savedTokens : [];
@@ -1655,8 +1754,9 @@ function setSyncModalData(chainKey, rawTokens, savedTokens, sourceLabel) {
         resetSyncModalSelections();
         const labelText = `${sourceLabel || 'Server'} (${list.length})`;
         setSyncSourceIndicator(labelText);
-        setSyncSourceControl(normalizedSource);
         buildSyncFilters(chainLower);
+
+        console.log('About to render table for chain:', chainLower);
         renderSyncTable(chainLower);
     } catch(error) {
         console.error('setSyncModalData failed:', error);
@@ -1673,10 +1773,11 @@ function parseSnapshotStatus(val) {
     if (val === true) return true;
     if (val === false) return false;
     const str = String(val).toLowerCase();
-    if (['on', 'true', 'yes', 'open', 'enabled', 'aktif'].includes(str)) return true;
-    if (['off', 'false', 'no', 'close', 'closed', 'disabled', 'nonaktif', 'tidak'].includes(str)) return false;
+    if (['on', 'true', 'yes', 'open', 'enabled', 'aktif', '1'].includes(str)) return true;
+    if (['off', 'false', 'no', 'close', 'closed', 'disabled', 'nonaktif', 'tidak', '0'].includes(str)) return false;
     return null;
 }
+try { window.parseSnapshotStatus = parseSnapshotStatus; } catch(_) {}
 
 function readNonPairConfig() {
     try {
@@ -1696,12 +1797,71 @@ function readNonPairConfig() {
 
 function toggleNonPairInputs() {
     try {
-        const isNonChecked = $('#sync-filter-pair input[value="NON"]').is(':checked');
-        $('#sync-non-config').css('display', isNonChecked ? '' : 'none');
+        // Check if NON is selected (radio button)
+        const isNonChecked = $('#sync-filter-pair input[type="radio"]:checked').val() === 'NON';
+        $('#sync-non-config').css('display', isNonChecked ? 'block' : 'none');
+
+        // If NON is selected, validate inputs and update button state
+        if (isNonChecked) {
+            validateNonPairInputs();
+        }
     } catch(_) {}
 }
 
 try { window.toggleNonPairInputs = toggleNonPairInputs; } catch(_) {}
+
+function validateNonPairInputs() {
+    try {
+        const isNonSelected = $('#sync-filter-pair input[type="radio"]:checked').val() === 'NON';
+        if (!isNonSelected) return true; // Not NON, no validation needed
+
+        const pairName = String($('#sync-non-pair-name').val() || '').trim();
+        const pairSc = String($('#sync-non-pair-sc').val() || '').trim();
+        const pairDes = $('#sync-non-pair-des').val();
+
+        const isValid = pairName && pairSc && pairDes && Number.isFinite(Number(pairDes));
+
+        // Update visual feedback
+        $('#sync-non-pair-name').toggleClass('uk-form-danger', !pairName);
+        $('#sync-non-pair-sc').toggleClass('uk-form-danger', !pairSc);
+        $('#sync-non-pair-des').toggleClass('uk-form-danger', !pairDes || !Number.isFinite(Number(pairDes)));
+
+        // Disable/enable add button based on validation
+        updateAddTokenButtonState();
+
+        return isValid;
+    } catch(e) {
+        console.error('validateNonPairInputs error:', e);
+        return false;
+    }
+}
+try { window.validateNonPairInputs = validateNonPairInputs; } catch(_) {}
+
+function updateAddTokenButtonState() {
+    try {
+        // Update both "Save" button in modal footer and any other add buttons
+        const $addBtn = $('#sync-save-btn, .sync-add-token-button, #btn-add-sync-tokens');
+        if (!$addBtn.length) return;
+
+        const isNonSelected = $('#sync-filter-pair input[type="radio"]:checked').val() === 'NON';
+
+        if (isNonSelected) {
+            // Check if NON inputs are valid
+            const isValid = validateNonPairInputs();
+            $addBtn.prop('disabled', !isValid);
+            if (!isValid) {
+                $addBtn.attr('title', 'Lengkapi data Pair NON terlebih dahulu');
+            } else {
+                $addBtn.removeAttr('title');
+            }
+        } else {
+            // Not NON, enable button (normal behavior)
+            $addBtn.prop('disabled', false);
+            $addBtn.removeAttr('title');
+        }
+    } catch(_) {}
+}
+try { window.updateAddTokenButtonState = updateAddTokenButtonState; } catch(_) {}
 
 function updateSyncSelectedCount() {
     try {
@@ -1722,6 +1882,7 @@ function formatSyncPriceValue(price) {
     if (typeof formatPrice === 'function') return formatPrice(price);
     return price.toFixed(price >= 1 ? 4 : 6);
 }
+try { window.formatSyncPriceValue = formatSyncPriceValue; } catch(_) {}
 
 function setSyncPriceCell(cex, symbol, pair, price, renderId) {
     const $cell = $(`#sync-modal-tbody td[data-price-cex="${cex}"][data-symbol="${symbol}"][data-pair="${pair}"]`);
@@ -1845,7 +2006,7 @@ const SYNC_TICKER_ENDPOINTS = {
     },
     BITGET: {
         url: 'https://api.bitget.com/api/v2/spot/market/tickers',
-        proxy: true,
+        proxy: false,
         parser: (data) => {
             const map = new Map();
             const list = data?.data;
@@ -1989,9 +2150,15 @@ async function processSyncPriceQueue() {
 function normalizeSnapshotRecord(rec, chainKey) {
     if (!rec) return null;
     const cex = String(rec.cex || rec.exchange || '').toUpperCase().trim();
-    const symbol = String(rec.symbol || rec.ticker || rec.koin || rec.token || '').toUpperCase().trim();
-    const sc = String(rec.sc || rec.contract || rec.address || '').trim();
-    if (!cex || !symbol || !sc) return null;
+    const symbol = String(rec.symbol_in || rec.symbol || rec.ticker || rec.koin || rec.token || '').toUpperCase().trim();
+    const sc = String(rec.sc_in || rec.sc || rec.contract || rec.address || '').trim();
+
+    // Require at least CEX and symbol (SC bisa kosong)
+    if (!cex || !symbol) {
+        console.warn('normalizeSnapshotRecord - Missing required fields:', { cex, symbol });
+        return null;
+    }
+
     return {
         __source: 'snapshot',
         chain: String(chainKey || '').toLowerCase(),
@@ -1999,78 +2166,47 @@ function normalizeSnapshotRecord(rec, chainKey) {
         symbol_in: symbol,
         sc_in: sc,
         des_in: parseNumberSafe(rec.des || rec.decimals || rec.des_in || rec.decimals_in || 0, 0),
-        token_name: rec.name || rec.token || '',
+        token_name: rec.token_name || rec.name || rec.token || symbol,
+        symbol_out: rec.symbol_out || '',
+        sc_out: rec.sc_out || '',
+        des_out: rec.des_out || 0,
         deposit: rec.deposit,
         withdraw: rec.withdraw,
         feeWD: rec.feeWD,
-        price: rec.price
+        current_price: parseNumberSafe(rec.current_price ?? rec.price ?? 0, 0),
+        price_timestamp: rec.price_timestamp || rec.price_ts || null
     };
 }
 
-async function openSnapshotDatabase() {
-    if (snapshotDbInstance) return snapshotDbInstance;
-    if (typeof indexedDB === 'undefined') throw new Error('IndexedDB tidak tersedia di lingkungan ini.');
-    snapshotDbInstance = await new Promise((resolve, reject) => {
-        try {
-            const req = indexedDB.open(SNAPSHOT_DB_CONFIG.name);
-            req.onupgradeneeded = function(ev) {
-                const db = ev.target.result;
-                if (!db.objectStoreNames.contains(SNAPSHOT_DB_CONFIG.store)) {
-                    db.createObjectStore(SNAPSHOT_DB_CONFIG.store, { keyPath: 'key' });
-                }
-            };
-            req.onsuccess = function(ev) {
-                const db = ev.target.result;
-                if (!db.objectStoreNames.contains(SNAPSHOT_DB_CONFIG.store)) {
-                    const next = (db.version || 1) + 1;
-                    db.close();
-                    const up = indexedDB.open(SNAPSHOT_DB_CONFIG.name, next);
-                    up.onupgradeneeded = function(e2) {
-                        const udb = e2.target.result;
-                        if (!udb.objectStoreNames.contains(SNAPSHOT_DB_CONFIG.store)) {
-                            udb.createObjectStore(SNAPSHOT_DB_CONFIG.store, { keyPath: 'key' });
-                        }
-                    };
-                    up.onsuccess = function(e2) { resolve(e2.target.result); };
-                    up.onerror = function(e2) { reject(e2.target.error || new Error('Gagal upgrade Snapshot DB')); };
-                } else {
-                    resolve(db);
-                }
-            };
-            req.onerror = function(ev) { reject(ev.target.error || new Error('Gagal membuka Snapshot DB')); };
-        } catch(err) { reject(err); }
-    });
-    return snapshotDbInstance;
-}
-
-async function snapshotDbGet(key) {
-    try {
-        const db = await openSnapshotDatabase();
-        return await new Promise((resolve) => {
-            try {
-                const tx = db.transaction([SNAPSHOT_DB_CONFIG.store], 'readonly');
-                const st = tx.objectStore(SNAPSHOT_DB_CONFIG.store);
-                const req = st.get(String(key));
-                req.onsuccess = function() { resolve(req.result ? req.result.val : undefined); };
-                req.onerror = function() { resolve(undefined); };
-            } catch(_) { resolve(undefined); }
-        });
-    } catch(error) {
-        console.error('snapshotDbGet error:', error);
-        return undefined;
-    }
-}
+// saveToSnapshot() removed - now using window.SnapshotModule.saveToSnapshot() from snapshot-new.js
 
 async function loadSnapshotRecords(chainKey) {
     try {
-        const snapshotMap = await snapshotDbGet(SNAPSHOT_DB_CONFIG.snapshotKey);
-        if (!snapshotMap || typeof snapshotMap !== 'object') return [];
+        const snapshotMap = await (window.snapshotDbGet ? window.snapshotDbGet(SNAPSHOT_DB_CONFIG.snapshotKey) : Promise.resolve(null));
+        console.log('loadSnapshotRecords - snapshotMap:', snapshotMap);
+
+        if (!snapshotMap || typeof snapshotMap !== 'object') {
+            console.warn('loadSnapshotRecords - No snapshot map found');
+            return [];
+        }
+
         const keyLower = String(chainKey || '').toLowerCase();
         const fallbackKey = String(chainKey || '').toUpperCase();
+
+        console.log('loadSnapshotRecords - Looking for keys:', { keyLower, fallbackKey });
+        console.log('loadSnapshotRecords - Available keys:', Object.keys(snapshotMap));
+
         const arr = Array.isArray(snapshotMap[keyLower]) ? snapshotMap[keyLower]
                   : Array.isArray(snapshotMap[fallbackKey]) ? snapshotMap[fallbackKey]
                   : [];
-        if (!Array.isArray(arr) || !arr.length) return [];
+
+        console.log('loadSnapshotRecords - Found array length:', arr.length);
+
+        if (!Array.isArray(arr) || !arr.length) {
+            console.warn('loadSnapshotRecords - Empty array');
+            return [];
+        }
+
         const seen = new Set();
         const out = [];
         arr.forEach((rec) => {
@@ -2082,6 +2218,8 @@ async function loadSnapshotRecords(chainKey) {
             norm._idx = out.length;
             out.push(norm);
         });
+
+        console.log('loadSnapshotRecords - Returning:', out.length, 'tokens');
         return out;
     } catch(error) {
         console.error('loadSnapshotRecords failed:', error);
@@ -2130,24 +2268,32 @@ async function fetchTokensFromServer(chainKey) {
     return raw.map((item, idx) => normalizeServerTokenRecord(item, idx));
 }
 
-async function loadSyncTokensFromServer(chainKey) {
-    const key = String(chainKey || '').toLowerCase();
-    const chainConfig = (window.CONFIG_CHAINS || {})[key];
-    if (!chainConfig || !chainConfig.DATAJSON) throw new Error(`No datajson URL for ${String(chainKey || '').toUpperCase()}`);
-    try { if (typeof toast !== 'undefined' && toast.info) toast.info('Mengambil data koin dari server...'); } catch(_) {}
-    const raw = await fetchTokensFromServer(key);
-    const savedTokens = getTokensChain(chainKey);
-    setSyncModalData(chainKey, raw, savedTokens, 'Server');
-    try { if (typeof toast !== 'undefined' && toast.success) toast.success(`Berhasil memuat ${raw.length} koin dari server`); } catch(_) {}
-}
+// DEPRECATED: Removed direct server loading from sync modal
+// Now using snapshot-only approach with SYNC EXCHANGER button
+// async function loadSyncTokensFromServer(chainKey) {
+//     const key = String(chainKey || '').toLowerCase();
+//     const chainConfig = (window.CONFIG_CHAINS || {})[key];
+//     if (!chainConfig || !chainConfig.DATAJSON) throw new Error(`No datajson URL for ${String(chainKey || '').toUpperCase()}`);
+//     try { if (typeof toast !== 'undefined' && toast.info) toast.info('Mengambil data koin dari server...'); } catch(_) {}
+//     const raw = await fetchTokensFromServer(key);
+//     const savedTokens = getTokensChain(chainKey);
+//     setSyncModalData(chainKey, raw, savedTokens, 'Server');
+//     try { if (typeof toast !== 'undefined' && toast.success) toast.success(`Berhasil memuat ${raw.length} koin dari server`); } catch(_) {}
+// }
 
-async function loadSyncTokensFromSnapshot(chainKey) {
+async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
     const key = String(chainKey || '').toLowerCase();
     const raw = await loadSnapshotRecords(key);
-    if (!raw.length) throw new Error('Snapshot kosong untuk chain ini.');
+    if (!raw.length) {
+        if (!silent) throw new Error('Snapshot kosong untuk chain ini.');
+        return false; // Return false instead of throwing when silent
+    }
     const savedTokens = getTokensChain(chainKey);
     setSyncModalData(chainKey, raw, savedTokens, 'Snapshot');
-    try { if (typeof toast !== 'undefined' && toast.success) toast.success(`Berhasil memuat ${raw.length} koin dari snapshot lokal`); } catch(_) {}
+    if (!silent) {
+        try { if (typeof toast !== 'undefined' && toast.success) toast.success(`Berhasil memuat ${raw.length} koin dari snapshot lokal`); } catch(_) {}
+    }
+    return true;
 }
 
 // Single Chain Mode Handler removed (unified table)
@@ -2175,58 +2321,9 @@ async function loadSyncTokensFromSnapshot(chainKey) {
         $('#iframe-container').show();
     });
 
-    $(document).on('click', '#openSnapshotView', function(e){
-        e.preventDefault();
-        const launchedFromSync = $(this).closest('#sync-modal').length > 0;
-        if (launchedFromSync) {
-            $('#snapshot-modal').data('return-to-sync', true);
-            try {
-                const modal = (typeof UIkit !== 'undefined' && typeof UIkit.modal === 'function') ? UIkit.modal('#sync-modal') : null;
-                if (modal) {
-                    modal.hide();
-                } else {
-                    $('#sync-modal').removeClass('uk-open').hide();
-                }
-            } catch(_) {
-                $('#sync-modal').removeClass('uk-open').hide();
-            }
-        } else {
-            $('#snapshot-modal').removeData('return-to-sync');
-        }
-        showSnapshotView();
-    });
-
-    $(document).on('click', '#snapshot-back', function(){
-        const shouldReturnToSync = !!$('#snapshot-modal').data('return-to-sync');
-        try {
-            if (window.SnapshotModule && typeof window.SnapshotModule.hide === 'function') {
-                window.SnapshotModule.hide();
-            } else {
-                $('#snapshot-modal').removeClass('uk-open').hide();
-            }
-        } catch(_) {
-            $('#snapshot-modal').removeClass('uk-open').hide();
-        }
-        if (shouldReturnToSync) {
-            try {
-                const syncModal = (typeof UIkit !== 'undefined' && typeof UIkit.modal === 'function') ? UIkit.modal('#sync-modal') : null;
-                if (syncModal) {
-                    syncModal.show();
-                } else {
-                    $('#sync-modal').addClass('uk-open').show();
-                }
-            } catch(_) {
-                $('#sync-modal').addClass('uk-open').show();
-            }
-            $('#snapshot-modal').removeData('return-to-sync');
-            return;
-        }
-        showMainScannerView();
-    });
-
     // Let #home-link perform a full navigation (fresh reload)
 
-    // Token Sync Modal Logic
+    // Token Sync Modal Logic dengan Auto-Fetch JSON
     $(document).on('click', '#sync-tokens-btn', async function() {
         if (!activeSingleChainKey) {
             if (typeof toast !== 'undefined' && toast.error) toast.error("No active chain selected.");
@@ -2239,55 +2336,247 @@ async function loadSyncTokensFromSnapshot(chainKey) {
             return;
         }
 
+        // Reset modal state
         $('#sync-modal-chain-name').text(chainConfig.Nama_Chain || String(activeSingleChainKey).toUpperCase());
-        $('#sync-modal-tbody').empty().html('<tr><td colspan="6">Loading...</td></tr>');
-        setSyncSourceIndicator('Server');
-        setSyncSourceControl('server');
+        $('#sync-snapshot-chain-label').text(chainConfig.Nama_Chain || String(activeSingleChainKey).toUpperCase());
+        $('#sync-modal-tbody').empty().html('<tr><td colspan="8">Memuat Data Koin...</td></tr>');
+        $('#sync-snapshot-status').text('Memeriksa database...');
+        setSyncSourceIndicator('-');
+
+        // Show modal
         UIkit.modal('#sync-modal').show();
 
+        // Check if data exists in IndexedDB
+        let hasSnapshot = false;
         try {
-            await loadSyncTokensFromServer(activeSingleChainKey);
-        } catch (error) {
-            $('#sync-modal-tbody').html('<tr><td colspan="6">Failed to fetch token data.</td></tr>');
-            console.error("Error fetching token JSON:", error);
-            let reason = '';
-            try {
-                const status = error?.status;
-                const text = error?.statusText || error?.message || '';
-                if (status) reason = `HTTP ${status}${text ? ` - ${text}` : ''}`;
-            } catch(_) {}
-            if (typeof toast !== 'undefined' && toast.error) toast.error(`Gagal mengambil data dari server${reason ? `: ${reason}` : ''}. Cek koneksi atau URL DATAJSON.`);
+            hasSnapshot = await loadSyncTokensFromSnapshot(activeSingleChainKey, true);
+            console.log('Check snapshot result:', hasSnapshot);
+            if (hasSnapshot) {
+                $('#sync-snapshot-status').text('Data dimuat dari snapshot');
+                console.log('Snapshot data loaded successfully');
+                return; // Data sudah ada, tidak perlu fetch
+            }
+        } catch(e) {
+            console.log('No snapshot, will fetch from JSON. Error:', e);
+        }
+
+        // Data belum ada → Fetch dari DATAJSON
+        console.log('hasSnapshot:', hasSnapshot, '- proceeding to fetch from server');
+        $('#sync-snapshot-status').text('Mengambil data dari server...');
+        console.log('Fetching data from server for chain:', activeSingleChainKey);
+
+        try {
+            const rawTokens = await fetchTokensFromServer(activeSingleChainKey);
+            console.log('Fetched tokens:', rawTokens.length);
+
+            if (!rawTokens || !rawTokens.length) {
+                $('#sync-modal-tbody').html('<tr><td colspan="8">Tidak ada data token dari server</td></tr>');
+                $('#sync-snapshot-status').text('Gagal: Data kosong');
+                return;
+            }
+
+            // Save to IndexedDB
+            console.log('Saving to snapshot...');
+            await window.SnapshotModule.saveToSnapshot(activeSingleChainKey, rawTokens);
+            console.log('Saved to snapshot successfully');
+
+            // Load to modal
+            const loaded = await loadSyncTokensFromSnapshot(activeSingleChainKey, true);
+            console.log('Load result:', loaded);
+
+            if (loaded) {
+                $('#sync-snapshot-status').text(`Data dimuat: ${rawTokens.length} koin`);
+                if (typeof toast !== 'undefined' && toast.success) {
+                    toast.success(`Berhasil memuat ${rawTokens.length} koin dari server`);
+                }
+            } else {
+                console.error('Failed to load after save');
+                $('#sync-modal-tbody').html('<tr><td colspan="8">Gagal memuat data setelah save</td></tr>');
+            }
+        } catch(error) {
+            console.error('Fetch JSON failed:', error);
+            $('#sync-modal-tbody').html(`<tr><td colspan="8">Gagal mengambil data dari server: ${error.message}</td></tr>`);
+            $('#sync-snapshot-status').text('Gagal fetch');
+            if (typeof toast !== 'undefined' && toast.error) {
+                toast.error(`Gagal: ${error.message || 'Unknown error'}`);
+            }
         }
     });
 
-    // Handler untuk toggle sumber data (Server/Snapshot) di modal sinkronisasi
-    $(document).on('change', '#sync-source-toggle input[name="sync-source"]', async function() {
-        if (!$(this).is(':checked')) return;
-        const source = String($(this).val() || '').toLowerCase();
-        setSyncSourceControl(source);
+    // Handler untuk CEX checkbox change - Re-render table (no snapshot process needed)
+    $(document).on('change', '#sync-filter-cex input[type="checkbox"]', function() {
+        if (!activeSingleChainKey) return;
 
+        // Just re-render table with new filters
+        renderSyncTable(activeSingleChainKey);
+        updateSyncSelectedCount();
+    });
+
+    // Handler untuk Pair radio button change - Re-render table and toggle NON inputs
+    $(document).on('change', '#sync-filter-pair input[type="radio"]', function() {
+        if (!activeSingleChainKey) return;
+
+        // Toggle NON pair inputs visibility
+        if (typeof window.toggleNonPairInputs === 'function') {
+            window.toggleNonPairInputs();
+        }
+
+        // Just re-render table with new pair filter
+        renderSyncTable(activeSingleChainKey);
+        updateSyncSelectedCount();
+    });
+
+    // Handler untuk NON pair inputs - Real-time validation
+    $(document).on('input change', '#sync-non-pair-name, #sync-non-pair-sc, #sync-non-pair-des', function() {
+        if (typeof window.validateNonPairInputs === 'function') {
+            window.validateNonPairInputs();
+        }
+    });
+
+    // Refresh Snapshot - Fetch CEX data & validate with Web3
+    $(document).on('click', '#refresh-snapshot-btn', async function() {
         if (!activeSingleChainKey) {
             if (typeof toast !== 'undefined' && toast.error) toast.error("No active chain selected.");
             return;
         }
 
-        $('#sync-modal-tbody').empty().html('<tr><td colspan="6">Loading...</td></tr>');
-        $('#sync-modal').data('source', source);
+        // Get selected CEX from checkboxes
+        const selectedCexs = $('#sync-filter-cex input:checked').map(function() {
+            return $(this).val();
+        }).get();
 
-        if (source === 'server') {
-            try {
-                await loadSyncTokensFromServer(activeSingleChainKey);
-            } catch (error) {
-                $('#sync-modal-tbody').html('<tr><td colspan="6">Gagal memuat data server.</td></tr>');
-                setSyncSourceIndicator('Server (0)');
+        if (selectedCexs.length === 0) {
+            if (typeof toast !== 'undefined' && toast.warning) {
+                toast.warning("Pilih minimal 1 CEX untuk refresh snapshot");
             }
-        } else if (source === 'snapshot') {
-            try {
-                await loadSyncTokensFromSnapshot(activeSingleChainKey);
-            } catch (error) {
-                $('#sync-modal-tbody').html('<tr><td colspan="6">Gagal memuat data snapshot.</td></tr>');
-                setSyncSourceIndicator('Snapshot (0)');
+            return;
+        }
+
+        console.log('Refresh snapshot for CEX:', selectedCexs);
+
+        // Disable button during process
+        const $btn = $('#refresh-snapshot-btn');
+        const originalHtml = $btn.html();
+        $btn.prop('disabled', true).html('<span uk-spinner="ratio: 0.6"></span> Processing...');
+
+        const $tbody = $('#sync-modal-tbody');
+        const incrementalOrder = [];
+        const incrementalMap = new Map();
+        const renderIncrementalRows = () => {
+            $tbody.empty();
+            if (!incrementalOrder.length) {
+                $tbody.html('<tr><td colspan="8" class="uk-text-center uk-text-meta">Memuat data koin terbaru...</td></tr>');
+                return;
             }
+            incrementalOrder.forEach((key, idx) => {
+                const token = incrementalMap.get(key);
+                if (!token) return;
+                const cex = String(token.cex || token.cex_source || '').toUpperCase() || '?';
+                const symbol = String(token.symbol_in || token.symbol || '').toUpperCase() || '?';
+                const tokenName = token.token_name || token.name || token.symbol_in || '-';
+                const scRaw = String(token.sc_in || token.contract_in || '').trim();
+                const scDisplay = scRaw ? (scRaw.length > 12 ? `${scRaw.slice(0, 6)}...${scRaw.slice(-4)}` : scRaw) : '?';
+                const desRaw = token.des_in ?? token.decimals ?? token.decimals_in;
+                const decimals = (Number.isFinite(desRaw) && desRaw >= 0) ? desRaw : '?';
+                const depositState = parseSnapshotStatus(token.depositToken ?? token.deposit);
+                const withdrawState = parseSnapshotStatus(token.withdrawToken ?? token.withdraw);
+                let tradeLabel = 'UNKNOWN';
+                let tradeClass = 'uk-label-warning';
+                if (depositState === true && withdrawState === true) {
+                    tradeLabel = 'ACTIVE';
+                    tradeClass = 'uk-label-success';
+                } else if (depositState === false || withdrawState === false) {
+                    tradeLabel = 'INACTIVE';
+                    tradeClass = 'uk-label-danger';
+                }
+                const priceVal = Number(token.current_price ?? token.price ?? token.price_value);
+                const priceDisplay = (Number.isFinite(priceVal) && priceVal > 0) ? formatSyncPriceValue(priceVal) : '?';
+                const rowHtml = `
+                    <tr data-temp="1">
+                        <td class="uk-text-center"><input type="checkbox" class="uk-checkbox" disabled></td>
+                        <td class="uk-text-center">${idx + 1}</td>
+                        <td class="uk-text-bold uk-text-primary uk-text-small">${cex}</td>
+                        <td>
+                            <div class="uk-text-bold uk-text-small">${symbol}</div>
+                            <div class="uk-text-meta">${tokenName}</div>
+                        </td>
+                        <td class="uk-text-small mono" title="${scRaw || '?'}">${scDisplay}</td>
+                        <td class="uk-text-center">${decimals}</td>
+                        <td><span class="uk-label ${tradeClass}" style="font-size:10px;">${tradeLabel}</span></td>
+                        <td class="uk-text-right uk-text-small">${priceDisplay}</td>
+                    </tr>`;
+                $tbody.append(rowHtml);
+            });
+        };
+        renderIncrementalRows();
+
+        try {
+            if (typeof window.showSyncOverlay === 'function') {
+                window.showSyncOverlay('Memulai sinkronisasi...', 'Inisialisasi');
+            }
+            const snapshotModule = await ensureSnapshotModuleLoaded();
+            await snapshotModule.processSnapshotForCex(
+                activeSingleChainKey,
+                selectedCexs,
+                (token) => {
+                    try {
+                        if (!token) return;
+                        const cex = String(token.cex || token.cex_source || '').toUpperCase();
+                        const symbol = String(token.symbol_in || token.symbol || '').toUpperCase();
+                        const scKey = String(token.sc_in || token.contract_in || '').toLowerCase() || 'NOSC';
+                        const rowKey = `${cex || 'UNKNOWN'}__${symbol || 'UNKNOWN'}__${scKey}`;
+                        if (!incrementalMap.has(rowKey)) {
+                            incrementalOrder.push(rowKey);
+                        }
+                        incrementalMap.set(rowKey, { ...token });
+                        renderIncrementalRows();
+                    } catch(rowErr) {
+                        console.error('Failed to render incremental token row:', rowErr);
+                    }
+                }
+            );
+
+            // Reload snapshot data from IndexedDB and update UI
+            try {
+                const snapshotMap = await (window.snapshotDbGet ? window.snapshotDbGet(SNAPSHOT_DB_CONFIG.snapshotKey) : Promise.resolve(null));
+                const chainData = (snapshotMap && typeof snapshotMap === 'object') ? snapshotMap[activeSingleChainKey] : null;
+
+                if (Array.isArray(chainData) && chainData.length > 0) {
+                    // Update modal data with fresh snapshot
+                    $modal.data('remote-raw', chainData);
+                    $modal.data('source', 'snapshot');
+                    setSyncSourceIndicator('Snapshot (Terbaru)');
+
+                    // Rebuild filters to update CEX badges
+                    if (typeof window.buildSyncFilters === 'function') {
+                        window.buildSyncFilters(activeSingleChainKey);
+                    }
+
+                    // Re-render table with updated data
+                    if (typeof window.renderSyncTable === 'function') {
+                        window.renderSyncTable(activeSingleChainKey);
+                    }
+
+                    console.log(`Snapshot reloaded: ${chainData.length} tokens from IndexedDB`);
+                }
+            } catch(reloadErr) {
+                console.error('Failed to reload snapshot data after update:', reloadErr);
+            }
+
+            if (typeof toast !== 'undefined' && toast.success) {
+                toast.success('Snapshot berhasil di-refresh!');
+            }
+        } catch(error) {
+            console.error('Refresh snapshot failed:', error);
+            if (typeof toast !== 'undefined' && toast.error) {
+                toast.error(`Gagal refresh: ${error.message || 'Unknown error'}`);
+            }
+        } finally {
+            // Hide overlay and re-enable button
+            if (typeof window.hideSyncOverlay === 'function') {
+                window.hideSyncOverlay();
+            }
+            $btn.prop('disabled', false).html(originalHtml);
         }
     });
 
@@ -2494,12 +2783,7 @@ async function loadSyncTokensFromSnapshot(chainKey) {
         renderSyncTable(activeSingleChainKey);
     }, 200));
 
-    $(document).on('change', '#sync-filter-pair input[type="checkbox"]', function(){
-        if (typeof window.toggleNonPairInputs === 'function') {
-            window.toggleNonPairInputs();
-        }
-        renderSyncTable(activeSingleChainKey);
-    });
+    // OLD checkbox handler removed - now using radio button handler defined earlier
 
     $(document).on('change', '#sync-filter-cex input[type="checkbox"]', function(){
         renderSyncTable(activeSingleChainKey);
@@ -2531,6 +2815,8 @@ async function loadSyncTokensFromSnapshot(chainKey) {
 }
 
 $(document).ready(function() {
+    // Database functions removed - snapshot-new.js will use alternative methods
+
     // --- Critical Initializations (Immediate) ---
     // If previous page triggered a reload/reset, clear local flag only (do not broadcast)
     try {
@@ -2679,7 +2965,6 @@ $(document).ready(function() {
             if (typeof toast !== 'undefined' && toast.warning) toast.warning('Database belum tersedia atau tidak dapat diakses.');
             return;
         }
-        const n = payload.items.length;
         if (typeof toast !== 'undefined' && toast.info) toast.info(`TERHUBUNG DATABASE...`);
         else { /* debug logs removed */ }
     }
@@ -2755,7 +3040,6 @@ $(document).ready(function() {
 
         // Per-chain view (unified table): keep main table visible and render single-chain data into it
         activeSingleChainKey = requested;
-        const chainConfig = CONFIG_CHAINS[requested];
         $('#scanner-config, #sinyal-container, #header-table').show();
         $('#dataTableBody').closest('.uk-overflow-auto').show();
         setHomeHref(requested);
@@ -2886,11 +3170,12 @@ $(document).ready(function() {
             defaultPairs = ['NON'];
         }
 
-        // Build CEX checkboxes (horizontal chips)
+        // Build CEX checkboxes (horizontal chips) - unchecked by default
         const $cex = $('#sync-filter-cex').empty();
         Object.keys(CONFIG_CEX || {}).forEach(cex => {
             const id = `sync-cex-${cex}`;
            const badge = countByCex[cex] || 0;
+           // No auto-check - user must select manually
            $cex.append(`<label class="uk-text-small" style="display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid #e5e5e5; border-radius:6px; background:#fafafa;">
                 <input type="checkbox" id="${id}" value="${cex}" class="uk-checkbox">
                 <span style="color:${CONFIG_CEX[cex].WARNA||'#333'}; font-weight:bolder;">${cex}</span>
@@ -2898,14 +3183,16 @@ $(document).ready(function() {
             </label>`);
         });
 
-        // Build Pair checkboxes including NON (horizontal chips)
+        // Build Pair RADIO BUTTONS (only one pair can be selected)
         const $pair = $('#sync-filter-pair').empty();
         const pairKeys = Array.from(new Set([...Object.keys(pairDefs||{}), 'NON']));
+        // Select first pair as default if no default pairs
+        const defaultPair = defaultPairs.length > 0 ? defaultPairs[0] : (pairKeys.length > 0 ? pairKeys[0] : 'NON');
         pairKeys.forEach(p => {
             const id = `sync-pair-${p}`;
-            const checked = defaultPairs.includes(p) ? 'checked' : '';
-            $pair.append(`<label class="uk-text-small" style="display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid #e5e5e5; border-radius:6px; background:#fafafa;">
-                <input type="checkbox" id="${id}" value="${p}" class="uk-checkbox" ${checked}>
+            const checked = (p === defaultPair) ? 'checked' : '';
+            $pair.append(`<label class="uk-text-small" style="display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid #e5e5e5; border-radius:6px; background:#fafafa; cursor:pointer;">
+                <input type="radio" name="sync-pair-group" id="${id}" value="${p}" class="uk-radio" ${checked}>
                 <span style="font-weight:bolder;">${p}</span>
             </label>`);
         });
@@ -2933,13 +3220,15 @@ $(document).ready(function() {
         const pairDefs = chainCfg.PAIRDEXS || {};
         const sourceLabel = String($modal.data('source') || 'server').toLowerCase();
         const selectedCexs = $('#sync-filter-cex input:checked').map(function(){ return $(this).val().toUpperCase(); }).get();
-        const preferredPairs = $('#sync-filter-pair input:checked').map(function(){ return $(this).val().toUpperCase(); }).get();
+        // Get selected pair from radio button (only one)
+        const selectedPair = $('#sync-filter-pair input[type="radio"]:checked').val();
+        const preferredPairs = selectedPair ? [String(selectedPair).toUpperCase()] : [];
         window.__SYNC_PRICE_QUEUE = [];
         window.__SYNC_PRICE_ACTIVE = false;
         const renderId = Date.now();
 
         if (!raw.length || selectedCexs.length === 0) {
-            modalBody.html('<tr><td colspan="6">Pilih minimal 1 CEX untuk menampilkan koin.</td></tr>');
+            modalBody.html('<tr><td colspan="8">Pilih minimal 1 CEX untuk menampilkan koin.</td></tr>');
             updateSyncSelectedCount();
             return;
         }
@@ -2990,7 +3279,7 @@ $(document).ready(function() {
         });
 
         if (!filtered.length) {
-            modalBody.html('<tr><td colspan="6">No tokens match filters.</td></tr>');
+            modalBody.html('<tr><td colspan="8">No tokens match filters.</td></tr>');
             updateSyncSelectedCount();
             return;
         }
@@ -3043,9 +3332,9 @@ $(document).ready(function() {
             const cexUp = String(token.cex || '').toUpperCase();
             const symIn = String(token.symbol_in || '').toUpperCase();
             const symOut = String(token.symbol_out || '').toUpperCase();
-            const scIn = String(token.sc_in || token.contract_in || '');
+            const scInRaw = token.sc_in || token.contract_in || '';
             const scOut = String(token.sc_out || token.contract_out || '');
-            const desIn = token.des_in ?? token.decimals_in ?? token.des ?? token.dec_in ?? '';
+            const desInRaw = token.des_in;
 
             // Cek apakah koin sudah ada di database (per-chain)
             const saved = (Array.isArray(savedTokens) ? savedTokens : []).find(s => {
@@ -3058,26 +3347,56 @@ $(document).ready(function() {
             });
             const isChecked = !!saved;
             const statusBadge = saved
-              ? ' <span class="uk-label uk-label-success" style="font-size:10px;" title="Koin sudah tersimpan di database">[ SUDAH DIPILIH ]</span>'
+              ? ' <span class="uk-label uk-label-success" style="font-size:10px;" title="Koin sudah tersimpan di database">[ DIPILIH ]</span>'
               : '';
             const showSourceBadge = !saved && source === 'snapshot';
             const sourceBadge = showSourceBadge
               ? ' <span class="uk-label uk-label-warning" style="font-size:10px;" title="Berhasil dimuat dari snapshot lokal">SNAPSHOT</span>'
               : '';
+            const scIn = String(scInRaw || '');
+            const scDisplay = scIn ? (scIn.length > 12 ? `${scIn.slice(0, 6)}...${scIn.slice(-4)}` : scIn) : '?';
+            const decimalsValue = Number(token.des_in);
+            const desIn = Number.isFinite(decimalsValue) && decimalsValue >= 0 ? decimalsValue : '?';
+            const tokenName = token.token_name || token.name || symIn || '-';
+            const depositState = parseSnapshotStatus(token.deposit);
+            const withdrawState = parseSnapshotStatus(token.withdraw);
+            let tradeLabel = 'UNKNOWN';
+            let tradeClass = 'uk-label-warning';
+            if (depositState === true && withdrawState === true) {
+                tradeLabel = 'ACTIVE';
+                tradeClass = 'uk-label-success';
+            } else if (depositState === false || withdrawState === false) {
+                tradeLabel = 'INACTIVE';
+                tradeClass = 'uk-label-danger';
+            }
+            const priceStored = Number(token.current_price ?? NaN);
+            const priceDisplay = (Number.isFinite(priceStored) && priceStored > 0)
+                ? formatSyncPriceValue(priceStored)
+                : '?';
+            const checkboxHtml = `<input type="checkbox" class="uk-checkbox sync-token-checkbox" data-index="${baseIndex}" data-pair="${symOut}" data-source="${source}" ${isChecked ? 'checked' : ''} ${isChecked ? 'data-saved="1"' : ''}>`;
             const row = `
                 <tr>
-                    <td><input type="checkbox" class="uk-checkbox sync-token-checkbox" data-index="${baseIndex}" data-pair="${symOut}" data-source="${source}" ${isChecked ? 'checked' : ''} ${isChecked ? 'data-saved="1"' : ''}></td>
-                    <td>${symIn}${statusBadge}${sourceBadge}</td>
-                    <td class="uk-text-small mono" title="${scIn}">${String(scIn).slice(0, 6)}...${String(scIn).slice(-4)}</td>
+                    <td class="uk-text-center">${checkboxHtml}</td>
+                    <td class="uk-text-center">${index + 1}</td>
+                    <td class="uk-text-bold uk-text-primary uk-text-small">${cexUp}${statusBadge}${sourceBadge}</td>
+                    <td>
+                        <span title="${tokenName}">${symIn}</span>
+                    </td>
+                    <td class="uk-text-small mono" title="${scIn || '-'}">${scDisplay}</td>
                     <td class="uk-text-center">${desIn}</td>
-                    <td>${cexUp}</td>
-                    <td class="uk-text-right uk-text-small" data-price-cex="${cexUp}" data-symbol="${symIn}" data-pair="${symOut}">-</td>
+                    <td>
+                        <span class="uk-label ${tradeClass}" style="font-size:10px;">${tradeLabel}</span>
+                    </td>
+                    <td class="uk-text-right uk-text-small" data-price-cex="${cexUp}" data-symbol="${symIn}" data-pair="${symOut}">${priceDisplay}</td>
                 </tr>`;
             modalBody.append(row);
             const $priceCell = $(`#sync-modal-tbody td[data-price-cex="${cexUp}"][data-symbol="${symIn}"][data-pair="${symOut}"]`);
             const eligibleForPrice = symOut && symOut !== 'NON';
             if ($priceCell.length) {
-                $priceCell.text(eligibleForPrice ? '...' : '-').data('render-id', renderId);
+                if (eligibleForPrice) {
+                    $priceCell.text(priceDisplay === '?' ? '?' : priceDisplay);
+                }
+                $priceCell.data('render-id', renderId);
             }
             const jobKey = `${cexUp}__${symIn}__${symOut}`;
             if (eligibleForPrice && !priceJobKeys.has(jobKey)) {

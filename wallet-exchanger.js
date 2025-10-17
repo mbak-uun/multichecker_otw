@@ -102,6 +102,11 @@
 
             // Filter problem coins untuk CEX ini
             const cexProblems = problemCoins.filter(coin => {
+                // For new synced data structure
+                if (coin.cex_source) {
+                    return String(coin.cex_source).toUpperCase() === cexName;
+                }
+                // For legacy data structure
                 return (coin.selectedCexs || []).map(c => String(c).toUpperCase()).includes(cexName);
             });
 
@@ -148,10 +153,12 @@
                 <thead>
                     <tr>
                         <th style="width:30px">No</th>
-                        <th style="width:40px">Symbol</th>
-                        <th style="width:220px">SC</th>
-                        <th style="width:60px">WD</th>
-                        <th style="width:60px">DP</th>
+                        <th style="width:50px">CEX</th>
+                        <th style="width:60px">Symbol</th>
+                        <th style="width:120px">SC</th>
+                        <th style="width:50px">Decimals</th>
+                        <th style="width:70px">Trade Status</th>
+                        <th style="width:80px">Price</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -160,30 +167,31 @@
         coins.forEach((coin, idx) => {
             const dataCex = (coin.dataCexs || {})[cexName] || {};
 
-            // Status untuk Token
+            // Symbol dan SC data
+            const tokenSymbol = (coin.symbol_in || '?').toUpperCase();
+            const tokenSc = coin.sc_in || '-';
+
+            // Decimals dari enrichment
+            const decimals = coin.des_in || coin.decimals || '-';
+
+            // Trade status - gabungan WD/DP
             const wdToken = dataCex.withdrawToken;
             const dpToken = dataCex.depositToken;
-            const wdTokenLabel = wdToken === true ? '<span class="wallet-status-badge wallet-status-on">ON</span>' :
-                                 wdToken === false ? '<span class="wallet-status-badge wallet-status-off">OFF</span>' :
-                                 '<span class="wallet-status-badge wallet-status-loading">?</span>';
-            const dpTokenLabel = dpToken === true ? '<span class="wallet-status-badge wallet-status-on">ON</span>' :
-                                 dpToken === false ? '<span class="wallet-status-badge wallet-status-off">OFF</span>' :
-                                 '<span class="wallet-status-badge wallet-status-loading">?</span>';
+            let tradeStatus = '';
 
-            // Status untuk Pair
-            const wdPair = dataCex.withdrawPair;
-            const dpPair = dataCex.depositPair;
-            const wdPairLabel = wdPair === true ? '<span class="wallet-status-badge wallet-status-on">ON</span>' :
-                                wdPair === false ? '<span class="wallet-status-badge wallet-status-off">OFF</span>' :
-                                '<span class="wallet-status-badge wallet-status-loading">?</span>';
-            const dpPairLabel = dpPair === true ? '<span class="wallet-status-badge wallet-status-on">ON</span>' :
-                                dpPair === false ? '<span class="wallet-status-badge wallet-status-off">OFF</span>' :
-                                '<span class="wallet-status-badge wallet-status-loading">?</span>';
+            if (wdToken === true && dpToken === true) {
+                tradeStatus = '<span class="wallet-status-badge wallet-status-on">ACTIVE</span>';
+            } else if (wdToken === false || dpToken === false) {
+                tradeStatus = '<span class="wallet-status-badge wallet-status-off">INACTIVE</span>';
+            } else {
+                tradeStatus = '<span class="wallet-status-badge wallet-status-loading">UNKNOWN</span>';
+            }
 
-            const tokenSymbol = (coin.symbol_in || '?').toUpperCase();
-            const pairSymbol = (coin.symbol_out || '?').toUpperCase();
-            const tokenSc = coin.sc_in || '-';
-            const pairSc = coin.sc_out || '-';
+            // Price data
+            const price = coin.current_price || 0;
+            const priceDisplay = price > 0 ?
+                `<span class="uk-text-success">$${parseFloat(price).toFixed(6)}</span>` :
+                '<span class="uk-text-muted">-</span>';
 
             // Shorten smart contract addresses
             const shortenSc = (sc) => {
@@ -195,20 +203,22 @@
                 <tr>
                     <td>${idx + 1}</td>
                     <td>
-                        <div class="uk-text-bold uk-text-success uk-text-small">${tokenSymbol}</div>
-                        <div class="uk-text-bold uk-text-danger uk-text-small">${pairSymbol}</div>
-                    </td>
-                    <td class="uk-text-truncate" title="Token: ${tokenSc}&#10;Pair: ${pairSc}" style="max-width: 120px;">
-                        <div class="uk-text-small">${tokenSc }</div>
-                        <div class="uk-text-small">${pairSc }</div>
+                        <span class="uk-text-bold uk-text-primary uk-text-small">${cexName}</span>
                     </td>
                     <td>
-                        <div>${wdTokenLabel}</div>
-                        <div>${wdPairLabel}</div>
+                        <span class="uk-text-bold uk-text-emphasis">${tokenSymbol}</span>
                     </td>
-                    <td>
-                        <div>${dpTokenLabel}</div>
-                        <div>${dpPairLabel}</div>
+                    <td class="uk-text-truncate" title="${tokenSc}" style="max-width: 120px;">
+                        <code class="uk-text-small">${shortenSc(tokenSc)}</code>
+                    </td>
+                    <td class="uk-text-center">
+                        <span class="uk-text-small">${decimals}</span>
+                    </td>
+                    <td class="uk-text-center">
+                        ${tradeStatus}
+                    </td>
+                    <td class="uk-text-right">
+                        ${priceDisplay}
                     </td>
                 </tr>
             `;
@@ -224,44 +234,74 @@
 
     /**
      * Update problem coins berdasarkan chain aktif
-     * Menampilkan koin yang memiliki status WD/DP = false atau undefined/null
+     * Menggunakan data dari snapshot storage (unified)
      */
     function updateProblemCoins() {
         try {
             const mode = (typeof getAppMode === 'function') ? getAppMode() : { type: 'multi' };
+            const currentChain = mode.type === 'single' ? mode.chain : 'multichain';
+
             let tokens = [];
 
-            if (mode.type === 'single') {
-                tokens = (typeof getTokensChain === 'function') ? getTokensChain(mode.chain) : [];
-            } else {
-                tokens = getFromLocalStorage('TOKEN_MULTICHAIN', []);
+            // Get data from snapshot storage (unified approach)
+            try {
+                // Load from user's saved tokens first (main storage)
+                if (mode.type === 'single') {
+                    tokens = (typeof getTokensChain === 'function') ? getTokensChain(mode.chain) : [];
+                } else {
+                    tokens = getFromLocalStorage('TOKEN_MULTICHAIN', []);
+                }
+
+                console.log(`[Wallet Exchanger] Using data from storage: ${tokens.length} tokens`);
+            } catch (e) {
+                console.error('[Wallet Exchanger] Failed to load token data:', e);
+                tokens = [];
             }
 
-            // Filter tokens yang memiliki masalah WD/DP atau belum ada data
-            problemCoins = tokens.filter(token => {
-                if (!token.selectedCexs || token.selectedCexs.length === 0) return false;
+            // For synced data structure (new format)
+            if (tokens.length > 0 && tokens[0].cex_source) {
+                problemCoins = tokens.filter(token => {
+                    // Check if token has problems based on trade status or missing data
+                    const dataCex = (token.dataCexs || {})[token.cex_source] || {};
 
-                // Check if token has any CEX with problems
-                const hasProblem = token.selectedCexs.some(cexKey => {
-                    const cexKeyUpper = String(cexKey).toUpperCase();
-                    const cexData = (token.dataCexs || {})[cexKeyUpper] || {};
+                    const tokenHasProblem = dataCex.withdrawToken === false ||
+                                           dataCex.depositToken === false ||
+                                           dataCex.withdrawToken === undefined ||
+                                           dataCex.depositToken === undefined;
 
-                    // Problem if: WD/DP is false, OR data belum ada (undefined/null)
-                    const tokenHasProblem = cexData.withdrawToken === false ||
-                                           cexData.depositToken === false ||
-                                           cexData.withdrawToken === undefined ||
-                                           cexData.depositToken === undefined;
+                    const missingPrice = !token.current_price || token.current_price <= 0;
+                    const missingDecimals = !token.des_in && !token.decimals;
 
-                    const pairHasProblem = cexData.withdrawPair === false ||
-                                          cexData.depositPair === false ||
-                                          cexData.withdrawPair === undefined ||
-                                          cexData.depositPair === undefined;
-
-                    return tokenHasProblem || pairHasProblem;
+                    return tokenHasProblem || missingPrice || missingDecimals;
                 });
+            } else {
+                // Legacy data structure handling
+                problemCoins = tokens.filter(token => {
+                    if (!token.selectedCexs || token.selectedCexs.length === 0) return false;
 
-                return hasProblem;
-            });
+                    // Check if token has any CEX with problems
+                    const hasProblem = token.selectedCexs.some(cexKey => {
+                        const cexKeyUpper = String(cexKey).toUpperCase();
+                        const cexData = (token.dataCexs || {})[cexKeyUpper] || {};
+
+                        const tokenHasProblem = cexData.withdrawToken === false ||
+                                               cexData.depositToken === false ||
+                                               cexData.withdrawToken === undefined ||
+                                               cexData.depositToken === undefined;
+
+                        const pairHasProblem = cexData.withdrawPair === false ||
+                                              cexData.depositPair === false ||
+                                              cexData.withdrawPair === undefined ||
+                                              cexData.depositPair === undefined;
+
+                        return tokenHasProblem || pairHasProblem;
+                    });
+
+                    return hasProblem;
+                });
+            }
+
+            console.log(`[Wallet Exchanger] Found ${problemCoins.length} problem coins`);
 
         } catch(err) {
             console.error('[Wallet Exchanger] Error updating problem coins:', err);
@@ -363,20 +403,60 @@
             }
         } catch(_) {}
 
-        // Call the existing checkAllCEXWallets function
+        // Get current chain
+        const mode = (typeof getAppMode === 'function') ? getAppMode() : { type: 'multi' };
+        const currentChain = mode.type === 'single' ? mode.chain : 'multichain';
+
+        // Show loading overlay
         try {
-            if (typeof checkAllCEXWallets === 'function') {
-                await checkAllCEXWallets();
-            } else if (window.App?.Services?.CEX?.checkAllCEXWallets) {
-                await window.App.Services.CEX.checkAllCEXWallets();
+            if (typeof window.showSyncOverlay === 'function') {
+                window.showSyncOverlay('Memulai sinkronisasi...', 'Inisialisasi');
+            }
+        } catch(_) {}
+
+        // Call the unified snapshot process
+        try {
+            if (window.SnapshotModule?.processSnapshotForCex) {
+                // Use the consolidated processSnapshotForCex function
+                const result = await window.SnapshotModule.processSnapshotForCex(
+                    currentChain,
+                    selectedCexList,
+                    null // perTokenCallback not needed for wallet exchanger
+                );
+
+                // Check result
+                if (result && result.success) {
+                    // Show success result
+                    showUpdateResult(true, []);
+
+                    // Update the card display with new data
+                    renderCexCards();
+
+                    // Success notification with statistics
+                    try {
+                        if (typeof toast !== 'undefined' && toast.success) {
+                            const stats = result.statistics || {};
+                            const msg = `✅ Sinkronisasi selesai: ${result.totalTokens} koin diperbarui dari ${result.cexSources.join(', ')}
+                                        \n📊 Cache: ${stats.cached || 0} | Web3: ${stats.web3 || 0} | Total DB: ${result.totalInDatabase || 0}`;
+                            toast.success(msg);
+                        }
+                    } catch(_) {}
+                } else {
+                    throw new Error(result?.error || 'Snapshot process returned failure');
+                }
+
             } else {
-                throw new Error('checkAllCEXWallets function not found');
+                throw new Error('SnapshotModule.processSnapshotForCex not found');
             }
         } catch(err) {
-            console.error('[Wallet Exchanger] Error during wallet check:', err);
+            console.error('[Wallet Exchanger] Error during wallet sync:', err);
+
+            // Show error result
+            showUpdateResult(false, selectedCexList);
+
             try {
                 if (typeof toast !== 'undefined' && toast.error) {
-                    toast.error('Gagal melakukan pengecekan wallet: ' + err.message);
+                    toast.error('Gagal melakukan sinkronisasi: ' + err.message);
                 }
             } catch(_) {}
         }
