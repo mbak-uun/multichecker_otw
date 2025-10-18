@@ -1986,6 +1986,30 @@ function updateSyncSelectedCount() {
     try {
         const total = $('#sync-modal-tbody .sync-token-checkbox:checked').length;
         $('#sync-selected-count').text(`Dipilih: ${total}`);
+        const hasSelection = total > 0;
+
+        const $modeRadios = $('input[name="sync-pick-mode"]');
+        if ($modeRadios.length) {
+            $modeRadios.prop('disabled', !hasSelection);
+            $modeRadios.each(function(){
+                const $label = $(this).closest('label');
+                if ($label.length) {
+                    $label.css({
+                        opacity: hasSelection ? '' : '0.5',
+                        pointerEvents: hasSelection ? '' : 'none'
+                    });
+                }
+            });
+        }
+
+        const $dexInputs = $('#sync-dex-config').find('input');
+        if ($dexInputs.length) {
+            $dexInputs.prop('disabled', !hasSelection);
+            $('#sync-dex-config').css({
+                opacity: hasSelection ? '' : '0.5',
+                pointerEvents: hasSelection ? '' : 'none'
+            });
+        }
     } catch(_) {}
 }
 try { window.updateSyncSelectedCount = updateSyncSelectedCount; } catch(_) {}
@@ -2936,6 +2960,22 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
         renderSyncTable(activeSingleChainKey);
     });
 
+    $(document).on('click', '#sync-table thead th[data-sort-key]', function(e){
+        e.preventDefault();
+        const key = String($(this).data('sort-key') || '');
+        if (!key) return;
+        if (key === 'default') {
+            setSyncSortState('default');
+        } else {
+            setSyncSortState(key);
+        }
+        if (activeSingleChainKey) {
+            renderSyncTable(activeSingleChainKey);
+        } else {
+            updateSyncSortIndicators();
+        }
+    });
+
     // Sync modal select mode (exclusive via radio)
     $(document).on('change', 'input[name="sync-pick-mode"]', function(){
         const mode = $(this).val();
@@ -3293,6 +3333,113 @@ $(document).ready(function() {
     // function renderSingleChainFilters(chainKey) { ... }
 
     // Helpers: Sync filters + table render (global, used by deferredInit handlers)
+    let syncSortState = { column: 'default', direction: 'asc' };
+    window.__SYNC_SORT_STATE = { ...syncSortState };
+
+    function getSyncSortState() {
+        return { column: syncSortState.column, direction: syncSortState.direction };
+    }
+
+    function setSyncSortState(column) {
+        if (!column) return;
+        if (column === 'default') {
+            syncSortState = { column: 'default', direction: 'asc' };
+            window.__SYNC_SORT_STATE = { ...syncSortState };
+            return;
+        }
+        if (syncSortState.column === column) {
+            syncSortState = {
+                column,
+                direction: syncSortState.direction === 'asc' ? 'desc' : 'asc'
+            };
+        } else {
+            syncSortState = { column, direction: 'asc' };
+        }
+        window.__SYNC_SORT_STATE = { ...syncSortState };
+    }
+
+    function updateSyncSortIndicators() {
+        try {
+            const state = syncSortState || { column: 'default', direction: 'asc' };
+            const $headers = $('#sync-table thead th[data-sort-key]');
+            if ($headers.length) {
+                $headers.css('cursor', 'pointer');
+            }
+            $headers.each(function(){
+                const $th = $(this);
+                const key = String($th.data('sort-key') || '');
+                const $indicator = $th.find('.sync-sort-indicator');
+                if (!$indicator.length) return;
+                const isActive = (key === 'default' && state.column === 'default') || (state.column === key);
+                if (isActive && key !== 'default') {
+                    $indicator.text(state.direction === 'asc' ? '^' : 'v');
+                } else {
+                    $indicator.text('');
+                }
+            });
+        } catch(_) {}
+    }
+    try {
+        window.getSyncSortState = getSyncSortState;
+        window.setSyncSortState = setSyncSortState;
+        window.updateSyncSortIndicators = updateSyncSortIndicators;
+    } catch(_) {}
+
+    function getSyncSortValue(token, column) {
+        switch (column) {
+            case 'cex':
+                {
+                    const cexUp = String(token.cex || '').toUpperCase();
+                    const statusRank = Number.isFinite(token.__statusRank) ? token.__statusRank : 2;
+                    return `${cexUp}|${statusRank}`;
+                }
+            case 'token':
+                return String(token.symbol_in || token.token_name || '').toUpperCase();
+            case 'sc':
+                return String(token.sc_in || token.contract_in || '').toLowerCase();
+            case 'decimals': {
+                const num = Number(token.des_in ?? token.decimals_in ?? token.decimal ?? 0);
+                return Number.isFinite(num) ? num : 0;
+            }
+            case 'trade': {
+                const dep = parseSnapshotStatus(token.deposit);
+                const wd = parseSnapshotStatus(token.withdraw);
+                if (dep === true && wd === true) return 2;
+                if (dep === false || wd === false) return 0;
+                return 1; // unknown
+            }
+            case 'price': {
+                const priceVal = Number(token.current_price ?? token.price ?? token.last_price ?? NaN);
+                if (Number.isFinite(priceVal) && priceVal > 0) return priceVal;
+                return Number.NEGATIVE_INFINITY;
+            }
+            default:
+                return Number.isFinite(token.__order) ? token.__order : 0;
+        }
+    }
+
+    function applySyncSorting(list) {
+        if (!Array.isArray(list) || !list.length) return;
+        const state = syncSortState || { column: 'default', direction: 'asc' };
+        list.sort((a, b) => {
+            const orderA = Number.isFinite(a.__order) ? a.__order : (typeof a.__baseIndex === 'number' ? a.__baseIndex : 0);
+            const orderB = Number.isFinite(b.__order) ? b.__order : (typeof b.__baseIndex === 'number' ? b.__baseIndex : 0);
+            if (state.column === 'default') {
+                return orderA - orderB;
+            }
+            const aVal = getSyncSortValue(a, state.column);
+            const bVal = getSyncSortValue(b, state.column);
+            let cmp;
+            if (typeof aVal === 'number' && typeof bVal === 'number') {
+                cmp = aVal - bVal;
+            } else {
+                cmp = String(aVal || '').localeCompare(String(bVal || ''), undefined, { sensitivity: 'base', numeric: false });
+            }
+            if (cmp === 0) return orderA - orderB;
+            return state.direction === 'desc' ? (cmp > 0 ? -1 : 1) : (cmp > 0 ? 1 : -1);
+        });
+    }
+
     window.buildSyncFilters = function(chainKey) {
         const $modal = $('#sync-modal');
         const raw = $modal.data('remote-raw') || [];
@@ -3379,6 +3526,7 @@ $(document).ready(function() {
         if (!raw.length || selectedCexs.length === 0) {
             modalBody.html('<tr><td colspan="8">Pilih minimal 1 CEX untuk menampilkan koin.</td></tr>');
             updateSyncSelectedCount();
+            updateSyncSortIndicators();
             return;
         }
 
@@ -3389,7 +3537,19 @@ $(document).ready(function() {
             ? preferredPairs
             : (pairDefs.USDT ? ['USDT'] : (pairKeys.length ? pairKeys : ['NON'])));
 
+        const savedLookup = new Map();
+        (Array.isArray(savedTokens) ? savedTokens : []).forEach(s => {
+            const symIn = String(s.symbol_in || '').toUpperCase();
+            if (!symIn) return;
+            const cexesRaw = Array.isArray(s.selectedCexs) && s.selectedCexs.length ? s.selectedCexs : [s.cex];
+            (cexesRaw || []).filter(Boolean).forEach(cx => {
+                const cexUp = String(cx).toUpperCase();
+                savedLookup.set(`${cexUp}__${symIn}`, s);
+            });
+        });
+
         const expanded = [];
+        let orderCounter = 0;
         raw.forEach((token, idx) => {
             const baseIndex = (typeof token._idx === 'number') ? token._idx : idx;
             const source = String(token.__source || sourceLabel || 'server').toLowerCase();
@@ -3407,14 +3567,16 @@ $(document).ready(function() {
                         symbol_out: pairUp,
                         sc_out: token.sc_out || def.scAddressPair || '',
                         des_out: token.des_out || Number(def.desPair || token.des_in || 0),
-                        __pairKnown: isKnownPair
+                        __pairKnown: isKnownPair,
+                        __order: orderCounter++
                     }));
                 });
             } else {
                 expanded.push(Object.assign({}, token, {
                     __baseIndex: baseIndex,
                     __source: source,
-                    cex: cexUp
+                    cex: cexUp,
+                    __order: orderCounter++
                 }));
             }
         });
@@ -3430,8 +3592,22 @@ $(document).ready(function() {
         if (!filtered.length) {
             modalBody.html('<tr><td colspan="8">No tokens match filters.</td></tr>');
             updateSyncSelectedCount();
+            updateSyncSortIndicators();
             return;
         }
+
+        filtered.forEach(token => {
+            const cexUp = String(token.cex || '').toUpperCase();
+            const symIn = String(token.symbol_in || '').toUpperCase();
+            const savedEntry = savedLookup.get(`${cexUp}__${symIn}`) || null;
+            token.__isSaved = !!savedEntry;
+            token.__savedEntry = savedEntry;
+            const isSnapshot = String(token.__source || sourceLabel || '').toLowerCase() === 'snapshot';
+            token.__isSnapshot = !token.__isSaved && isSnapshot;
+            token.__statusRank = token.__isSaved ? 0 : (token.__isSnapshot ? 1 : 2);
+        });
+
+        applySyncSorting(filtered);
 
         // Debug logging: show tokens that already exist in DB and any internal DB duplicates
         try {
@@ -3440,16 +3616,8 @@ $(document).ready(function() {
             (filtered || []).forEach((token, idx) => {
                 const cexUp = String(token.cex || '').toUpperCase();
                 const symIn = String(token.symbol_in || '').toUpperCase();
-                const symOut = String(token.symbol_out || '').toUpperCase();
-                const saved = (Array.isArray(savedTokens) ? savedTokens : []).find(s => {
-                    const inMatch  = String(s.symbol_in || '').toUpperCase() === symIn;
-                    const outMatch = String(s.symbol_out || '').toUpperCase() === symOut;
-                    const cexList  = Array.isArray(s.selectedCexs) ? s.selectedCexs.map(x => String(x).toUpperCase()) : [];
-                    const cexTop   = String(s.cex || '').toUpperCase();
-                    const cexMatch = (cexList.length ? cexList.includes(cexUp) : (cexTop === cexUp));
-                    return inMatch && outMatch && cexMatch;
-                });
-                if (saved) dupRemote.push({ idx: (token._idx ?? idx), cex: cexUp, symbol_in: symIn, symbol_out: symOut, savedId: saved.id || '-' });
+                const saved = savedLookup.get(`${cexUp}__${symIn}`) || null;
+                if (saved) dupRemote.push({ idx: (token._idx ?? idx), cex: cexUp, symbol_in: symIn, savedId: saved.id || '-' });
             });
             /* debug logs removed */
 
@@ -3457,18 +3625,18 @@ $(document).ready(function() {
             const keyCounts = {};
             (Array.isArray(savedTokens) ? savedTokens : []).forEach(s => {
                 const symIn = String(s.symbol_in || '').toUpperCase();
-                const symOut = String(s.symbol_out || '').toUpperCase();
+                if (!symIn) return;
                 const cexes = (Array.isArray(s.selectedCexs) && s.selectedCexs.length ? s.selectedCexs : [s.cex])
                     .filter(Boolean)
                     .map(x => String(x).toUpperCase());
                 cexes.forEach(cx => {
-                    const k = `${cx}__${symIn}__${symOut}`;
-                    keyCounts[k] = (keyCounts[k] || 0) + 1;
+                    const key = `${cx}__${symIn}`;
+                    keyCounts[key] = (keyCounts[key] || 0) + 1;
                 });
             });
             const dbDup = Object.entries(keyCounts)
               .filter(([, cnt]) => cnt > 1)
-              .map(([k, cnt]) => { const [cx, si, so] = k.split('__'); return { cex: cx, symbol_in: si, symbol_out: so, count: cnt }; });
+              .map(([k, cnt]) => { const [cx, si] = k.split('__'); return { cex: cx, symbol_in: si, count: cnt }; });
             /* debug logs removed */
         } catch(e) { /* debug logs removed */ }
 
@@ -3486,19 +3654,12 @@ $(document).ready(function() {
             const desInRaw = token.des_in;
 
             // Cek apakah koin sudah ada di database (per-chain)
-            const saved = (Array.isArray(savedTokens) ? savedTokens : []).find(s => {
-                const inMatch  = String(s.symbol_in || '').toUpperCase() === symIn;
-                const outMatch = String(s.symbol_out || '').toUpperCase() === symOut;
-                const cexList  = Array.isArray(s.selectedCexs) ? s.selectedCexs.map(x => String(x).toUpperCase()) : [];
-                const cexTop   = String(s.cex || '').toUpperCase(); // fallback if legacy structure exists
-                const cexMatch = (cexList.length ? cexList.includes(cexUp) : (cexTop === cexUp));
-                return inMatch && outMatch && cexMatch;
-            });
+            const saved = token.__isSaved ? (token.__savedEntry || {}) : null;
             const isChecked = !!saved;
             const statusBadge = saved
               ? ' <span class="uk-label uk-label-success" style="font-size:10px;" title="Koin sudah tersimpan di database">[ DIPILIH ]</span>'
               : '';
-            const showSourceBadge = !saved && source === 'snapshot';
+            const showSourceBadge = token.__isSnapshot;
             const sourceBadge = showSourceBadge
               ? ' <span class="uk-label uk-label-warning" style="font-size:10px;" title="Berhasil dimuat dari snapshot lokal">SNAPSHOT</span>'
               : '';
@@ -3563,6 +3724,7 @@ $(document).ready(function() {
         });
         updateSyncSelectedCount();
         priceJobs.forEach(queueSyncPriceFetch);
+        updateSyncSortIndicators();
     };
 });
 

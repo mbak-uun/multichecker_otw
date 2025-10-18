@@ -148,6 +148,41 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
     if (tableBodyId === 'dataTableBody') { RenderCardSignal(); }
     renderMonitoringHeader(dexList);
     const $tableBody = $('#' + tableBodyId);
+    const $startButton = $('#startSCAN');
+    const hasRows = Array.isArray(filteredData) && filteredData.length > 0;
+    const scanningActive = (() => {
+        try {
+            if (typeof getAppState === 'function') {
+                const state = getAppState();
+                return state && state.run === 'YES';
+            }
+        } catch(_) {}
+        return false;
+    })();
+
+    if ($startButton.length) {
+        if (hasRows) {
+            $startButton.show();
+            if ($startButton.attr('data-disabled-empty') === '1') {
+                $startButton.removeAttr('data-disabled-empty');
+                if (!scanningActive) {
+                    $startButton.prop('disabled', false).removeClass('uk-button-disabled');
+                }
+            }
+        } else {
+            if (!scanningActive) {
+                $startButton.prop('disabled', true).addClass('uk-button-disabled');
+            }
+            $startButton.attr('data-disabled-empty', '1').hide();
+        }
+    }
+
+    if (!hasRows) {
+        const totalCols = getTotalColumnCount(dexList);
+        if ($tableBody.length) $tableBody.html(`<tr><td colspan="${totalCols}" class="uk-text-center">No tokens to display.</td></tr>`);
+        return;
+    }
+
     // Manage concurrent renders per table body // REFACTORED
     if (typeof window !== 'undefined') {
         window.__TABLE_RENDER_JOBS = window.__TABLE_RENDER_JOBS || new Map();
@@ -156,15 +191,6 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
     const __prevJob = window.__TABLE_RENDER_JOBS.get(__jobKey);
     // Cancel previous job safely without try/catch // REFACTORED
     if (__prevJob && typeof __prevJob.cancel === 'function') { __prevJob.cancel(); }
-
-    if (!Array.isArray(filteredData) || filteredData.length === 0) {
-        // Disable the correct start button based on the table being rendered
-        $('#startSCAN').prop('disabled', true);
-
-        const totalCols = getTotalColumnCount(dexList);
-        if ($tableBody.length) $tableBody.html(`<tr><td colspan="${totalCols}" class="uk-text-center">No tokens to display.</td></tr>`);
-        return;
-    }
 
     const maxSlots = dexList.length;
 
@@ -602,10 +628,15 @@ function updateTableVolCEX(finalResult, cex, tableBodyId = 'dataTableBody') {
         </span>
     `;
 
-    const volumesBuyToken  = finalResult.volumes_buyToken.slice().sort((a, b) => b.price - a.price);
-    const volumesSellPair  = finalResult.volumes_sellPair;
-    const volumesBuyPair   = finalResult.volumes_buyPair.slice().sort((a, b) => b.price - a.price);
-    const volumesSellToken = finalResult.volumes_sellToken.slice().sort((a, b) => b.price - a.price);
+    const volumesBuyTokenAll  = Array.isArray(finalResult.volumes_buyToken) ? finalResult.volumes_buyToken.slice().sort((a, b) => b.price - a.price) : [];
+    const volumesSellPairAll  = Array.isArray(finalResult.volumes_sellPair) ? finalResult.volumes_sellPair.slice() : [];
+    const volumesBuyPairAll   = Array.isArray(finalResult.volumes_buyPair) ? finalResult.volumes_buyPair.slice().sort((a, b) => b.price - a.price) : [];
+    const volumesSellTokenAll = Array.isArray(finalResult.volumes_sellToken) ? finalResult.volumes_sellToken.slice().sort((a, b) => b.price - a.price) : [];
+
+    const volumesSellToken = volumesSellTokenAll.slice(0, 2);
+    const volumesSellPair  = volumesSellPairAll.slice(0, 4);
+    const volumesBuyPair   = volumesBuyPairAll.slice(0, 2);
+    const volumesBuyToken  = volumesBuyTokenAll.slice(0, 4);
 
     const leftId  = idPrefix + ('LEFT_'  + cexName + '_' + TokenPair + '_' + String(finalResult.chainName||'').toUpperCase()).replace(/[^A-Z0-9_]/g,'');
     const rightId = idPrefix + ('RIGHT_' + cexName + '_' + TokenPair + '_' + String(finalResult.chainName||'').toUpperCase()).replace(/[^A-Z0-9_]/g,'');
