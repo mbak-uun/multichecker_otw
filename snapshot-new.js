@@ -1079,8 +1079,259 @@
         window.snapshotDbSet = snapshotDbSet;
     } catch(_) {}
 
+    // ====================
+    // LIGHTWEIGHT WALLET STATUS CHECK
+    // ====================
+    // For Update Wallet Exchanger - only check deposit/withdraw status without enrichment
+
+    async function checkWalletStatusOnly(chainKey, selectedCex) {
+        if (!selectedCex || selectedCex.length === 0) {
+            return { success: false, error: 'No CEX selected', tokens: [] };
+        }
+
+        const chainConfig = CONFIG_CHAINS[chainKey];
+        if (!chainConfig) {
+            return { success: false, error: `No config for chain ${chainKey}`, tokens: [] };
+        }
+
+        try {
+            // Get chain display name
+            const chainDisplay = chainKey === 'multichain' ? 'MULTICHAIN' :
+                                (chainConfig.Nama_Chain || chainKey).toUpperCase();
+            const cexList = selectedCex.join(', ');
+
+            // Show initial loading with chain info
+            console.log('[checkWalletStatusOnly] Showing overlay...');
+            if (typeof window.showSyncOverlay === 'function') {
+                console.log('[checkWalletStatusOnly] Calling window.showSyncOverlay');
+                window.showSyncOverlay(
+                    `Mengecek status wallet untuk ${selectedCex.length} exchanger`,
+                    `Chain: ${chainDisplay} | CEX: ${cexList}`
+                );
+            } else {
+                console.error('[checkWalletStatusOnly] window.showSyncOverlay not found!');
+                // Fallback: directly manipulate DOM
+                try {
+                    const overlay = document.getElementById('sync-overlay');
+                    if (overlay) {
+                        overlay.querySelector('.msg').textContent = `Mengecek status wallet untuk ${selectedCex.length} exchanger`;
+                        overlay.querySelector('.phase').textContent = `Chain: ${chainDisplay} | CEX: ${cexList}`;
+                        overlay.style.display = 'flex';
+                        console.log('[checkWalletStatusOnly] Overlay shown via DOM');
+                    } else {
+                        console.error('[checkWalletStatusOnly] #sync-overlay element not found in DOM!');
+                    }
+                } catch(domErr) {
+                    console.error('[checkWalletStatusOnly] Failed to show overlay via DOM:', domErr);
+                }
+            }
+
+            // Load existing snapshot for enrichment (decimals, SC, etc)
+            const existingData = await snapshotDbGet(SNAPSHOT_DB_CONFIG.snapshotKey) || {};
+            const keyLower = String(chainKey || '').toLowerCase();
+            const existingTokens = Array.isArray(existingData[keyLower]) ? existingData[keyLower] : [];
+
+            // Create lookup maps
+            const existingLookup = new Map();
+            existingTokens.forEach(token => {
+                const key = `${String(token.cex || '').toUpperCase()}_${String(token.symbol_in || '').toUpperCase()}`;
+                existingLookup.set(key, token);
+            });
+
+            let allTokens = [];
+            let failedCexes = [];
+
+            // Process each CEX
+            for (let i = 0; i < selectedCex.length; i++) {
+                const cex = selectedCex[i];
+                const cexUpper = cex.toUpperCase();
+
+                // Update overlay with current CEX
+                if (typeof window.setSyncOverlayMessage === 'function') {
+                    window.setSyncOverlayMessage(
+                        `Mengambil data dari ${cexUpper}...`,
+                        `Progress: ${i + 1}/${selectedCex.length} CEX`
+                    );
+                }
+                if (typeof window.updateSyncOverlayProgress === 'function') {
+                    window.updateSyncOverlayProgress(
+                        i + 1,
+                        selectedCex.length,
+                        `Memproses ${cexUpper} (${i + 1}/${selectedCex.length})`
+                    );
+                }
+
+                try {
+                    // Fetch wallet status from services/cex.js
+                    if (window.App?.Services?.CEX?.fetchWalletStatus) {
+                        const walletData = await window.App.Services.CEX.fetchWalletStatus(cexUpper);
+
+                        if (walletData && Array.isArray(walletData)) {
+                            // Log chain filtering info
+                            console.log(`[${cexUpper}] Total tokens from API: ${walletData.length}`);
+                            console.log(`[${cexUpper}] Filtering for chain: ${chainKey}`);
+
+                            // Filter by chain and convert to unified format
+                            const cexTokens = walletData
+                                .filter(item => {
+                                    const matches = matchesCex(chainKey, item.chain);
+                                    if (!matches && walletData.length < 20) {
+                                        // Log mismatches for debugging (only if small dataset)
+                                        console.log(`[${cexUpper}] Skipping ${item.tokenName}: chain "${item.chain}" doesn't match "${chainKey}"`);
+                                    }
+                                    return matches;
+                                })
+                                .map(item => {
+                                    const symbol = String(item.tokenName || '').toUpperCase();
+                                    const lookupKey = `${cexUpper}_${symbol}`;
+                                    const existing = existingLookup.get(lookupKey);
+
+                                    // Build dataCexs format for compatibility with wallet-exchanger.js
+                                    const dataCexs = {};
+                                    dataCexs[cexUpper] = {
+                                        withdrawToken: item.withdrawEnable || false,
+                                        depositToken: item.depositEnable || false,
+                                        withdrawPair: true, // Not available from wallet API
+                                        depositPair: true   // Not available from wallet API
+                                    };
+
+                                    return {
+                                        cex_source: cexUpper,
+                                        cex: cexUpper,
+                                        symbol_in: symbol,
+                                        token_name: existing?.token_name || item.tokenName || symbol,
+                                        sc_in: existing?.sc_in || '',
+                                        des_in: existing?.des_in || existing?.decimals || '',
+                                        decimals: existing?.des_in || existing?.decimals || '',
+                                        deposit: item.depositEnable ? '1' : '0',
+                                        withdraw: item.withdrawEnable ? '1' : '0',
+                                        feeWD: parseFloat(item.feeWDs || 0),
+                                        current_price: existing?.current_price || 0,
+                                        dataCexs: dataCexs // Add dataCexs for compatibility
+                                    };
+                                });
+
+                            allTokens = allTokens.concat(cexTokens);
+                            console.log(`✅ ${cexUpper}: Fetched ${cexTokens.length} tokens for chain ${chainKey}`);
+
+                            // Update progress with success count
+                            if (typeof window.setSyncOverlayMessage === 'function') {
+                                const chainDisplay = chainKey === 'multichain' ? 'MULTICHAIN' :
+                                                    (chainConfig.Nama_Chain || chainKey).toUpperCase();
+                                window.setSyncOverlayMessage(
+                                    `${cexUpper}: ${cexTokens.length} koin (${chainDisplay})`,
+                                    `Progress: ${i + 1}/${selectedCex.length} CEX`
+                                );
+                            }
+                        } else {
+                            console.warn(`${cexUpper}: No wallet data returned`);
+                            failedCexes.push(cexUpper);
+
+                            // Show warning in overlay
+                            if (typeof window.setSyncOverlayMessage === 'function') {
+                                window.setSyncOverlayMessage(
+                                    `${cexUpper}: Tidak ada data`,
+                                    `Progress: ${i + 1}/${selectedCex.length} CEX`
+                                );
+                            }
+                        }
+                    } else {
+                        throw new Error('fetchWalletStatus service not available');
+                    }
+                } catch(error) {
+                    console.error(`${cexUpper} wallet check failed:`, error);
+                    failedCexes.push(cexUpper);
+
+                    // Show error in overlay
+                    if (typeof window.setSyncOverlayMessage === 'function') {
+                        window.setSyncOverlayMessage(
+                            `${cexUpper}: Gagal mengambil data`,
+                            `Progress: ${i + 1}/${selectedCex.length} CEX`
+                        );
+                    }
+                }
+
+                await sleep(200);
+            }
+
+            // Final summary in overlay
+            const successCount = selectedCex.length - failedCexes.length;
+            if (typeof window.setSyncOverlayMessage === 'function') {
+                window.setSyncOverlayMessage(
+                    `Pengecekan selesai: ${allTokens.length} koin dari ${successCount} CEX`,
+                    failedCexes.length > 0 ? `Gagal: ${failedCexes.join(', ')}` : 'Semua CEX berhasil'
+                );
+            }
+
+            // Hide overlay after short delay
+            setTimeout(() => {
+                console.log('[checkWalletStatusOnly] Hiding overlay...');
+                if (typeof window.hideSyncOverlay === 'function') {
+                    window.hideSyncOverlay();
+                    console.log('[checkWalletStatusOnly] Overlay hidden via function');
+                } else {
+                    // Fallback: hide via DOM
+                    try {
+                        const overlay = document.getElementById('sync-overlay');
+                        if (overlay) {
+                            overlay.style.display = 'none';
+                            console.log('[checkWalletStatusOnly] Overlay hidden via DOM');
+                        }
+                    } catch(domErr) {
+                        console.error('[checkWalletStatusOnly] Failed to hide overlay:', domErr);
+                    }
+                }
+            }, 1500);
+
+            return {
+                success: allTokens.length > 0,
+                tokens: allTokens,
+                failedCexes: failedCexes,
+                totalTokens: allTokens.length,
+                cexSources: selectedCex
+            };
+
+        } catch(error) {
+            console.error('[checkWalletStatusOnly] Failed:', error);
+
+            if (typeof window.setSyncOverlayMessage === 'function') {
+                window.setSyncOverlayMessage(`Gagal: ${error.message}`, 'Error');
+            } else {
+                // Fallback: show error via DOM
+                try {
+                    const overlay = document.getElementById('sync-overlay');
+                    if (overlay) {
+                        overlay.querySelector('.msg').textContent = `Gagal: ${error.message}`;
+                        overlay.querySelector('.phase').textContent = 'Error';
+                    }
+                } catch(_) {}
+            }
+
+            setTimeout(() => {
+                console.log('[checkWalletStatusOnly] Hiding overlay after error...');
+                if (typeof window.hideSyncOverlay === 'function') {
+                    window.hideSyncOverlay();
+                } else {
+                    // Fallback: hide via DOM
+                    try {
+                        const overlay = document.getElementById('sync-overlay');
+                        if (overlay) overlay.style.display = 'none';
+                    } catch(_) {}
+                }
+            }, 2000);
+
+            return {
+                success: false,
+                error: error.message || 'Unknown error',
+                tokens: [],
+                failedCexes: selectedCex
+            };
+        }
+    }
+
     window.SnapshotModule = {
         processSnapshotForCex,
+        checkWalletStatusOnly,
         fetchCexData,
         validateTokenData,
         fetchWeb3TokenData,

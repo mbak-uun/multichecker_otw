@@ -2542,6 +2542,9 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
                 const chainData = (snapshotMap && typeof snapshotMap === 'object') ? snapshotMap[activeSingleChainKey] : null;
 
                 if (Array.isArray(chainData) && chainData.length > 0) {
+                    // Save current selection mode before rebuild
+                    const currentMode = $('input[name="sync-pick-mode"]:checked').val();
+
                     // Update modal data with fresh snapshot
                     $modal.data('remote-raw', chainData);
                     $modal.data('source', 'snapshot');
@@ -2555,6 +2558,14 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
                     // Re-render table with updated data
                     if (typeof window.renderSyncTable === 'function') {
                         window.renderSyncTable(activeSingleChainKey);
+                    }
+
+                    // Re-apply selection mode if it was set before
+                    if (currentMode) {
+                        const $modeRadio = $(`input[name="sync-pick-mode"][value="${currentMode}"]`);
+                        if ($modeRadio.length) {
+                            $modeRadio.prop('checked', true).trigger('change');
+                        }
                     }
 
                     console.log(`Snapshot reloaded: ${chainData.length} tokens from IndexedDB`);
@@ -2792,22 +2803,24 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
     // Sync modal select mode (exclusive via radio)
     $(document).on('change', 'input[name="sync-pick-mode"]', function(){
         const mode = $(this).val();
-        const $boxes = $('#sync-modal-tbody tr:visible .sync-token-checkbox');
+        // REFACTOR: Target all checkboxes, not just visible ones, for 'all' and 'clear' modes.
+        // This ensures that "Select All" works even when a search filter is active.
+        const $allBoxes = $('#sync-modal-tbody .sync-token-checkbox');
+        const $visibleBoxes = $('#sync-modal-tbody tr:visible .sync-token-checkbox');
+
+        console.log(`[Sync Pick Mode] Mode: ${mode}, Found ${$visibleBoxes.length} visible checkboxes, ${$allBoxes.length} total.`);
+
         if (mode === 'all') {
-            $boxes.prop('checked', true);
-        } else if (mode === 'picked') {
-            $boxes.prop('checked', false);
-            $('#sync-modal-tbody tr:visible .sync-token-checkbox[data-saved="1"]').prop('checked', true);
+            $allBoxes.prop('checked', true);
         } else if (mode === 'clear') {
-            $boxes.prop('checked', false);
+            $allBoxes.prop('checked', false);
+        } else if (mode === 'picked') {
+            $allBoxes.prop('checked', false);
+            $('#sync-modal-tbody tr:visible .sync-token-checkbox[data-saved="1"]').prop('checked', true);
         } else if (mode === 'snapshot') {
-            $boxes.prop('checked', false);
+            $allBoxes.prop('checked', false);
             $('#sync-modal-tbody tr:visible .sync-token-checkbox[data-source="snapshot"]').not('[data-saved="1"]').prop('checked', true);
         }
-        updateSyncSelectedCount();
-    });
-
-    $(document).on('change', '#sync-modal-tbody .sync-token-checkbox', function(){
         updateSyncSelectedCount();
     });
 
