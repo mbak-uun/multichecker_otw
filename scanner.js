@@ -889,20 +889,13 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                         const viaName = (function(){
                                             try {
                                                 if (isFallback === true) {
-                                                    // Deteksi sumber alternatif DEX
                                                     const routeTool = String(finalDexRes?.routeTool || '').toUpperCase();
-
-                                                    // Jika ada routeTool, gunakan itu sebagai sumber
                                                     if (routeTool) {
-                                                        // Jika routeTool adalah nama DEX spesifik dari DZAP
                                                         if (/DZAP|PARASWAP|1INCH|0X|KYBER/i.test(routeTool)) {
                                                             return `DZAP (${routeTool})`;
                                                         }
-                                                        // Fallback: tampilkan routeTool langsung
                                                         return routeTool;
                                                     }
-
-                                                    // Default: SWOOP
                                                     return 'SWOOP';
                                                 }
                                             } catch(_) {}
@@ -918,7 +911,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                             '======================================',
                                             `Time: ${nowStr}`,
                                            // `ID CELL: ${idCELL}`,
-                                            prosesLine,
+                                            `PROSES : ${isKiri ? `${ce} => ${dx}` : `${dx} => ${ce}`} (VIA ${viaName})`,
                                             statusLine
                                         ].join('\n');
                                         // Token info untuk debugging

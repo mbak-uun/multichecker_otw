@@ -134,8 +134,8 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
                         data-chain="${String(data.chain).toUpperCase()}"
                         data-row-index="${rowIndex}"
                         style="text-align: center; vertical-align: middle;">
-                        <strong class="uk-align-center" style="display:inline-block; margin:0;">${dexName.toUpperCase()} [$${modal}]</strong></br>
-                        <span class="dex-status uk-text-muted">🔒</span>
+                        <strong class="uk-align-center" style="display:inline-block; margin:0;">${dexName.toUpperCase().substring(0, 6)} [$${modal}] </strong></br>
+                        <span class="dex-status uk-text-muted"> 🔒 </span>
                     </td>`;
             } else {
                 html += '<td class="td-dex dex-slot-empty">-</td>';
@@ -236,9 +236,10 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
         const linkSCtoken = createHoverLink(urlScIn, '[SC]', 'uk-text-primary');
         const linkSCpair = createHoverLink(urlScOut, '[SC]', 'uk-text-primary');
 
-        const linkOKDEX = createHoverLink(`https://www.okx.com/web3/dex-swap?inputChain=${chainConfig.Kode_Chain}&inputCurrency=${data.sc_in}&outputChain=501&outputCurrency=${data.sc_out}`, '#OKX', 'uk-text-primary');
+        const linkOKDEX = createHoverLink(`https://www.okx.com/web3/dex-swap?inputChain=${chainConfig.Kode_Chain}&inputCurrency=${data.sc_in}&outputChain=${chainConfig.Kode_Chain}&outputCurrency=${data.sc_out}`, '#OKX', 'uk-text-primary');
         const linkUNIDEX = createHoverLink(`https://app.unidex.exchange/?chain=${chainConfig.Nama_Chain}&from=${data.sc_in}&to=${data.sc_out}`, '#UNX', 'uk-text-success');
         const linkDEFIL = createHoverLink(`https://swap.defillama.com/?chain=${chainConfig.Nama_Chain}&from=${data.sc_in}&to=${data.sc_out}`, '#DFL', 'uk-text-danger');
+        const linkDZAP = createHoverLink(`https://app.dzap.io/trade?fromChain=${chainConfig.Kode_Chain}&fromToken=${data.sc_in}&toChain=${chainConfig.Kode_Chain}&toToken=${data.sc_out}`, '#DZP', 'uk-text-dark');
 
         const rowId = `DETAIL_${String(data.cex).toUpperCase()}_${String(data.symbol_in).toUpperCase()}_${String(data.symbol_out).toUpperCase()}_${String(data.chain).toUpperCase()}`.replace(/[^A-Z0-9_]/g,'');
         const chainShort = (data.chain || '').substring(0,3).toUpperCase();
@@ -271,7 +272,7 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
                 <span class="detail-line uk-text-bolder">${WD_TOKEN}~ ${DP_TOKEN} | ${WD_PAIR}~ ${DP_PAIR}</span>
                 <span class="detail-line"><span class="uk-text-primary uk-text-bolder">${(data.symbol_in||'').toUpperCase()}</span> ${linkSCtoken} : ${linkStokToken}</span>
                 <span class="detail-line"><span class="uk-text-primary uk-text-bolder">${(data.symbol_out||'').toUpperCase()}</span> ${linkSCpair} : ${linkStokPair}</span>
-                <span class="detail-line">${linkUNIDEX} ${linkOKDEX} ${linkDEFIL}</span>
+                <span class="detail-line">${linkUNIDEX} ${linkOKDEX} ${linkDEFIL} ${linkDZAP}</span>
             </td>`;
 
         // refactor: render slot DEX kanan via helper

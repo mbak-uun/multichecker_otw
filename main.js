@@ -428,7 +428,7 @@ function renderSettingsForm() {
     // Load existing settings
     const appSettings = getFromLocalStorage('SETTING_SCANNER') || {};
         $('#user').val(appSettings.nickname || '');
-        $('#jeda-time-group').val(appSettings.jedaTimeGroup || 1500);
+        $('#jeda-time-group').val(appSettings.jedaTimeGroup || 2000);
         $('#jeda-koin').val(appSettings.jedaKoin || 500);
         $('#walletMeta').val(appSettings.walletMeta || '');
     $(`input[name=\"koin-group\"][value=\"${appSettings.scanPerKoin || 5}\"]`).prop('checked', true);
@@ -1608,46 +1608,165 @@ function setSyncSourceIndicator(label) {
 // SNAPSHOT PROCESS FUNCTIONS
 // ====================================================================================
 
-// Overlay helpers
-function showSyncOverlay(msg, phase = '') {
-    try {
-        $('#sync-overlay .msg').text(msg || 'Memproses...');
-        $('#sync-overlay .phase').text(phase || '');
-        $('#sync-overlay .counter').text('0 / 0 (0%)');
-        $('#sync-ov-progress').val(0);
-        $('#sync-overlay').css('display', 'flex');
-    } catch(_) {}
-}
-window.showSyncOverlay = showSyncOverlay;
+// =================================================================================
+// SNAPSHOT OVERLAY SYSTEM - Modern AppOverlay Integration
+// =================================================================================
+// Modern overlay system using AppOverlay manager with full progress tracking
+// Optimized for snapshot and wallet exchanger operations
 
-function hideSyncOverlay() {
-    try {
-        $('#sync-overlay').css('display', 'none');
-    } catch(_) {}
-}
-window.hideSyncOverlay = hideSyncOverlay;
+const SnapshotOverlay = (function() {
+    let overlayId = null;
+    const OVERLAY_ID = 'snapshot-process-overlay';
 
-function updateSyncOverlayProgress(current, total, phase = '') {
-    try {
-        const pct = total > 0 ? Math.round((current / total) * 100) : 0;
-        $('#sync-ov-progress').val(pct);
-        $('#sync-overlay .counter').text(`${current} / ${total} (${pct}%)`);
-        if (phase) $('#sync-overlay .phase').text(phase);
-    } catch(_) {}
-}
-window.updateSyncOverlayProgress = updateSyncOverlayProgress;
+    return {
+        /**
+         * Show overlay with initial message
+         * @param {string} title - Main title/message
+         * @param {string} subtitle - Subtitle/phase info
+         */
+        show(title = 'Memproses...', subtitle = '') {
+            try {
+                // Hide existing overlay if any
+                if (overlayId) {
+                    this.hide();
+                }
 
-function setSyncOverlayMessage(msg, phase) {
-    try {
-        if (typeof msg !== 'undefined' && msg !== null) {
-            $('#sync-overlay .msg').text(msg);
+                // Create new overlay with progress
+                overlayId = AppOverlay.showProgress({
+                    id: OVERLAY_ID,
+                    title: title,
+                    message: subtitle,
+                    progressValue: 0,
+                    progressMax: 100,
+                    canClose: false
+                });
+
+                console.log(`[SnapshotOverlay] Shown: ${title}`);
+            } catch(error) {
+                console.error('[SnapshotOverlay.show] Error:', error);
+            }
+        },
+
+        /**
+         * Hide overlay with optional delay
+         * @param {number} delay - Delay in milliseconds before hiding (default: 0)
+         */
+        hide(delay = 0) {
+            try {
+                const doHide = () => {
+                    if (overlayId) {
+                        AppOverlay.hide(overlayId);
+                        overlayId = null;
+                        console.log('[SnapshotOverlay] Hidden');
+                    }
+                };
+
+                if (delay > 0) {
+                    setTimeout(doHide, delay);
+                } else {
+                    doHide();
+                }
+            } catch(error) {
+                console.error('[SnapshotOverlay.hide] Error:', error);
+            }
+        },
+
+        /**
+         * Update progress bar
+         * @param {number} current - Current progress value
+         * @param {number} total - Total/max value
+         * @param {string} message - Progress message
+         */
+        updateProgress(current, total, message = '') {
+            try {
+                if (!overlayId) return;
+
+                AppOverlay.updateProgress(overlayId, current, total, message);
+            } catch(error) {
+                console.error('[SnapshotOverlay.updateProgress] Error:', error);
+            }
+        },
+
+        /**
+         * Update overlay message/subtitle
+         * @param {string} title - Main title (optional, keeps current if not provided)
+         * @param {string} subtitle - Subtitle/phase (optional)
+         */
+        updateMessage(title, subtitle) {
+            try {
+                if (!overlayId) return;
+
+                // Update subtitle/message if provided
+                if (subtitle !== undefined) {
+                    AppOverlay.updateMessage(overlayId, subtitle);
+                }
+
+                // Update title if provided
+                if (title !== undefined && title !== null) {
+                    const overlay = AppOverlay.get(overlayId);
+                    if (overlay && overlay.element) {
+                        const titleEl = overlay.element.querySelector('.app-overlay-title');
+                        if (titleEl) {
+                            // Preserve spinner if exists
+                            const spinner = titleEl.querySelector('.app-overlay-spinner');
+                            titleEl.textContent = title;
+                            if (spinner) {
+                                titleEl.insertBefore(spinner, titleEl.firstChild);
+                            }
+                        }
+                    }
+                }
+            } catch(error) {
+                console.error('[SnapshotOverlay.updateMessage] Error:', error);
+            }
+        },
+
+        /**
+         * Show success message and auto-hide
+         * @param {string} message - Success message
+         * @param {number} autoHideDelay - Delay before auto-hide (default: 1500ms)
+         */
+        showSuccess(message, autoHideDelay = 1500) {
+            try {
+                this.updateMessage('✅ Berhasil!', message);
+                this.updateProgress(100, 100, '');
+                this.hide(autoHideDelay);
+            } catch(error) {
+                console.error('[SnapshotOverlay.showSuccess] Error:', error);
+            }
+        },
+
+        /**
+         * Show error message and auto-hide
+         * @param {string} message - Error message
+         * @param {number} autoHideDelay - Delay before auto-hide (default: 2000ms)
+         */
+        showError(message, autoHideDelay = 2000) {
+            try {
+                this.updateMessage('❌ Gagal!', message);
+                this.hide(autoHideDelay);
+            } catch(error) {
+                console.error('[SnapshotOverlay.showError] Error:', error);
+            }
+        },
+
+        /**
+         * Check if overlay is currently shown
+         */
+        isShown() {
+            return overlayId !== null;
         }
-        if (typeof phase !== 'undefined') {
-            $('#sync-overlay .phase').text(phase || '');
-        }
-    } catch(_) {}
-}
-try { window.setSyncOverlayMessage = setSyncOverlayMessage; } catch(_) {}
+    };
+})();
+
+// Export to window for backward compatibility
+window.SnapshotOverlay = SnapshotOverlay;
+
+// Legacy API for backward compatibility with existing code
+window.showSyncOverlay = (msg, phase) => SnapshotOverlay.show(msg, phase);
+window.hideSyncOverlay = (delay) => SnapshotOverlay.hide(delay || 0);
+window.updateSyncOverlayProgress = (current, total, phase) => SnapshotOverlay.updateProgress(current, total, phase);
+window.setSyncOverlayMessage = (msg, phase) => SnapshotOverlay.updateMessage(phase, msg);
 
 // Ensure snapshot-new.js has initialized the global module before use
 let snapshotModuleLoader = null;
@@ -2440,6 +2559,9 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
             return;
         }
 
+        // Get modal reference
+        const $modal = $('#sync-modal');
+
         // Get selected CEX from checkboxes
         const selectedCexs = $('#sync-filter-cex input:checked').map(function() {
             return $(this).val();
@@ -2511,9 +2633,7 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
         renderIncrementalRows();
 
         try {
-            if (typeof window.showSyncOverlay === 'function') {
-                window.showSyncOverlay('Memulai sinkronisasi...', 'Inisialisasi');
-            }
+            // Note: Don't call showSyncOverlay here - processSnapshotForCex handles its own overlay
             const snapshotModule = await ensureSnapshotModuleLoaded();
             await snapshotModule.processSnapshotForCex(
                 activeSingleChainKey,
@@ -2542,8 +2662,11 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
                 const chainData = (snapshotMap && typeof snapshotMap === 'object') ? snapshotMap[activeSingleChainKey] : null;
 
                 if (Array.isArray(chainData) && chainData.length > 0) {
-                    // Save current selection mode before rebuild
+                    // Save current state before rebuild
                     const currentMode = $('input[name="sync-pick-mode"]:checked').val();
+                    const selectedCexsBefore = $('#sync-filter-cex input:checked').map(function() {
+                        return $(this).val();
+                    }).get();
 
                     // Update modal data with fresh snapshot
                     $modal.data('remote-raw', chainData);
@@ -2554,6 +2677,11 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
                     if (typeof window.buildSyncFilters === 'function') {
                         window.buildSyncFilters(activeSingleChainKey);
                     }
+
+                    // Restore CEX selections after rebuild
+                    selectedCexsBefore.forEach(cex => {
+                        $(`#sync-filter-cex input[value="${cex}"]`).prop('checked', true);
+                    });
 
                     // Re-render table with updated data
                     if (typeof window.renderSyncTable === 'function') {
@@ -2569,6 +2697,7 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
                     }
 
                     console.log(`Snapshot reloaded: ${chainData.length} tokens from IndexedDB`);
+                    console.log(`CEX selections restored: ${selectedCexsBefore.join(', ')}`);
                 }
             } catch(reloadErr) {
                 console.error('Failed to reload snapshot data after update:', reloadErr);
@@ -2579,15 +2708,22 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
             }
         } catch(error) {
             console.error('Refresh snapshot failed:', error);
+            SnapshotOverlay.showError(error.message || 'Unknown error');
             if (typeof toast !== 'undefined' && toast.error) {
                 toast.error(`Gagal refresh: ${error.message || 'Unknown error'}`);
             }
         } finally {
-            // Hide overlay and re-enable button
-            if (typeof window.hideSyncOverlay === 'function') {
-                window.hideSyncOverlay();
-            }
-            $btn.prop('disabled', false).html(originalHtml);
+            // Ensure button is re-enabled after a short delay
+            setTimeout(() => {
+                // Ensure modal is visible
+                const $syncModal = $('#sync-modal');
+                if ($syncModal.length) {
+                    UIkit.modal($syncModal).show();
+                }
+
+                // Re-enable button
+                $btn.prop('disabled', false).html(originalHtml);
+            }, 300);
         }
     });
 
@@ -3560,6 +3696,8 @@ function setLastAction(action, statusOrMeta, maybeMeta) {
 $(document).on('click', '#openBackupModal', function(e){ e.preventDefault(); try { UIkit.modal('#backup-modal').show(); } catch(_) {} });
 // History modal
 $(document).on('click', '#openHistoryModal', function(e){ e.preventDefault(); try { UIkit.modal('#history-modal').show(); renderHistoryTable(); } catch(_) {} });
+// Database Viewer
+$(document).on('click', '#openDatabaseViewer', function(e){ e.preventDefault(); try { if(window.App?.DatabaseViewer?.show) window.App.DatabaseViewer.show(); } catch(err) { console.error('Database Viewer error:', err); } });
 
 async function renderHistoryTable(){
   try {

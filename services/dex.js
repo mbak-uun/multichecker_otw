@@ -123,29 +123,29 @@
         };
       }
     },
-    '1inch': {
-      buildRequest: ({ codeChain, sc_input, sc_output, amount_in_big }) => {
-        const baseUrl = 'https://api.1inch.dev/swap/v6.0';
-        const chainId = codeChain;
-        const url = `${baseUrl}/${chainId}/quote`;
-        const params = new URLSearchParams({
-          src: sc_input,
-          dst: sc_output,
-          amount: amount_in_big.toString()
-        });
-        return {
-          url: `${url}?${params.toString()}`,
-          method: 'GET'
-        };
-      },
-      parseResponse: (response, { des_output, chainName }) => {
-        if (!response?.dstAmount) throw new Error("1inch dstAmount not found in response");
-        const amount_out = parseFloat(response.dstAmount) / Math.pow(10, des_output);
-        const FeeSwap = getFeeSwap(chainName);
-        return { amount_out, FeeSwap, dexTitle: '1INCH' };
-      }
-    },
-    paraswap: {
+    // '1inch': {
+    //   buildRequest: ({ codeChain, sc_input, sc_output, amount_in_big }) => {
+    //     const baseUrl = 'https://api.1inch.dev/swap/v6.0';
+    //     const chainId = codeChain;
+    //     const url = `${baseUrl}/${chainId}/quote`;
+    //     const params = new URLSearchParams({
+    //       src: sc_input,
+    //       dst: sc_output,
+    //       amount: amount_in_big.toString()
+    //     });
+    //     return {
+    //       url: `${url}?${params.toString()}`,
+    //       method: 'GET'
+    //     };
+    //   },
+    //   parseResponse: (response, { des_output, chainName }) => {
+    //     if (!response?.dstAmount) throw new Error("1inch dstAmount not found in response");
+    //     const amount_out = parseFloat(response.dstAmount) / Math.pow(10, des_output);
+    //     const FeeSwap = getFeeSwap(chainName);
+    //     return { amount_out, FeeSwap, dexTitle: '1INCH' };
+    //   }
+    // },
+    paraswap5: {
       buildRequest: ({ codeChain, sc_input, sc_output, amount_in_big, des_input, des_output }) => {
         const params = new URLSearchParams({
           network: String(codeChain || ''),
@@ -155,7 +155,7 @@
           side: 'SELL',
           srcDecimals: String(des_input),
           destDecimals: String(des_output),
-          partner: 'multichecker'
+          partner: 'paraswap.io'
         });
         return {
           url: `https://apiv5.paraswap.io/prices/?${params.toString()}`,
@@ -175,7 +175,46 @@
       },
       useProxy: false
     },
-    hinkal: {
+    paraswap6: {
+      buildRequest: ({ codeChain, sc_input, sc_output, amount_in_big, des_input, des_output, SavedSettingData }) => {
+        const userAddr = SavedSettingData?.walletMeta || '0x0000000000000000000000000000000000000000';
+        const params = new URLSearchParams({
+          version: '6.2',
+          network: String(codeChain || ''),
+          srcToken: sc_input,
+          destToken: sc_output,
+          amount: amount_in_big.toString(),
+          side: 'SELL',
+          srcDecimals: String(des_input),
+          destDecimals: String(des_output),
+          otherExchangePrices: 'true',
+          partner: 'paraswap.io',
+          userAddress: userAddr
+        });
+        return {
+          url: `https://api.paraswap.io/prices/?${params.toString()}`,
+          method: 'GET'
+        };
+      },
+      parseResponse: (response, { des_output, chainName }) => {
+        const route = response?.priceRoute;
+        const destAmountStr = route?.destAmount;
+        if (!destAmountStr) throw new Error('Invalid ParaSwap v6 response');
+        const destAmountNum = parseFloat(destAmountStr);
+        if (!Number.isFinite(destAmountNum) || destAmountNum <= 0) throw new Error('Invalid ParaSwap v6 dest amount');
+        const amount_out = destAmountNum / Math.pow(10, des_output);
+        const gasUsd = parseFloat(route.gasCostUSD || route.estimatedGasCostUSD || response?.gasCostUSD || 0);
+        const FeeSwap = (Number.isFinite(gasUsd) && gasUsd > 0) ? gasUsd : getFeeSwap(chainName);
+        return {
+          amount_out,
+          FeeSwap,
+          dexTitle: 'PARASWAP',
+          routeTool: 'PARASWAP V6'
+        };
+      },
+      useProxy: false
+    },
+    'hinkal-odos': {
       // Hinkal ODOS proxy (pair-to-token per permintaan)
       buildRequest: ({ codeChain, SavedSettingData, amount_in_big, sc_input, sc_output }) => {
         const url = 'https://ethmainnet.server.hinkal.pro/OdosSwapData';
@@ -208,27 +247,27 @@
       },
       useProxy: false
     },
-    fly: {
-      buildRequest: ({ chainName, sc_input, sc_output, amount_in_big, SavedSettingData }) => {
-        const net = String(chainName || '').toLowerCase();
-        const user = SavedSettingData.walletMeta || '0x0000000000000000000000000000000000000000';
-        const url = `https://api.fly.trade/aggregator/quote?network=${net}&fromTokenAddress=${sc_input}&toTokenAddress=${sc_output}&fromAddress=${user}&toAddress=${user}&sellAmount=${String(amount_in_big)}&slippage=0.005&gasless=false`;
-        return { url, method: 'GET' };
-      },
-      parseResponse: (response, { chainName, des_output }) => {
-        const rawOut = response?.amountOut;
-        const outNum = parseFloat(rawOut);
-        if (!Number.isFinite(outNum) || outNum <= 0) throw new Error('Invalid FlyTrade amountOut');
-        // Normalisasi ke unit token keluaran (selaras strategi lain)
-        const amount_out = outNum / Math.pow(10, des_output);
-        const feeDex = parseFloat(response?.fees?.[0]?.value || 0);
-        const FeeSwap = (Number.isFinite(feeDex) && feeDex > 0) ? feeDex : getFeeSwap(chainName);
-        // Use canonical display title matching app DEX key to avoid id mismatches elsewhere
-        return { amount_out, FeeSwap, dexTitle: 'FLY' };
-      }
-    },
+    // fly: {
+    //   buildRequest: ({ chainName, sc_input, sc_output, amount_in_big, SavedSettingData }) => {
+    //     const net = String(chainName || '').toLowerCase();
+    //     const user = SavedSettingData.walletMeta || '0x0000000000000000000000000000000000000000';
+    //     const url = `https://api.fly.trade/aggregator/quote?network=${net}&fromTokenAddress=${sc_input}&toTokenAddress=${sc_output}&fromAddress=${user}&toAddress=${user}&sellAmount=${String(amount_in_big)}&slippage=0.005&gasless=false`;
+    //     return { url, method: 'GET' };
+    //   },
+    //   parseResponse: (response, { chainName, des_output }) => {
+    //     const rawOut = response?.amountOut;
+    //     const outNum = parseFloat(rawOut);
+    //     if (!Number.isFinite(outNum) || outNum <= 0) throw new Error('Invalid FlyTrade amountOut');
+    //     // Normalisasi ke unit token keluaran (selaras strategi lain)
+    //     const amount_out = outNum / Math.pow(10, des_output);
+    //     const feeDex = parseFloat(response?.fees?.[0]?.value || 0);
+    //     const FeeSwap = (Number.isFinite(feeDex) && feeDex > 0) ? feeDex : getFeeSwap(chainName);
+    //     // Use canonical display title matching app DEX key to avoid id mismatches elsewhere
+    //     return { amount_out, FeeSwap, dexTitle: 'FLY' };
+    //   }
+    // },
     // ZeroSwap aggregator untuk 1inch
-    'zero': {
+    'zero-1inch': {
       buildRequest: ({ sc_input, sc_output, amount_in_big, des_input, des_output, codeChain }) => {
         const baseUrl = 'https://api.zeroswap.io/quote/1inch';
         const params = new URLSearchParams({
@@ -251,13 +290,13 @@
         return { amount_out, FeeSwap, dexTitle: '1INCH', routeTool: 'ZeroSwap' };
       }
     },
-    // Backward compatibility alias
-    'zero-1inch': {
-      buildRequest: (...args) => dexStrategies['zero'].buildRequest(...args),
-      parseResponse: (...args) => dexStrategies['zero'].parseResponse(...args)
-    },
+    // // Backward compatibility alias
+    'zero': {
+      buildRequest: (...args) => dexStrategies['zero-1inch'].buildRequest(...args),
+      parseResponse: (...args) => dexStrategies['zero-1inch'].parseResponse(...args)
+    },    
     // Hinkal proxy untuk 1inch (privacy-focused)
-    'hinkal': {
+    'hinkal-1inch': {
       buildRequest: ({ sc_input, sc_output, amount_in_big, SavedSettingData, codeChain }) => {
         const userAddr = SavedSettingData?.walletMeta || '0x0000000000000000000000000000000000000000';
         const apiUrl = 'https://ethmainnet.server.hinkal.pro/OneInchSwapData';
@@ -308,6 +347,11 @@
         };
       }
     },
+    // Alias untuk hinkal-1inch
+    'hinkal': {
+        buildRequest: (...args) => dexStrategies['hinkal-1inch'].buildRequest(...args),
+        parseResponse: (...args) => dexStrategies['hinkal-1inch'].parseResponse(...args)
+    },
     'zero-kyber': {
       buildRequest: ({ sc_input, sc_output, amount_in_big, des_input, des_output, codeChain }) => {
         const baseUrl = 'https://api.zeroswap.io/quote/kyberswap';
@@ -332,10 +376,11 @@
       }
     },
     '0x': {
-      buildRequest: ({ chainName, sc_input_in, sc_output_in, amount_in_big, codeChain, sc_output, sc_input }) => {
+      buildRequest: ({ chainName, sc_input_in, sc_output_in, amount_in_big, codeChain, sc_output, sc_input, SavedSettingData }) => {
+        const userAddr = SavedSettingData?.walletMeta || '0x0000000000000000000000000000000000000000';
         const url = chainName.toLowerCase() === 'solana'
           ? `https://matcha.xyz/api/swap/quote/solana?sellTokenAddress=${sc_input_in}&buyTokenAddress=${sc_output_in}&sellAmount=${amount_in_big}&dynamicSlippage=true&slippageBps=50&userPublicKey=Eo6CpSc1ViboPva7NZ1YuxUnDCgqnFDXzcDMDAF6YJ1L`
-          : `https://matcha.xyz/api/swap/price?chainId=${codeChain}&buyToken=${sc_output}&sellToken=${sc_input}&sellAmount=${amount_in_big}`;
+          : `https://matcha.xyz/api/swap/price?chainId=${codeChain}&buyToken=${sc_output}&sellToken=${sc_input}&sellAmount=${amount_in_big}&takerAddress=${userAddr}`;
         return { url, method: 'GET' };
       },
       parseResponse: (response, { des_output, chainName }) => {
@@ -410,6 +455,8 @@
   dexStrategies.odos = dexStrategies.odos3;
   // Back-compat alias: support legacy 'kyberswap' key
   dexStrategies.kyberswap = dexStrategies.kyber;
+  dexStrategies.paraswap5 = dexStrategies.paraswap;
+  dexStrategies.paraswap = dexStrategies.paraswap6;
   // Alias untuk Matcha (0x)
   dexStrategies.matcha = dexStrategies['0x'];
 
@@ -527,11 +574,9 @@
           const primaryKey = String(primary || '').toLowerCase();
           // Treat ODOS variants + Hinkal proxy sebagai satu keluarga
           const isOdosFamily = ['odos','odos2','odos3','hinkal'].includes(primaryKey);
-          // Policy: fallback hanya untuk error tertentu
-          const noResp = (!Number.isFinite(code) || code === 0);
-          const isNoRespFallback = noResp && (isOdosFamily || primaryKey === 'kyber');
-          // Determine fallback target: config alternative, or for ODOS T2P fallback to 'hinkal'
-          const computedAlt = alternative || ((['odos','odos2','odos3'].includes(primaryKey) && String(action||'').toLowerCase() === 'tokentopair') ? 'hinkal' : null);
+          const noResp = !Number.isFinite(code) || code === 0;
+          const isNoRespFallback = noResp && (isOdosFamily || primaryKey === 'kyber' || primaryKey === '1inch');
+          const computedAlt = alternative;
           // Fallback hanya untuk:
           // 1. Rate limit (429)
           // 2. Server error (500+)
@@ -555,6 +600,7 @@
     // Default fallback policy: SWOOP atau DZAP sesuai config DEX
     const force = options && options.force ? String(options.force).toLowerCase() : null; // 'swoop' | 'dzap' | null
 
+    // untuk okx,0x,kyber,paraswap,odos gunakan fallback SWOOP
     function fallbackSWOOP(){
       return new Promise((resolve, reject) => {
         const dexLower = String(dexType || '').toLowerCase();
@@ -611,22 +657,23 @@
       });
     }
 
+    // untuk okx,zerox(0x),kyber,paraswap,odos gunakan fallback DZAP
     function fallbackDZAP(){
       return new Promise((resolve, reject) => {
         const SavedSettingData = getFromLocalStorage('SETTING_SCANNER', {});
         const fromAmount = String(BigInt(Math.round(Number(amount_in) * Math.pow(10, des_input))));
         const dexLower = String(dexType || '').toLowerCase();
         const exchangeMap = {
-          '0x': '0x',
-          'kyber': 'kyberswap',
-          'kyberswap': 'kyberswap',
+          '0x': 'zerox',         // Sesuai respons DZAP
+          'matcha': 'zerox',      // Alias untuk 0x
+          'kyber': 'kyberSwap',   // Sesuai respons DZAP
+          'kyberswap': 'kyberSwap', // Alias untuk kyber
           '1inch': '1inch',
           'odos': 'odos',
           'odos2': 'odos',
           'odos3': 'odos',
           'okx': 'okx',
-          'paraswap': 'paraswap',
-          'fly': 'fly'
+          'paraswap': 'paraSwap' // Sesuai respons DZAP
         };
         const displayMap = {
           '0x': '0X',
@@ -650,7 +697,7 @@
             amount: fromAmount,
             destDecimals: Number(des_output),
             destToken: sc_output.toLowerCase(),
-            slippage: 0.5, // Nilai slippage default
+            slippage: 0.3, // Nilai slippage default
             srcDecimals: Number(des_input),
             srcToken: sc_input.toLowerCase(),
             toChain: Number(codeChain)

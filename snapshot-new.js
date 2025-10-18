@@ -758,23 +758,26 @@
         const chainConfig = CONFIG_CHAINS[chainKey];
         if (!chainConfig) return;
 
-        // Selector untuk modal dan elemen form di dalamnya
-        const modalSelector = '#sync-modal'; // Ganti jika ID modal Anda berbeda
+        // Get chain display name
+        const chainDisplay = chainKey === 'multichain' ? 'MULTICHAIN' :
+                            (chainConfig.Nama_Chain || chainKey).toUpperCase();
+
+        // Modal and form selectors
+        const modalSelector = '#sync-modal';
         const formElementsSelector = `${modalSelector} input, ${modalSelector} select, ${modalSelector} button`;
 
-        // 1. Nonaktifkan semua inputan form dan tampilkan overlay
+        // Disable all form inputs during process
         document.querySelectorAll(formElementsSelector).forEach(el => el.disabled = true);
-        // Show overlay helper - call dari main.js
-        if (typeof window.showSyncOverlay === 'function') {
-            window.showSyncOverlay('Mempersiapkan snapshot...', 'Inisialisasi');
+
+        // Show modern overlay using SnapshotOverlay
+        if (window.SnapshotOverlay) {
+            window.SnapshotOverlay.show(
+                `Update Snapshot ${chainDisplay}`,
+                `Memproses ${selectedCex.length} exchanger...`
+            );
         }
 
         try {
-            // Pastikan overlay benar-benar terlihat jika fungsi di atas tidak ada
-            const overlay = document.getElementById('sync-overlay'); // Ganti jika ID overlay berbeda
-            if (overlay) {
-                overlay.style.display = 'flex';
-            }
             // Load existing snapshot data
             const existingData = await snapshotDbGet(SNAPSHOT_DB_CONFIG.snapshotKey) || {};
             const keyLower = String(chainKey || '').toLowerCase();
@@ -810,26 +813,33 @@
         for (let i = 0; i < selectedCex.length; i++) {
             const cex = selectedCex[i];
 
-            if (typeof window.setSyncOverlayMessage === 'function') {
-                window.setSyncOverlayMessage(`Memuat data ${cex} dari API...`, `CEX ${i + 1}/${selectedCex.length}`);
-            }
-            if (typeof window.updateSyncOverlayProgress === 'function') {
-                window.updateSyncOverlayProgress(i, selectedCex.length, `Mengambil data dari ${cex}... (${i + 1}/${selectedCex.length})`);
+            // Update overlay progress for CEX fetch
+            if (window.SnapshotOverlay) {
+                window.SnapshotOverlay.updateMessage(
+                    `Update Snapshot ${chainDisplay}`,
+                    `Mengambil data dari ${cex}...`
+                );
+                window.SnapshotOverlay.updateProgress(
+                    i,
+                    selectedCex.length,
+                    `CEX ${i + 1}/${selectedCex.length}: ${cex}`
+                );
             }
 
             // Fetch CEX data (deposit/withdraw status from wallet API)
-                const cexTokens = await fetchCexData(chainKey, cex);
-                allTokens = allTokens.concat(cexTokens);
+            const cexTokens = await fetchCexData(chainKey, cex);
+            allTokens = allTokens.concat(cexTokens);
 
-                await sleep(100); // Small delay between CEX
+            await sleep(100); // Small delay between CEX
         }
 
         // Validate & enrich data with enhanced progress tracking
-        if (typeof window.updateSyncOverlayProgress === 'function') {
-            window.updateSyncOverlayProgress(0, allTokens.length, 'Memulai validasi data koin dan desimal...');
-        }
-        if (typeof window.setSyncOverlayMessage === 'function') {
-            window.setSyncOverlayMessage('Memuat data koin...', 'Enrichment');
+        if (window.SnapshotOverlay) {
+            window.SnapshotOverlay.updateMessage(
+                `Validasi Data ${chainDisplay}`,
+                'Memulai validasi desimal dan contract address...'
+            );
+            window.SnapshotOverlay.updateProgress(0, allTokens.length, 'Validasi dimulai');
         }
 
         const enrichedTokens = [];
@@ -844,9 +854,9 @@
 
                 // Enhanced progress callback
                 const progressCallback = (message) => {
-                    if (typeof window.updateSyncOverlayProgress === 'function') {
+                    if (window.SnapshotOverlay) {
                         const statusMsg = `${message} (${i + 1}/${allTokens.length} - ${progressPercent}%)`;
-                        window.updateSyncOverlayProgress(i + 1, allTokens.length, statusMsg);
+                        window.SnapshotOverlay.updateProgress(i + 1, allTokens.length, statusMsg);
                     }
                 };
 
@@ -898,9 +908,13 @@
         });
 
         if (priceEligibleTokens.length > 0) {
-            if (typeof window.setSyncOverlayMessage === 'function') {
-                window.setSyncOverlayMessage('Mengambil harga real-time...', 'Price Fetching');
+            if (window.SnapshotOverlay) {
+                window.SnapshotOverlay.updateMessage(
+                    `Harga Real-Time ${chainDisplay}`,
+                    'Mengambil harga dari exchanger...'
+                );
             }
+
             const tokensByCex = new Map();
             priceEligibleTokens.forEach(token => {
                 const cexName = String(token.cex || '').toUpperCase();
@@ -912,20 +926,25 @@
             const totalPriceCount = priceEligibleTokens.length;
 
             for (const [cexName, tokenList] of tokensByCex.entries()) {
-                if (typeof window.setSyncOverlayMessage === 'function') {
-                    window.setSyncOverlayMessage(`Mengambil harga dari ${cexName}...`, `Price ${cexName}`);
+                if (window.SnapshotOverlay) {
+                    window.SnapshotOverlay.updateMessage(
+                        `Harga Real-Time ${chainDisplay}`,
+                        `Mengambil harga dari ${cexName}...`
+                    );
                 }
+
                 const priceMap = await fetchPriceMapForCex(cexName);
                 const priceTimestamp = Date.now();
 
                 tokenList.forEach(token => {
                     processedPriceCount += 1;
                     const quoteSymbol = String(token.symbol_out || '').trim() || 'USDT';
-                    if (typeof window.updateSyncOverlayProgress === 'function') {
-                        window.updateSyncOverlayProgress(
+
+                    if (window.SnapshotOverlay) {
+                        window.SnapshotOverlay.updateProgress(
                             processedPriceCount,
                             totalPriceCount,
-                            `Mengambil harga ${token.symbol_in || 'Unknown'} (${processedPriceCount}/${totalPriceCount})`
+                            `${token.symbol_in || 'Unknown'} (${processedPriceCount}/${totalPriceCount})`
                         );
                     }
                     const price = resolvePriceFromMap(cexName, priceMap, token.symbol_in, quoteSymbol);
@@ -967,11 +986,16 @@
 
             // Merge enriched data with existing snapshot (update, not replace)
             if (enrichedTokens.length > 0) {
-                if (typeof window.updateSyncOverlayProgress === 'function') {
-                    window.updateSyncOverlayProgress(enrichedTokens.length, enrichedTokens.length, 'Saving to database...');
-                }
-                if (typeof window.setSyncOverlayMessage === 'function') {
-                    window.setSyncOverlayMessage('Menyimpan hasil sinkronisasi...', 'Saving');
+                if (window.SnapshotOverlay) {
+                    window.SnapshotOverlay.updateMessage(
+                        `Menyimpan Data ${chainDisplay}`,
+                        'Menyimpan ke database...'
+                    );
+                    window.SnapshotOverlay.updateProgress(
+                        enrichedTokens.length,
+                        enrichedTokens.length,
+                        'Saving...'
+                    );
                 }
 
                 // Load all existing tokens for this chain
@@ -1000,15 +1024,12 @@
                 const summaryMsg = `Snapshot updated: ${enrichedTokens.length} tokens refreshed (Cache: ${cachedCount}, Web3: ${web3FetchCount}, Errors: ${errorCount}), total ${mergedTokens.length} tokens in database`;
                 console.log(summaryMsg);
 
-                // Update final progress
-                if (typeof window.updateSyncOverlayProgress === 'function') {
-                    window.updateSyncOverlayProgress(enrichedTokens.length, enrichedTokens.length, 'Selesai! Data tersimpan ke database.');
+                // Show success message
+                if (window.SnapshotOverlay) {
+                    window.SnapshotOverlay.showSuccess(
+                        `${enrichedTokens.length} koin berhasil diperbarui dari ${selectedCex.join(', ')}`
+                    );
                 }
-                // Beri pesan sukses di overlay sebelum ditutup
-                if (typeof window.setSyncOverlayMessage === 'function') {
-                    window.setSyncOverlayMessage('Sinkronisasi Berhasil!', 'Selesai');
-                }
-
             }
 
             // Reload modal with fresh data
@@ -1039,9 +1060,12 @@
 
         } catch(error) {
             console.error('Snapshot process failed:', error);
-            if (typeof window.setSyncOverlayMessage === 'function') {
-                window.setSyncOverlayMessage(`Gagal: ${error.message || 'Unknown error'}`, 'Error');
+
+            // Show error in overlay
+            if (window.SnapshotOverlay) {
+                window.SnapshotOverlay.showError(error.message || 'Unknown error');
             }
+
             if (typeof toast !== 'undefined' && toast.error) {
                 toast.error(`❌ Update koin gagal: ${error.message || 'Unknown error'}`);
             }
@@ -1054,12 +1078,8 @@
                 cexSources: selectedCex
             };
         } finally {
-            // 3. Selalu aktifkan kembali inputan dan sembunyikan overlay setelah selesai
+            // Re-enable all form inputs
             document.querySelectorAll(formElementsSelector).forEach(el => el.disabled = false);
-            // Pindahkan hideSyncOverlay ke sini untuk memastikan selalu dijalankan
-            if (typeof window.hideSyncOverlay === 'function') {
-                setTimeout(() => window.hideSyncOverlay(), 1500); // Beri jeda agar pesan terakhir terbaca
-            }
         }
     }
 
@@ -1100,30 +1120,12 @@
                                 (chainConfig.Nama_Chain || chainKey).toUpperCase();
             const cexList = selectedCex.join(', ');
 
-            // Show initial loading with chain info
-            console.log('[checkWalletStatusOnly] Showing overlay...');
-            if (typeof window.showSyncOverlay === 'function') {
-                console.log('[checkWalletStatusOnly] Calling window.showSyncOverlay');
-                window.showSyncOverlay(
-                    `Mengecek status wallet untuk ${selectedCex.length} exchanger`,
-                    `Chain: ${chainDisplay} | CEX: ${cexList}`
+            // Show modern overlay
+            if (window.SnapshotOverlay) {
+                window.SnapshotOverlay.show(
+                    `Cek Wallet ${chainDisplay}`,
+                    `Memproses ${selectedCex.length} exchanger: ${cexList}`
                 );
-            } else {
-                console.error('[checkWalletStatusOnly] window.showSyncOverlay not found!');
-                // Fallback: directly manipulate DOM
-                try {
-                    const overlay = document.getElementById('sync-overlay');
-                    if (overlay) {
-                        overlay.querySelector('.msg').textContent = `Mengecek status wallet untuk ${selectedCex.length} exchanger`;
-                        overlay.querySelector('.phase').textContent = `Chain: ${chainDisplay} | CEX: ${cexList}`;
-                        overlay.style.display = 'flex';
-                        console.log('[checkWalletStatusOnly] Overlay shown via DOM');
-                    } else {
-                        console.error('[checkWalletStatusOnly] #sync-overlay element not found in DOM!');
-                    }
-                } catch(domErr) {
-                    console.error('[checkWalletStatusOnly] Failed to show overlay via DOM:', domErr);
-                }
             }
 
             // Load existing snapshot for enrichment (decimals, SC, etc)
@@ -1147,17 +1149,15 @@
                 const cexUpper = cex.toUpperCase();
 
                 // Update overlay with current CEX
-                if (typeof window.setSyncOverlayMessage === 'function') {
-                    window.setSyncOverlayMessage(
-                        `Mengambil data dari ${cexUpper}...`,
-                        `Progress: ${i + 1}/${selectedCex.length} CEX`
+                if (window.SnapshotOverlay) {
+                    window.SnapshotOverlay.updateMessage(
+                        `Cek Wallet ${chainDisplay}`,
+                        `Mengambil data dari ${cexUpper}...`
                     );
-                }
-                if (typeof window.updateSyncOverlayProgress === 'function') {
-                    window.updateSyncOverlayProgress(
+                    window.SnapshotOverlay.updateProgress(
                         i + 1,
                         selectedCex.length,
-                        `Memproses ${cexUpper} (${i + 1}/${selectedCex.length})`
+                        `${cexUpper} (${i + 1}/${selectedCex.length})`
                     );
                 }
 
@@ -1215,12 +1215,10 @@
                             console.log(`✅ ${cexUpper}: Fetched ${cexTokens.length} tokens for chain ${chainKey}`);
 
                             // Update progress with success count
-                            if (typeof window.setSyncOverlayMessage === 'function') {
-                                const chainDisplay = chainKey === 'multichain' ? 'MULTICHAIN' :
-                                                    (chainConfig.Nama_Chain || chainKey).toUpperCase();
-                                window.setSyncOverlayMessage(
-                                    `${cexUpper}: ${cexTokens.length} koin (${chainDisplay})`,
-                                    `Progress: ${i + 1}/${selectedCex.length} CEX`
+                            if (window.SnapshotOverlay) {
+                                window.SnapshotOverlay.updateMessage(
+                                    `Cek Wallet ${chainDisplay}`,
+                                    `✅ ${cexUpper}: ${cexTokens.length} koin`
                                 );
                             }
                         } else {
@@ -1228,10 +1226,10 @@
                             failedCexes.push(cexUpper);
 
                             // Show warning in overlay
-                            if (typeof window.setSyncOverlayMessage === 'function') {
-                                window.setSyncOverlayMessage(
-                                    `${cexUpper}: Tidak ada data`,
-                                    `Progress: ${i + 1}/${selectedCex.length} CEX`
+                            if (window.SnapshotOverlay) {
+                                window.SnapshotOverlay.updateMessage(
+                                    `Cek Wallet ${chainDisplay}`,
+                                    `⚠️ ${cexUpper}: Tidak ada data`
                                 );
                             }
                         }
@@ -1243,10 +1241,10 @@
                     failedCexes.push(cexUpper);
 
                     // Show error in overlay
-                    if (typeof window.setSyncOverlayMessage === 'function') {
-                        window.setSyncOverlayMessage(
-                            `${cexUpper}: Gagal mengambil data`,
-                            `Progress: ${i + 1}/${selectedCex.length} CEX`
+                    if (window.SnapshotOverlay) {
+                        window.SnapshotOverlay.updateMessage(
+                            `Cek Wallet ${chainDisplay}`,
+                            `❌ ${cexUpper}: Gagal mengambil data`
                         );
                     }
                 }
@@ -1256,32 +1254,14 @@
 
             // Final summary in overlay
             const successCount = selectedCex.length - failedCexes.length;
-            if (typeof window.setSyncOverlayMessage === 'function') {
-                window.setSyncOverlayMessage(
-                    `Pengecekan selesai: ${allTokens.length} koin dari ${successCount} CEX`,
-                    failedCexes.length > 0 ? `Gagal: ${failedCexes.join(', ')}` : 'Semua CEX berhasil'
-                );
-            }
+            const summaryMsg = `${allTokens.length} koin dari ${successCount} CEX`;
+            const detailMsg = failedCexes.length > 0 ?
+                `Gagal: ${failedCexes.join(', ')}` :
+                'Semua CEX berhasil';
 
-            // Hide overlay after short delay
-            setTimeout(() => {
-                console.log('[checkWalletStatusOnly] Hiding overlay...');
-                if (typeof window.hideSyncOverlay === 'function') {
-                    window.hideSyncOverlay();
-                    console.log('[checkWalletStatusOnly] Overlay hidden via function');
-                } else {
-                    // Fallback: hide via DOM
-                    try {
-                        const overlay = document.getElementById('sync-overlay');
-                        if (overlay) {
-                            overlay.style.display = 'none';
-                            console.log('[checkWalletStatusOnly] Overlay hidden via DOM');
-                        }
-                    } catch(domErr) {
-                        console.error('[checkWalletStatusOnly] Failed to hide overlay:', domErr);
-                    }
-                }
-            }, 1500);
+            if (window.SnapshotOverlay) {
+                window.SnapshotOverlay.showSuccess(`${summaryMsg} | ${detailMsg}`, 1500);
+            }
 
             return {
                 success: allTokens.length > 0,
@@ -1294,31 +1274,10 @@
         } catch(error) {
             console.error('[checkWalletStatusOnly] Failed:', error);
 
-            if (typeof window.setSyncOverlayMessage === 'function') {
-                window.setSyncOverlayMessage(`Gagal: ${error.message}`, 'Error');
-            } else {
-                // Fallback: show error via DOM
-                try {
-                    const overlay = document.getElementById('sync-overlay');
-                    if (overlay) {
-                        overlay.querySelector('.msg').textContent = `Gagal: ${error.message}`;
-                        overlay.querySelector('.phase').textContent = 'Error';
-                    }
-                } catch(_) {}
+            // Show error in overlay
+            if (window.SnapshotOverlay) {
+                window.SnapshotOverlay.showError(error.message || 'Unknown error', 2000);
             }
-
-            setTimeout(() => {
-                console.log('[checkWalletStatusOnly] Hiding overlay after error...');
-                if (typeof window.hideSyncOverlay === 'function') {
-                    window.hideSyncOverlay();
-                } else {
-                    // Fallback: hide via DOM
-                    try {
-                        const overlay = document.getElementById('sync-overlay');
-                        if (overlay) overlay.style.display = 'none';
-                    } catch(_) {}
-                }
-            }, 2000);
 
             return {
                 success: false,

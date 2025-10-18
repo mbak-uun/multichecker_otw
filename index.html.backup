@@ -17,13 +17,33 @@
     
     <link id="favicon" rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/6488/6488055.png">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="database-viewer.css">
 </head>
 <body>
-<!-- OLD OVERLAYS REMOVED - Now using AppOverlay from overlay-manager.js -->
-<!-- #pageLoadingOverlay - REMOVED: Page load now handled by AppOverlay -->
-<!-- #loadingOverlay - REMOVED: Wallet updates now use AppOverlay.show() -->
-<!-- All overlays now use unified AppOverlay system for consistency -->
+<div id="pageLoadingOverlay">
+  <div class="uk-position-center uk-text-center">
+    <div uk-spinner="ratio: 3"></div>
+    <p class="uk-margin-small-top">Loading... Please wait</p>
+  </div>
+  <script>
+    // Prevent scroll during page load
+    try { document.documentElement.style.overflow = 'hidden'; } catch(_){}
+    document.addEventListener('DOMContentLoaded', function(){
+      try { document.getElementById('pageLoadingOverlay').style.display = 'none'; } catch(_){}
+      try { document.documentElement.style.overflow = ''; } catch(_){}
+    });
+    // Fallback auto-hide in case load event delayed excessively
+    setTimeout(function(){
+      try { document.getElementById('pageLoadingOverlay').style.display = 'none'; } catch(_){}
+      try { document.documentElement.style.overflow = ''; } catch(_){}
+    }, 20000);
+  </script>
+</div>
+<div id="loadingOverlay" style="display: none;">
+    <div class="uk-position-center uk-text-center">
+        <div uk-spinner="ratio: 3"></div>
+        <p class="uk-margin-small-top">Updating Wallets... Please Wait...</p>
+    </div>
+</div>
 <div class="uk-container uk-margin-small-top uk-background-a">
  <!-- Card Bagian Header -->
     <div class="uk-card uk-card-default uk-margin-small header-card" id="menu-app">
@@ -59,7 +79,6 @@
                         <!-- <img class="icon" id="reload" data-feature="reload" title="RESET PROSES" width="24px" src="https://cdn-icons-png.flaticon.com/256/10264/10264169.png" /> -->
 
                          <a href="extra/modal.html" class="iframe-modal-trigger" data-feature="assets"><img class="icon" title="MANAJEMEN ASSET" width="24px" src="https://cdn-icons-png.flaticon.com/512/4626/4626344.png" /></a>
-                         <a href="#" id="openDatabaseViewer" title="Database Viewer"><img class="icon" width="24" src="https://cdn-icons-png.flaticon.com/512/2906/2906274.png" /></a>
                          <a href="#" id="openBackupModal" title="Backup/Restore Database"><img class="icon" width="24" src="https://cdn-icons-png.flaticon.com/512/8618/8618023.png" /></a>
                          <a href="#" id="openHistoryModal" title="Riwayat Aksi"><img class="icon" width="24" src="https://cdn-icons-png.flaticon.com/512/169/169244.png" /></a>
                        
@@ -350,58 +369,6 @@
   <!-- CEX Cards Grid (2 columns konsisten) -->
   <div id="wallet-cex-grid" class="uk-grid-small uk-child-width-1-2@m uk-padding-small"  uk-grid>
     <!-- CEX cards will be rendered here dynamically -->
-  </div>
-</section>
-
-<!-- SECTION: DATABASE VIEWER -->
-<section id="database-viewer-section" class="uk-margin-small" style="display:none;">
-  <!-- Header with Stats -->
-  <div class="db-viewer-header">
-    <h2>Database Viewer</h2>
-    <p>Eksplorasi semua data tabel dari IndexedDB dengan pencarian dan filter</p>
-
-    <div class="db-stats-bar">
-      <div class="db-stat-item">
-        <span class="label">Total Tabel</span>
-        <span class="value" id="db-total-tables">0</span>
-      </div>
-      <div class="db-stat-item">
-        <span class="label">Total Records</span>
-        <span class="value" id="db-total-records">0</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Toolbar -->
-  <div class="db-toolbar">
-    <div class="db-search-box">
-      <input type="text" id="db-search-input" placeholder="Cari tabel atau data..." />
-      <span uk-icon="icon: search" class="db-search-icon"></span>
-    </div>
-
-    <div class="db-toolbar-actions">
-      <button id="db-expand-all-btn" class="uk-button uk-button-default uk-button-small" type="button">
-        <span uk-icon="icon: chevron-down; ratio: 0.7"></span>
-        Expand All
-      </button>
-      <button id="db-collapse-all-btn" class="uk-button uk-button-default uk-button-small" type="button">
-        <span uk-icon="icon: chevron-up; ratio: 0.7"></span>
-        Collapse All
-      </button>
-      <button id="db-refresh-btn" class="uk-button uk-button-primary uk-button-small" type="button">
-        <span uk-icon="icon: refresh; ratio: 0.7"></span>
-        Refresh
-      </button>
-      <button id="db-close-btn" class="uk-button uk-button-danger uk-button-small" type="button">
-        <span uk-icon="icon: close; ratio: 0.7"></span>
-        Tutup
-      </button>
-    </div>
-  </div>
-
-  <!-- Tables Container -->
-  <div id="database-viewer-container">
-    <!-- Table cards will be rendered here dynamically -->
   </div>
 </section>
 
@@ -772,7 +739,6 @@
 <script src="services/dex.js"></script>
 <script src="api.js"></script>
 <script src="snapshot-new.js"></script>
-<script src="database-viewer.js"></script>
 <script src="main.js"></script>
 <script src="ui.js"></script>
 <script src="dom-renderer.js"></script>

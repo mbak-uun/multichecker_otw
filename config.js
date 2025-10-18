@@ -1,7 +1,7 @@
 
 const CONFIG_APP = {
     APP: {
-        NAME: "MULTICHECKER-DEV",
+        NAME: "MULTIPLUS-DEV",
         VERSION: "2.0"
     }
 };
@@ -477,98 +477,164 @@ try {
 } catch(_){}
 
 // DEX builder config (moved from dex-config.js)
+/**
+ * PANDUAN KONFIGURASI fetchdex:
+ *
+ * - tokentopair: Strategi untuk CEX → DEX (Actionkiri: beli token di exchanger, swap token ke pair di DEX)
+ * - pairtotoken: Strategi untuk DEX → CEX (ActionKanan: swap pair ke token di DEX, jual token ke exchanger)
+ *
+ * ========================================
+ * 3 KATEGORI STRATEGI FALLBACK:
+ * ========================================
+ *
+ * KATEGORI 1: SAME PRIMARY + INTERNAL ALTERNATIVE (Kyber, ODOS, 1inch)
+ * - Primary: Sama untuk kedua arah (kyber/odos2/odos3/hinkal-1inch)
+ * - Alternative: Provider internal untuk kedua arah (zero-kyber/hinkal-odos/zero-1inch)
+ * - Mengurangi beban ke SWOOP/DZAP dengan menggunakan provider internal yang reliable
+ * - Contoh: kyber (zero-kyber), odos (hinkal-odos), 1inch (hinkal ↔ zero)
+ *
+ * KATEGORI 2: SAME PRIMARY + SWOOP/DZAP ALTERNATIVE (0x, OKX)
+ * - Primary: Sama untuk kedua arah (0x/okx API langsung)
+ * - Alternative: SWOOP untuk CEX→DEX (entry), DZAP untuk DEX→CEX (exit)
+ * - Contoh: 0x, okx
+ *
+ * KATEGORI 3: DIFFERENT PRIMARY + SWOOP/DZAP ALTERNATIVE (ParaSwap)
+ * - Primary: Berbeda per arah (v6 vs v5)
+ * - Alternative: SWOOP untuk CEX→DEX (entry), DZAP untuk DEX→CEX (exit)
+ * - Contoh: paraswap (v6/v5)
+ *
+ * ========================================
+ * FALLBACK POLICY:
+ * ========================================
+ * - primary: Strategi utama yang dipilih pertama kali
+ * - alternative: Strategi cadangan saat primary gagal (error 429, 500+, atau timeout)
+ * - allowFallback: true/false - izinkan fallback ke alternative
+ */
 const CONFIG_DEXS = {
     kyber: {
         label: 'KyberSwap',
         badgeClass: 'bg-kyberswap',
-        
-        warna: "#436ef0ff", // hijau tosca KyberSwap
-        builder: ({ chainName, tokenAddress, pairAddress }) => 
+
+        warna: "#0b7e18ff", // hijau tosca KyberSwap
+        builder: ({ chainName, tokenAddress, pairAddress }) =>
             `https://kyberswap.com/swap/${chainName}/${tokenAddress}-to-${pairAddress}`,
-        // Rute fetch per arah
+        // Strategi internal: Zero-Kyber sebagai alternative untuk mengurangi beban ke SWOOP/DZAP
         fetchdex: {
             primary: {
-                tokentopair: 'kyber',
-                pairtotoken: 'kyber'
+                tokentopair: 'kyber',       // CEX→DEX (Actionkiri): KyberSwap API langsung
+                pairtotoken: 'kyber'        // DEX→CEX (ActionKanan): KyberSwap API langsung
             },
             alternative: {
-                tokentopair: 'swoop',
-                pairtotoken: 'dzap'
+                tokentopair: 'zero-kyber',  // Fallback CEX→DEX: ZeroSwap Kyber (internal provider)
+                pairtotoken: 'zero-kyber'   // Fallback DEX→CEX: ZeroSwap Kyber (internal provider)
             }
         },
-        allowFallback: false,
+        allowFallback: true,
+        // Note: Menggunakan Zero-Kyber untuk kedua arah agar tidak membebani SWOOP/DZAP
     },
     '0x': {
         label: 'Matcha',
         badgeClass: 'bg-matcha',
-        
-        warna: "#069e1aff", // hitam abu-abu (Matcha/0x)
-        builder: ({ chainName, tokenAddress, pairAddress, chainCode }) => 
+
+        warna: "#61ee73ff", // hitam abu-abu (Matcha/0x)
+        builder: ({ chainName, tokenAddress, pairAddress, chainCode }) =>
             `https://matcha.xyz/tokens/${chainName}/${String(tokenAddress||'').toLowerCase()}?buyChain=${chainCode}&buyAddress=${String(pairAddress||'').toLowerCase()}`,
         fetchdex: {
             primary: {
-                tokentopair: '0x',
-                pairtotoken: '0x'
-            }
-        },
-        allowFallback: false,
-    },
-    odos: {
-        label: 'ODOS',
-        badgeClass: 'bg-odos',
-        
-        warna: "#f4a20aff", // ungu-biru Odos
-        builder: () => `https://app.odos.xyz`,
-        fetchdex: {
-            primary: {
-                tokentopair: 'odos2',
-                pairtotoken: 'odos3'
+                tokentopair: '0x',      // CEX→DEX (Actionkiri): Matcha (0x) API langsung
+                pairtotoken: '0x'       // DEX→CEX (ActionKanan): Matcha (0x) API langsung
             },
             alternative: {
-                tokentopair: 'dzap',
-                pairtotoken: 'swoop' // Anda bisa sesuaikan fallback jika perlu
+                tokentopair: 'swoop',   // Fallback CEX→DEX: SWOOP aggregator
+                pairtotoken: 'dzap'     // Fallback DEX→CEX: DZAP (multi-provider, exit focused)
             }
         },
         allowFallback: true,
     },
+    odos: {
+        label: 'ODOS',
+        badgeClass: 'bg-odos',
+
+        warna: "#6e2006ff", // ungu-biru Odos
+        builder: () => `https://app.odos.xyz`,
+        // Strategi internal: Hinkal-ODOS sebagai alternative untuk mengurangi beban ke SWOOP/DZAP
+        fetchdex: {
+            primary: {
+                tokentopair: 'odos2',       // CEX→DEX (Actionkiri): ODOS API v2
+                pairtotoken: 'odos3'        // DEX→CEX (ActionKanan): ODOS API v3 (lebih stabil)
+            },
+            alternative: {
+                tokentopair: 'hinkal-odos',  // Fallback CEX→DEX: Hinkal ODOS proxy (internal provider)
+                pairtotoken: 'hinkal-odos'   // Fallback DEX→CEX: Hinkal ODOS proxy (internal provider)
+            }
+        },
+        allowFallback: true,
+        // Note: Menggunakan Hinkal-ODOS untuk kedua arah agar tidak membebani SWOOP/DZAP
+    },
     okx: {
         label: 'OKXDEX',
         badgeClass: 'bg-okxdex',
-        
+
         warna: "#000000", // hitam (brand OKX)
-        builder: ({ chainCode, tokenAddress, pairAddress }) => 
+        builder: ({ chainCode, tokenAddress, pairAddress }) =>
             `https://www.okx.com/web3/dex-swap?inputChain=${chainCode}&inputCurrency=${tokenAddress}&outputChain=501&outputCurrency=${pairAddress}`,
         fetchdex: {
             primary: {
-                tokentopair: 'okx',
-                pairtotoken: 'okx'
-            }, 
+                tokentopair: 'okx',     // CEX→DEX (Actionkiri): OKX DEX API langsung
+                pairtotoken: 'okx'      // DEX→CEX (ActionKanan): OKX DEX API langsung
+            },
+            alternative: {
+                tokentopair: 'swoop',   // Fallback CEX→DEX: SWOOP aggregator
+                pairtotoken: 'dzap'     // Fallback DEX→CEX: DZAP (multi-provider, exit focused)
+            }
         },
-        allowFallback: false,
+        allowFallback: true,
     },
     '1inch': {
         label: '1inch',
         badgeClass: 'bg-1inch',
 
-        warna: "#b41313ff", // red 1inch branding
-        builder: ({ chainCode, tokenAddress, pairAddress }) =>
-            `https://app.1inch.io/advanced/swap?network=${chainCode}&src=${tokenAddress}&dst=${pairAddress}`,
+        warna: "#06109bff", // red 1inch branding
+        builder: ({ chainCode, tokenAddress, pairAddress }) => `https://app.1inch.io/advanced/swap?network=${chainCode}&src=${tokenAddress}&dst=${pairAddress}`,
 
-        // Rute fetch per arah: Hinkal (privacy) untuk token->pair, ZeroSwap untuk pair->token
+        // Strategi khusus: Primary SELALU Hinkal, Alternative SELALU ZeroSwap (tidak bergantung arah)
         fetchdex: {
             primary: {
-                tokentopair: 'hinkal',  // Privacy-focused via Hinkal proxy
-                pairtotoken: 'zero'     // Fast quotes via ZeroSwap aggregator
-            },alternative: {
-                tokentopair: 'dzap',
-                pairtotoken: 'dzap' // Anda bisa sesuaikan fallback jika perlu
+                tokentopair: 'hinkal-1inch',   // CEX→DEX: Hinkal proxy (privacy, 0.1 Gwei)
+                pairtotoken: 'hinkal-1inch'    // DEX→CEX: Hinkal proxy (privacy, 0.1 Gwei)
             },
-            // Fallback dinonaktifkan - gunakan dedicated routes
-            allowFallback: true,
+            alternative: {
+                tokentopair: 'zero-1inch',     // Fallback CEX→DEX: ZeroSwap (jika Hinkal gagal)
+                pairtotoken: 'zero-1inch'      // Fallback DEX→CEX: ZeroSwap (jika Hinkal gagal)
+            }
         },
-        // Note: Hinkal adds privacy layer with lower gas price (0.1 Gwei)
-        // ZeroSwap provides fast aggregated quotes from 1inch
+        allowFallback: true,
+        // Note: Hinkal diutamakan untuk privacy & gas rendah (0.1 Gwei) di semua arah
+        // ZeroSwap sebagai fallback yang lebih cepat jika Hinkal error/timeout
     },
+    paraswap: {
+        label: 'ParaSwap',
+        badgeClass: 'bg-paraswap',
+
+        warna: "#1c64f2ff",
+        builder: ({ chainCode, tokenAddress, pairAddress }) => {
+            const network = chainCode || '';
+            const from = String(tokenAddress || '').toLowerCase();
+            const to = String(pairAddress || '').toLowerCase();
+            return `https://app.paraswap.io/#/?network=${network}&from=${from}&to=${to}`;
+        },
+        fetchdex: {
+            primary: {
+                tokentopair: 'paraswap6',   // CEX→DEX (Actionkiri): ParaSwap API v6 (terbaru)
+                pairtotoken: 'paraswap5'    // DEX→CEX (ActionKanan): ParaSwap API v5 (lebih stabil)
+            },
+            alternative: {
+                tokentopair: 'swoop',   // Fallback CEX→DEX: SWOOP aggregator (entry focused)
+                pairtotoken: 'dzap'     // Fallback DEX→CEX: DZAP aggregator (exit focused)
+            }
+        },
+        allowFallback: true,
+    }
 
     // fly: {
     //     label: 'FLY',
@@ -587,29 +653,8 @@ const CONFIG_DEXS = {
     //     },
     //     allowFallback: false,
     // },
-    paraswap: {
-        label: 'ParaSwap',
-        badgeClass: 'bg-paraswap',
-        
-        warna: "#1c64f2ff",
-        builder: ({ chainCode, tokenAddress, pairAddress }) => {
-            const network = chainCode || '';
-            const from = String(tokenAddress || '').toLowerCase();
-            const to = String(pairAddress || '').toLowerCase();
-            return `https://app.paraswap.io/#/?network=${network}&from=${from}&to=${to}`;
-        },
-        fetchdex: {
-            primary: {
-                tokentopair: 'paraswap',
-                pairtotoken: 'paraswap'
-            },
-            alternative: {
-                tokentopair: 'dzap',
-                pairtotoken: 'swoop'
-            }
-        },
-        allowFallback: true,
-    },
+    
+     
 };
 
 try { if (typeof window !== 'undefined') { window.CONFIG_DEXS = window.CONFIG_DEXS || CONFIG_DEXS; } } catch(_){}
