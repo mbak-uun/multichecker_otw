@@ -1,8 +1,8 @@
 
 const CONFIG_APP = {
     APP: {
-        NAME: "MULTICHECKER-OTW",
-        VERSION: "2.0",
+        NAME: "MULTICHECKER",
+        VERSION: "1.7",        
         SCAN_LIMIT:false,
     }
 };
