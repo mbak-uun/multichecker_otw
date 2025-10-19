@@ -446,6 +446,10 @@
                                     decimals: existing?.des_in || existing?.decimals || '',
                                     des_in: existing?.des_in || existing?.decimals || '',
                                     deposit: item.depositEnable ? '1' : '0',
+                                    // Perubahan: Kosongkan symbol_out dan sc_out saat mengambil data dari CEX
+                                    symbol_out: '',
+                                    sc_out: '',
+                                    des_out: 0,
                                     withdraw: item.withdrawEnable ? '1' : '0',
                                     feeWD: parseFloat(item.feeWDs || 0)
                                 };

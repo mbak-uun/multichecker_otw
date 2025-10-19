@@ -17,7 +17,6 @@
     
     <link id="favicon" rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/6488/6488055.png">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="database-viewer.css">
 </head>
 <body>
 <!-- OLD OVERLAYS REMOVED - Now using AppOverlay from overlay-manager.js -->
@@ -58,12 +57,11 @@
                         <img class="icon" id="SettingConfig" data-feature="settings" title="CONFIG SCANNER" width="24px" src="https://cdn-icons-png.flaticon.com/512/771/771203.png" />
                         <!-- <img class="icon" id="reload" data-feature="reload" title="RESET PROSES" width="24px" src="https://cdn-icons-png.flaticon.com/256/10264/10264169.png" /> -->
 
-                         <a href="extra/modal.html" class="iframe-modal-trigger" data-feature="assets"><img class="icon" title="MANAJEMEN ASSET" width="24px" src="https://cdn-icons-png.flaticon.com/512/4626/4626344.png" /></a>
+                         <a href="extra/modal.html" target="_blank" data-feature="assets"><img class="icon" title="MANAJEMEN ASSET" width="24px" src="https://cdn-icons-png.flaticon.com/512/4626/4626344.png" /></a>
                          <a href="#" id="openDatabaseViewer" title="Database Viewer"><img class="icon" width="24" src="https://cdn-icons-png.flaticon.com/512/2906/2906274.png" /></a>
-                         <a href="#" id="openBackupModal" title="Backup/Restore Database"><img class="icon" width="24" src="https://cdn-icons-png.flaticon.com/512/8618/8618023.png" /></a>
                          <a href="#" id="openHistoryModal" title="Riwayat Aksi"><img class="icon" width="24" src="https://cdn-icons-png.flaticon.com/512/169/169244.png" /></a>
                        
-                         <a href="https://cors-anywhere.herokuapp.com/corsdemo" class="iframe-modal-trigger" data-feature="proxy"><img class="icon" title="BUKA AKSES" width="24px"  src="https://cdn-icons-png.flaticon.com/512/890/890162.png" /></a>
+                         <a href="https://cors-anywhere.herokuapp.com/corsdemo" target="_blank" rel="noopener noreferrer" data-feature="proxy"><img class="icon" title="BUKA AKSES" width="24px"  src="https://cdn-icons-png.flaticon.com/512/890/890162.png" /></a>
 
                         <!-- Memory management removed (no localStorage) -->
                         <img class="icon" id="darkModeToggle" title="Ganti Mode Gelap/Terang" width="24px" src="https://cdn-icons-png.flaticon.com/512/3751/3751403.png" /> 
@@ -355,31 +353,32 @@
 
 <!-- SECTION: DATABASE VIEWER -->
 <section id="database-viewer-section" class="uk-margin-small" style="display:none;">
-  <!-- Header with Stats -->
-  <div class="db-viewer-header">
-    <h2>Database Viewer</h2>
-    <p>Eksplorasi semua data tabel dari IndexedDB dengan pencarian dan filter</p>
+  <div class="uk-card uk-card-default uk-card-body uk-padding-small">
+    <!-- Header with Stats -->
+    <div class="db-viewer-header">
+      <h2>Database Viewer</h2>
+      <p>Eksplorasi semua data tabel dari IndexedDB dengan pencarian dan filter</p>
 
-    <div class="db-stats-bar">
-      <div class="db-stat-item">
-        <span class="label">Total Tabel</span>
-        <span class="value" id="db-total-tables">0</span>
-      </div>
-      <div class="db-stat-item">
-        <span class="label">Total Records</span>
-        <span class="value" id="db-total-records">0</span>
+      <div class="db-stats-bar">
+        <div class="db-stat-item">
+          <span class="label">Total Tabel</span>
+          <span class="value" id="db-total-tables">0</span>
+        </div>
+        <div class="db-stat-item">
+          <span class="label">Total Records</span>
+          <span class="value" id="db-total-records">0</span>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Toolbar -->
-  <div class="db-toolbar">
-    <div class="db-search-box">
-      <input type="text" id="db-search-input" placeholder="Cari tabel atau data..." />
-      <span uk-icon="icon: search" class="db-search-icon"></span>
-    </div>
+    <!-- Toolbar -->
+    <div class="db-toolbar">
+      <div class="uk-inline">
+        <span class="uk-form-icon" uk-icon="icon: search"></span>
+        <input class="uk-input uk-form-small" type="text" id="db-search-input" placeholder="Cari tabel atau data...">
+      </div>
 
-    <div class="db-toolbar-actions">
+      <div class="db-toolbar-actions">
       <button id="db-expand-all-btn" class="uk-button uk-button-default uk-button-small" type="button">
         <span uk-icon="icon: chevron-down; ratio: 0.7"></span>
         Expand All
@@ -387,6 +386,10 @@
       <button id="db-collapse-all-btn" class="uk-button uk-button-default uk-button-small" type="button">
         <span uk-icon="icon: chevron-up; ratio: 0.7"></span>
         Collapse All
+      </button>
+      <button class="uk-button uk-button-secondary uk-button-small" type="button" uk-toggle="target: #backup-modal">
+        <span uk-icon="icon: database; ratio: 0.7"></span>
+        Backup/Restore
       </button>
       <button id="db-refresh-btn" class="uk-button uk-button-primary uk-button-small" type="button">
         <span uk-icon="icon: refresh; ratio: 0.7"></span>
@@ -396,8 +399,8 @@
         <span uk-icon="icon: close; ratio: 0.7"></span>
         Tutup
       </button>
+      </div>
     </div>
-  </div>
 
   <!-- Tables Container -->
   <div id="database-viewer-container">
@@ -626,12 +629,14 @@
         <span id="sync-selected-count" class="uk-text-small uk-text-muted">Dipilih: 0</span>
       </div>
       
-      <div id="sync-select-controls" class="uk-margin-small">Memilih : &nbsp;
-        <label class="uk-margin-small-right"><input type="radio" name="sync-pick-mode" value="all" class="uk-radio"> Semua</label>
-        <label><input type="radio" name="sync-pick-mode" value="picked" class="uk-radio"> Terpilih</label>
-        <label class="uk-margin-small-left"><input type="radio" name="sync-pick-mode" value="snapshot" class="uk-radio"> Snapshot</label>
-        <label class="uk-margin-small-left"><input type="radio" name="sync-pick-mode" value="clear" class="uk-radio"> Batal</label>
-        <input id="sync-search-input" class=" \uk-margin-small-left" type="text" placeholder="Cari koin...">
+      <div id="sync-select-controls" class="uk-margin-small" uk-tooltip="title: Pilih minimal satu koin dari tabel di bawah untuk mengaktifkan mode pemilihan; pos: bottom-left">
+        <span>Memilih : &nbsp;
+          <label class="uk-margin-small-right"><input type="radio" name="sync-pick-mode" value="all" class="uk-radio"> Semua</label>
+          <label><input type="radio" name="sync-pick-mode" value="picked" class="uk-radio"> Terpilih</label>
+          <label class="uk-margin-small-left"><input type="radio" name="sync-pick-mode" value="snapshot" class="uk-radio"> Snapshot</label>
+          <label class="uk-margin-small-left"><input type="radio" name="sync-pick-mode" value="clear" class="uk-radio"> Batal</label>
+        </span>
+        <input id="sync-search-input" class="uk-input uk-form-small uk-form-width-small uk-margin-small-left" type="text" placeholder="Cari koin...">
       </div>
 
       <div class="uk-overflow-auto uk-margin-small-top" style="max-height:65vh; border:1px solid #ddd; border-radius:4px;">

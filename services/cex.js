@@ -190,8 +190,7 @@
               return reject(`Exchange ${key || cex} tidak ditemukan dalam konfigurasi.`);
           }
 
-          const settings = getFromLocalStorage("SETTING_SCANNER", {});
-          const jedaCex = settings?.JedaCexs?.[key] || settings?.JedaCexs?.[cex] || 0;
+          // CEX delay configuration removed; requests execute immediately
           const isStablecoin = (token) => stablecoins.includes(token);
 
           const urls = [
@@ -212,36 +211,34 @@
               }
               if (url) {
                   return new Promise((resolveAjax, rejectAjax) => {
-                      setTimeout(() => {
-                          $.ajax({
-                              url: url,
-                              method: 'GET',
-                              success: function (data) {
-                                  try {
-                                      const processedData = config.processData(data);
-                                      // Select best prices: BUY uses best ask (lowest), SELL uses best bid (highest)
-                                      const priceBuy = processedData?.priceSell?.[0]?.price || 0;
-                                      const priceSell = processedData?.priceBuy?.[0]?.price || 0;
-                                      if (priceBuy <= 0 || priceSell <= 0) {
-                                          return rejectAjax(`Harga tidak valid untuk ${tokenName} di ${cex}.`);
-                                      }
-                                      resolveAjax({
-                                          tokenName: tokenName,
-                                          price_sell: priceSell,
-                                          price_buy: priceBuy,
-                                          volumes_sell: processedData.priceSell || [],
-                                          volumes_buy: processedData.priceBuy || []
-                                      });
-                                  } catch (error) {
-                                      rejectAjax(`Error processing data untuk ${tokenName} di ${cex}: ${error.message}`);
+                      $.ajax({
+                          url: url,
+                          method: 'GET',
+                          success: function (data) {
+                              try {
+                                  const processedData = config.processData(data);
+                                  // Select best prices: BUY uses best ask (lowest), SELL uses best bid (highest)
+                                  const priceBuy = processedData?.priceSell?.[0]?.price || 0;
+                                  const priceSell = processedData?.priceBuy?.[0]?.price || 0;
+                                  if (priceBuy <= 0 || priceSell <= 0) {
+                                      return rejectAjax(`Harga tidak valid untuk ${tokenName} di ${cex}.`);
                                   }
-                              },
-                              error: function (xhr) {
-                                  const errorMessage = xhr.responseJSON?.msg || "Unknown ERROR";
-                                  rejectAjax(`Error koneksi API untuk ${tokenName} di ${cex}: ${errorMessage}`);
+                                  resolveAjax({
+                                      tokenName: tokenName,
+                                      price_sell: priceSell,
+                                      price_buy: priceBuy,
+                                      volumes_sell: processedData.priceSell || [],
+                                      volumes_buy: processedData.priceBuy || []
+                                  });
+                              } catch (error) {
+                                  rejectAjax(`Error processing data untuk ${tokenName} di ${cex}: ${error.message}`);
                               }
-                          });
-                      }, jedaCex);
+                          },
+                          error: function (xhr) {
+                              const errorMessage = xhr.responseJSON?.msg || "Unknown ERROR";
+                              rejectAjax(`Error koneksi API untuk ${tokenName} di ${cex}: ${errorMessage}`);
+                          }
+                      });
                   });
               }
               return Promise.resolve(null);

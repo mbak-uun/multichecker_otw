@@ -36,6 +36,20 @@
     let expandedTables = new Set();
 
     /**
+     * Helper to get chain color from config
+     */
+    function getChainColor(chainKey) {
+        try {
+            if (!chainKey) return '#667eea'; // Default color
+            const config = root.CONFIG_CHAINS || {};
+            const chainData = config[String(chainKey).toLowerCase()];
+            return chainData?.WARNA || '#667eea';
+        } catch (e) {
+            return '#667eea';
+        }
+    }
+
+    /**
      * Initialize DB configuration from global config
      */
     function initializeDBConfig() {
@@ -434,7 +448,7 @@
      * Render table data as HTML table
      */
     function renderTableData(table) {
-        if (table.type === 'koin' || table.type === 'snapshot') {
+        if (table.type === 'koin' || table.type === 'snapshot' || table.type === 'settings') {
             return renderKoinTable(table.data);
         } else if (table.type === 'filter') {
             return renderFilterData(table.data);
@@ -448,7 +462,8 @@
      * Render koin data as table
      */
     function renderKoinTable(data) {
-        if (!data || data.length === 0) {
+        const isArray = Array.isArray(data);
+        if (!data || (isArray && data.length === 0) || (!isArray && Object.keys(data).length === 0)) {
             return '<p class="uk-text-muted uk-text-center">Tidak ada data</p>';
         }
 
@@ -470,51 +485,50 @@
                     <tbody>
         `;
 
-        data.forEach((item, idx) => {
-            const symbolIn = item.symbol_in || '-';
-            const symbolOut = item.symbol_out || '-';
-            const scIn = item.sc_in || item.contract_in || '-';
-            const des = item.des_in || item.decimals || '-';
-            const status = item.status ? 'Aktif' : 'Nonaktif';
-            const statusClass = item.status ? 'uk-label-success' : 'uk-label-warning';
+        if (isArray) {
+            data.forEach((item, idx) => {
+                const symbolIn = item.symbol_in || '-';
+                const symbolOut = item.symbol_out || '-';
+                const scIn = item.sc_in || item.contract_in || '-';
+                const des = item.des_in ?? item.decimals ?? '-';
+                const status = item.status ? 'Aktif' : 'Nonaktif';
+                const statusClass = item.status ? 'uk-label-success' : 'uk-label-warning';
 
-            // CEX list
-            let cexList = '';
-            if (item.selectedCexs && Array.isArray(item.selectedCexs)) {
-                cexList = item.selectedCexs.join(', ');
-            } else if (item.cex) {
-                cexList = item.cex;
-            }
+                let cexList = Array.isArray(item.selectedCexs) ? item.selectedCexs.join(', ') : (item.cex || '');
+                let dexList = Array.isArray(item.selectedDexs) ? item.selectedDexs.join(', ') : '';
 
-            // DEX list
-            let dexList = '';
-            if (item.selectedDexs && Array.isArray(item.selectedDexs)) {
-                dexList = item.selectedDexs.join(', ');
-            }
+                const shortenSc = (sc) => (!sc || sc === '-' || sc.length < 12) ? sc : `${sc.substring(0, 6)}...${sc.substring(sc.length - 4)}`;
 
-            // Shorten SC
-            const shortenSc = (sc) => {
-                if (!sc || sc === '-' || sc.length < 12) return sc;
-                return `${sc.substring(0, 6)}...${sc.substring(sc.length - 4)}`;
-            };
-
-            html += `
-                <tr>
-                    <td>${idx + 1}</td>
-                    <td><strong>${symbolIn}</strong></td>
-                    <td>${symbolOut}</td>
-                    <td class="uk-text-truncate" title="${scIn}">
-                        <code class="uk-text-small">${shortenSc(scIn)}</code>
-                    </td>
-                    <td class="uk-text-center">${des}</td>
-                    <td class="uk-text-small">${cexList}</td>
-                    <td class="uk-text-small">${dexList}</td>
-                    <td>
-                        <span class="uk-label ${statusClass}" style="font-size:10px">${status}</span>
-                    </td>
-                </tr>
+                html += `
+                    <tr>
+                        <td>${idx + 1}</td>
+                        <td><strong>${symbolIn}</strong></td>
+                        <td>${symbolOut}</td>
+                        <td class="uk-text-truncate" title="${scIn}">
+                            <code class="uk-text-small">${shortenSc(scIn)}</code>
+                        </td>
+                        <td class="uk-text-center">${des}</td>
+                        <td class="uk-text-small">${cexList}</td>
+                        <td class="uk-text-small">${dexList}</td>
+                        <td><span class="uk-label ${statusClass}" style="font-size:10px">${status}</span></td>
+                    </tr>
+                `;
+            });
+        } else {
+            // Handle object data (like SETTING_SCANNER)
+            html = `
+                <div class="uk-overflow-auto">
+                    <table class="uk-table uk-table-divider uk-table-hover uk-table-small db-data-table">
+                        <thead><tr><th data-sort-index="0">Key <span class="sort-indicator"></span></th><th data-sort-index="1">Value <span class="sort-indicator"></span></th></tr></thead>
+                        <tbody>
             `;
-        });
+            Object.entries(data).forEach(([key, value]) => {
+                const valStr = (typeof value === 'object' && value !== null) ? JSON.stringify(value) : String(value);
+                html += `<tr><td><strong>${key}</strong></td><td class="uk-text-small uk-text-truncate" title="${valStr}">${valStr}</td></tr>`;
+            });
+            html += '</tbody></table></div>';
+            return html;
+        }
 
         html += `
                     </tbody>
@@ -568,29 +582,6 @@
         }
 
         html += '</div>';
-        return html;
-    }
-
-    /**
-     * Render settings data
-     */
-    function renderSettingsData(data) {
-        let html = '<div class="uk-overflow-auto"><table class="uk-table uk-table-divider uk-table-hover uk-table-small"><thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>';
-
-        Object.keys(data).forEach(key => {
-            const value = typeof data[key] === 'object'
-                ? JSON.stringify(data[key])
-                : String(data[key]);
-
-            html += `
-                <tr>
-                    <td><strong>${key}</strong></td>
-                    <td class="uk-text-small">${value}</td>
-                </tr>
-            `;
-        });
-
-        html += '</tbody></table></div>';
         return html;
     }
 
@@ -666,17 +657,24 @@
         tables.forEach(table => {
             const isExpanded = expandedTables.has(table.name);
             const contentDisplay = isExpanded ? 'block' : 'none';
-            const iconClass = isExpanded ? 'uk-icon-chevron-down' : 'uk-icon-chevron-right';
+            const iconName = isExpanded ? 'chevron-down' : 'chevron-right';
+            const chainColor = getChainColor(table.chain);
 
             html += `
-                <div class="db-table-card uk-card uk-card-default uk-margin-small ${isExpanded ? 'expanded' : ''}" data-table="${table.name}">
+                <div class="db-table-card uk-card uk-card-default uk-margin-small ${isExpanded ? 'expanded' : ''}" data-table="${table.name}" style="--card-accent-color: ${chainColor};">
                     <div class="db-table-header" data-table="${table.name}">
                         <div class="db-table-title">
-                            <span uk-icon="icon: ${iconClass}; ratio: 0.8" class="accordion-icon"></span>
+                            <span uk-icon="icon: ${iconName}; ratio: 0.8" class="accordion-icon"></span>
                             <strong>${table.displayName}</strong>
                             <span class="uk-badge uk-margin-small-left">${table.count}</span>
                         </div>
                         <div class="db-table-actions">
+                            ${(table.type === 'koin' || table.type === 'snapshot' || table.type === 'settings') ? `
+                            <div class="uk-inline">
+                                <span class="uk-form-icon uk-form-icon-flip" uk-icon="icon: search; ratio: 0.7"></span>
+                                <input class="uk-input uk-form-small db-table-search" type="text" placeholder="Cari di tabel ini...">
+                            </div>
+                            ` : ''}
                             <button class="uk-button uk-button-small uk-button-default export-table-btn" data-table="${table.name}" title="Export to JSON">
                                 <span uk-icon="icon: download; ratio: 0.7"></span>
                                 Export
@@ -700,7 +698,7 @@
     /**
      * Bind accordion click events
      */
-    function bindAccordionEvents() {
+     function bindAccordionEvents() {
         $('.db-table-header').off('click').on('click', function(e) {
             // Jangan toggle jika klik di button export
             if ($(e.target).closest('.export-table-btn').length > 0) {
@@ -727,6 +725,59 @@
             }
         });
 
+        // Per-table search
+        $('.db-table-search').off('input').on('input', function(e) {
+            e.stopPropagation();
+            const query = $(this).val().toLowerCase();
+            const $table = $(this).closest('.db-table-card').find('.db-data-table');
+            const $rows = $table.find('tbody tr');
+
+            $rows.each(function() {
+                const rowText = $(this).text().toLowerCase();
+                $(this).toggle(rowText.includes(query));
+            });
+        });
+
+        // Per-table sorting
+        $('.db-data-table thead th').off('click').on('click', function(e) {
+            e.stopPropagation();
+            const $th = $(this);
+            const $table = $th.closest('table');
+            const colIndex = $th.index();
+            const currentSort = $th.attr('data-sort-dir') || 'none';
+            let nextSort = 'asc';
+
+            if (currentSort === 'asc') {
+                nextSort = 'desc';
+            }
+
+            // Reset other columns
+            $table.find('thead th').removeAttr('data-sort-dir').find('.sort-indicator').html('');
+
+            // Set new sort state
+            $th.attr('data-sort-dir', nextSort);
+            $th.find('.sort-indicator').html(nextSort === 'asc' ? ' ▲' : ' ▼');
+
+            const $tbody = $table.find('tbody');
+            const rows = $tbody.find('tr').get();
+
+            rows.sort((a, b) => {
+                const valA = $(a).children('td').eq(colIndex).text().trim();
+                const valB = $(b).children('td').eq(colIndex).text().trim();
+
+                const numA = parseFloat(valA);
+                const numB = parseFloat(valB);
+
+                const compare = (isNaN(numA) || isNaN(numB)) ? valA.localeCompare(valB) : numA - numB;
+
+                return nextSort === 'asc' ? compare : -compare;
+            });
+
+            $.each(rows, function(index, row) {
+                $tbody.append(row);
+            });
+        });
+
         // Bind export buttons
         $('.export-table-btn').off('click').on('click', function(e) {
             e.stopPropagation();
@@ -734,7 +785,6 @@
             exportTableToJSON(tableName);
         });
     }
-
     /**
      * Export table data to JSON file
      */
@@ -775,17 +825,8 @@
      * Show database viewer section
      */
     async function show() {
-        // Hide other sections
-        try {
-            $('#tabel-monitoring, #scanner-config, #filter-card, #sinyal-container').hide();
-            $('#token-management, #form-setting-app, #iframe-container, #update-wallet-section').hide();
-            if (window.SnapshotModule && typeof window.SnapshotModule.hide === 'function') {
-                window.SnapshotModule.hide();
-            }
-        } catch(_) {}
-
-        // Show database viewer section
-        $('#database-viewer-section').fadeIn(300);
+        // Use the centralized section manager
+        showMainSection('#database-viewer-section');
 
         // Show loading overlay
         if (window.AppOverlay) {
@@ -823,12 +864,8 @@
      * Hide database viewer section
      */
     function hide() {
-        $('#database-viewer-section').fadeOut(300);
-
-        // Show scanner elements
-        try {
-            $('#tabel-monitoring, #scanner-config, #filter-card, #sinyal-container').fadeIn(300);
-        } catch(_) {}
+        // Show the main scanner view
+        showMainSection('scanner');
     }
 
     /**

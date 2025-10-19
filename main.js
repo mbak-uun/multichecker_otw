@@ -409,15 +409,7 @@ function hasValidTokens() {
  * and preloads saved values from storage.
  */
 function renderSettingsForm() {
-    // Generate CEX delay inputs
-    const cexList = Object.keys(CONFIG_CEX || {});
-    let cexDelayHtml = '<h4>Jeda CEX</h4>';
-    cexList.forEach(cex => {
-        cexDelayHtml += `<div class=\"uk-flex uk-flex-middle uk-margin-small-bottom\"><label style=\"min-width:70px;\">${cex}</label><input type=\"number\" class=\"uk-input uk-form-small cex-delay-input\" data-cex=\"${cex}\" value=\"30\" style=\"width:80px; margin-left:8px;\" min=\"0\"></div>`;
-    });
-    $('#cex-delay-group').html(cexDelayHtml);
-
-    // Generate DEX delay inputs
+    // Generate DEX delay inputs (CEX delay removed)
     const dexList = Object.keys(CONFIG_DEXS || {});
     let dexDelayHtml = '<h4>Jeda DEX</h4>';
     dexList.forEach(dex => {
@@ -434,12 +426,7 @@ function renderSettingsForm() {
     $(`input[name=\"koin-group\"][value=\"${appSettings.scanPerKoin || 5}\"]`).prop('checked', true);
     $(`input[name=\"waktu-tunggu\"][value=\"${appSettings.speedScan || 2}\"]`).prop('checked', true);
 
-    // Apply saved delay values
-    const modalCexs = appSettings.JedaCexs || {};
-    $('.cex-delay-input').each(function() {
-        const cex = $(this).data('cex');
-        if (modalCexs[cex] !== undefined) $(this).val(modalCexs[cex]);
-    });
+    // Apply saved DEX delay values (CEX delay removed)
     const modalDexs = appSettings.JedaDexs || {};
     $('.dex-delay-input').each(function() {
         const dex = $(this).data('dex');
@@ -453,6 +440,14 @@ function renderSettingsForm() {
  * Sets up controls based on readiness state.
  */
 function bootApp() {
+    // One-time migration: remove deprecated CEX delay settings from storage
+    try {
+        const s = getFromLocalStorage('SETTING_SCANNER', {});
+        if (s && typeof s === 'object' && s.JedaCexs) {
+            delete s.JedaCexs;
+            saveToLocalStorage('SETTING_SCANNER', s);
+        }
+    } catch(_) {}
     const state = computeAppReadiness();
     // REFACTORED
     if (typeof applyThemeForMode === 'function') applyThemeForMode();
@@ -481,15 +476,8 @@ function bootApp() {
         // On first run, prevent closing the form accidentally
         $('#btn-cancel-setting').prop('disabled', true);
     } else {
-        $('#form-setting-app').hide();
-        // Restore primary sections
-        $('#filter-card, #scanner-config').show();
-        try {
-            if (window.SnapshotModule && typeof window.SnapshotModule.hide === 'function') {
-                window.SnapshotModule.hide();
-            }
-        } catch(_) {}
-        if ($('#dataTableBody').length) { $('#dataTableBody').closest('.uk-overflow-auto').show(); }
+    // Show the main scanner view by default if settings are complete
+    showMainSection('scanner');
     }
     if (state === 'READY') {
         // REFACTORED
@@ -654,12 +642,12 @@ async function deferredInit() {
             $right.append($sum);
             $wrap.append($right);
 
-            // CTA untuk kondisi tidak ada data koin sama sekali (multichain)
+            // CTA untuk kondisi tidak ada data koin (mengikuti state aplikasi, bukan hanya MULTICHAIN)
             try {
-                const hasAnyToken = Array.isArray(getTokensMulti()) && getTokensMulti().length > 0;
-                if (!hasAnyToken) {
+                const needCTA = (typeof hasValidTokens === 'function') ? !hasValidTokens() : false;
+                if (needCTA) {
                     $('#ManajemenKoin .icon').addClass('cta-settings').attr('title','Klik untuk membuka Manajemen Koin');
-                    // Jika tombol sync sudah ada (saat manajemen terbuka), highlight tombol sync juga
+                    // Jika tombol sync tersedia (saat manajemen terbuka), highlight juga
                     $('#sync-tokens-btn').addClass('cta-sync').attr('title','Klik untuk SYNC data koin');
                 } else {
                     $('#ManajemenKoin .icon').removeClass('cta-settings').attr('title','Manajemen Koin');
@@ -843,16 +831,7 @@ async function deferredInit() {
                 hasTokens = Array.isArray(t) && t.length > 0;
             }
             if (!hasTokens) {
-                // Highlight CTA
-                $('#ManajemenKoin .icon').addClass('cta-settings').attr('title','Klik untuk membuka Manajemen Koin');
-                try { $('#sync-tokens-btn').addClass('cta-sync').attr('title','Klik untuk SYNC data koin'); } catch(_) {}
-                // Open management view
-                $('#scanner-config,  #sinyal-container, #header-table').hide();
-                try { $('#dataTableBody').closest('.uk-overflow-auto').hide(); } catch(_) {}
-                $('#iframe-container').hide();
-                $('#form-setting-app').hide();
-            
-                $('#token-management').show();
+                showMainSection('#token-management');
                 try {
                     if (window.SnapshotModule && typeof window.SnapshotModule.hide === 'function') {
                         window.SnapshotModule.hide();
@@ -894,9 +873,8 @@ async function deferredInit() {
             activeSingleChainKey = m.chain;
             const chainCfg = (window.CONFIG_CHAINS||{})[m.chain] || {};
             const chainName = chainCfg.Nama_Chain || m.chain.toUpperCase();
-            // Unified table: keep main table visible and render filtered rows
-            $('#token-management').hide();
-            $('#dataTableBody').closest('.uk-overflow-auto').show();
+            // Show the main scanner view
+            showMainSection('scanner');
             loadAndDisplaySingleChainTokens();
         } catch(e) { /* debug logs removed */ }
     })();
@@ -996,11 +974,6 @@ async function deferredInit() {
         if (!jedaKoin || jedaKoin <= 0) return UIkit.notification({message: 'Jeda / Koin harus lebih dari 0!', status: 'danger'});
         if (!walletMeta || !walletMeta.startsWith('0x')) return UIkit.notification({message: 'Wallet Address harus valid!', status: 'danger'});
 
-        let JedaCexs = {};
-        $('.cex-delay-input').each(function() {
-            JedaCexs[$(this).data('cex')] = parseFloat($(this).val()) || 30;
-        });
-
         let JedaDexs = {};
         $('.dex-delay-input').each(function() {
             JedaDexs[$(this).data('dex')] = parseFloat($(this).val()) || 100;
@@ -1010,7 +983,6 @@ async function deferredInit() {
             nickname, jedaTimeGroup, jedaKoin, walletMeta,
             scanPerKoin: parseInt(scanPerKoin, 10),
             speedScan: parseFloat(speedScan),
-            JedaCexs,
             JedaDexs,
             AllChains: Object.keys(CONFIG_CHAINS)
         };
@@ -1076,29 +1048,16 @@ $("#reload").click(function () {
     });
 
     $("#SettingConfig").on("click", function () {
-        // Hide all other sections to prevent stacking when opening Settings
-        $('#filter-card, #scanner-config, #token-management, #iframe-container, #sinyal-container, #header-table, #update-wallet-section').hide();
-        try {
-            if (window.SnapshotModule && typeof window.SnapshotModule.hide === 'function') {
-                window.SnapshotModule.hide();
-            }
-        } catch(_) {}
-        try { $('#dataTableBody').closest('.uk-overflow-auto').hide(); } catch(_) {}
-        $('#form-setting-app').show();
+        showMainSection('#form-setting-app');
         try { document.getElementById('form-setting-app').scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(_) {}
         renderSettingsForm();
     });
 
     $('#ManajemenKoin').on('click', function(e){
       e.preventDefault();
-      // Hide all other views to avoid stacking with manager UI
-      $('#scanner-config,  #sinyal-container, #header-table, #update-wallet-section').hide();
-      $('#dataTableBody').closest('.uk-overflow-auto').hide();
-      $('#iframe-container').hide();
-      $('#form-setting-app').hide();
-      $('#filter-card').show(); // Tampilkan filter card secara eksplisit
-      // unified table; nothing to hide
-      $('#token-management').show();
+      showMainSection('#token-management');
+      // Filter card is part of the main scanner view, so we need to show it separately if needed with management
+      $('#filter-card').show();
       try {
         if (window.SnapshotModule && typeof window.SnapshotModule.hide === 'function') {
             window.SnapshotModule.hide();
@@ -1990,25 +1949,17 @@ function updateSyncSelectedCount() {
 
         const $modeRadios = $('input[name="sync-pick-mode"]');
         if ($modeRadios.length) {
-            $modeRadios.prop('disabled', !hasSelection);
-            $modeRadios.each(function(){
-                const $label = $(this).closest('label');
-                if ($label.length) {
-                    $label.css({
-                        opacity: hasSelection ? '' : '0.5',
-                        pointerEvents: hasSelection ? '' : 'none'
-                    });
-                }
-            });
+            // PERUBAHAN: Selalu aktifkan radio button "Memilih" jika ada data di tabel.
+            const hasRows = $('#sync-modal-tbody tr').length > 0;
+            $modeRadios.prop('disabled', !hasRows);
+            $modeRadios.closest('label').css({ opacity: hasRows ? '' : '0.5', pointerEvents: hasRows ? '' : 'none' });
         }
 
         const $dexInputs = $('#sync-dex-config').find('input');
         if ($dexInputs.length) {
+            // PERUBAHAN: Input DEX juga mengikuti state dari ada/tidaknya koin yang dicentang.
             $dexInputs.prop('disabled', !hasSelection);
-            $('#sync-dex-config').css({
-                opacity: hasSelection ? '' : '0.5',
-                pointerEvents: hasSelection ? '' : 'none'
-            });
+            $('#sync-dex-config').css({ opacity: hasSelection ? '' : '0.5', pointerEvents: hasSelection ? '' : 'none' });
         }
     } catch(_) {}
 }
@@ -2440,29 +2391,6 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
 }
 
 // Single Chain Mode Handler removed (unified table)
-
-// Iframe View Handler
-    $(document).on('click', '.iframe-modal-trigger', function(e) {
-        $("#filter-card,#update-wallet-section").hide();
-        e.preventDefault();
-        const targetUrl = $(this).attr('href');
-        //const viewTitle = $(this).find('img').attr('title') || 'Content';
-
-        // Hide other views
-        $('#scanner-config, #sinyal-container, #header-table, #form-setting-app').hide();
-        $('#dataTableBody').closest('.uk-overflow-auto').hide();
-        $('#token-management').hide();
-        try {
-            if (window.SnapshotModule && typeof window.SnapshotModule.hide === 'function') {
-                window.SnapshotModule.hide();
-            }
-        } catch(_) {}
-
-        // Show iframe view
-        //$('#iframe-title').text(viewTitle);
-        $('#iframe-content').attr('src', targetUrl);
-        $('#iframe-container').show();
-    });
 
     // Let #home-link perform a full navigation (fresh reload)
 
@@ -3210,8 +3138,7 @@ $(document).ready(function() {
 
         if (!requested || requested === 'all') {
             // Multichain view (unified table)
-            $('#scanner-config, #sinyal-container, #header-table').show();
-            $('#dataTableBody').closest('.uk-overflow-auto').show();
+            showMainSection('scanner');
             activeSingleChainKey = null;
             // Filter card handles UI
             const st = getAppState();
@@ -3229,8 +3156,7 @@ $(document).ready(function() {
 
         // Per-chain view (unified table): keep main table visible and render single-chain data into it
         activeSingleChainKey = requested;
-        $('#scanner-config, #sinyal-container, #header-table').show();
-        $('#dataTableBody').closest('.uk-overflow-auto').show();
+        showMainSection('scanner');
         setHomeHref(requested);
         try { loadAndDisplaySingleChainTokens(); } catch(e) { console.error('single-chain init error', e); }
         try { applySortToggleState(); } catch(_) {}
@@ -3263,7 +3189,7 @@ $(document).ready(function() {
             const chain = CONFIG_CHAINS[chainKey] || {};
             const isActive = String(activeKey).toLowerCase() === String(chainKey).toLowerCase();
             const style = isActive ? 'width:30px' : '';
-            const width = isActive ? 30 : 22;
+            const width = isActive ? 30 : 24;
             const icon = chain.ICON || '';
             const name = chain.Nama_Chain || chainKey.toUpperCase();
             // Determine running state for this chain
@@ -3710,6 +3636,7 @@ $(document).ready(function() {
             }
             const jobKey = `${cexUp}__${symIn}__${symOut}`;
             if (eligibleForPrice && !priceJobKeys.has(jobKey)) {
+                // PERUBAHAN: Ambil harga berdasarkan pair yang sedang dipilih di UI (symOut).
                 priceJobKeys.add(jobKey);
                 priceJobs.push({
                     cex: cexUp,

@@ -1,3 +1,48 @@
+/**
+ * Manages the visibility of main application sections, ensuring only one is visible at a time.
+ * @param {string | null} sectionIdToShow The ID of the section to show. If null, all main sections are hidden.
+ */
+function showMainSection(sectionIdToShow) {
+    const allSections = [
+        '#database-viewer-section',
+        '#token-management',
+        '#form-setting-app',
+        '#update-wallet-section',
+        '#iframe-container',
+        // Main scanner view is a combination of these elements
+        '#scanner-config',
+        '#sinyal-container',
+        '#filter-card',
+        '#monitoring-scroll'
+    ];
+
+    // Hide all sections first
+    allSections.forEach(id => $(id).hide());
+
+    if (sectionIdToShow === 'scanner') {
+        // Special case for the main scanner view
+        $('#scanner-config, #sinyal-container, #filter-card, #monitoring-scroll').show();
+    } else if (sectionIdToShow) {
+        $(sectionIdToShow).show();
+    }
+    // Ensure CTA highlights for missing states (visual red prompt)
+    try {
+        if (state === 'MISSING_SETTINGS' || state === 'MISSING_BOTH') {
+            $('#SettingConfig').addClass('icon-alert-missing').attr('title','⚠️ Klik untuk membuka Pengaturan');
+        } else {
+            $('#SettingConfig').removeClass('icon-alert-missing');
+        }
+    } catch(_) {}
+    try {
+        if (state === 'MISSING_TOKENS' || state === 'MISSING_BOTH') {
+            $('#ManajemenKoin img.icon').addClass('icon-alert-missing');
+            $('#ManajemenKoin').attr('title','⚠️ Tambah/Import/Sinkronisasi Data Koin');
+        } else {
+            $('#ManajemenKoin img.icon').removeClass('icon-alert-missing');
+        }
+    } catch(_) {}
+}
+
 // =================================================================================
 // UI AND DOM MANIPULATION FUNCTIONS
 // =================================================================================
@@ -66,9 +111,10 @@ function applyControlsFor(state) {
         setClickableEnabled($sortToggles, true);
         toggleFilterControls(true);
         // remove onboarding callouts
-        $settingsIcon.removeClass('cta-settings').attr('title','CONFIG SCANNER');
+        $settingsIcon.removeClass('cta-settings icon-alert-missing').attr('title','CONFIG SCANNER');
         try { $('#sync-tokens-btn').removeClass('cta-highlight'); } catch(_){ }
         try { $('#ManajemenKoin').removeClass('cta-highlight'); } catch(_){ }
+        try { $('#ManajemenKoin img.icon').removeClass('icon-alert-missing'); } catch(_){ }
         try { $('#btnImportTokens, #btnExportTokens').removeClass('cta-settings cta-highlight'); } catch(_){ }
         // Ensure Update Wallet CEX is enabled when tokens exist
         try { $('#UpdateWalletCEX').css({ opacity: '', pointerEvents: '' }).prop('disabled', false); } catch(_) {}
@@ -108,11 +154,13 @@ function applyControlsFor(state) {
         setClickableEnabled($sortToggles, false);
         // Disable khusus tombol Update Wallet CEX sampai ada token tersimpan
         try { $('#UpdateWalletCEX').css({ opacity: '0.5', pointerEvents: 'none' }).prop('disabled', true); } catch(_) {}
+        // Remove setting icon alert since settings exist
+        try { $('#SettingConfig').removeClass('icon-alert-missing'); } catch(_) {}
         // Info
         $('#infoAPP').html('⚠️ Tambahkan / Import / Sinkronisasi <b>DATA KOIN</b> terlebih dahulu.').show();
     } else {
         $('#infoAPP').html('⚠️ Lengkapi <b>SETTING</b> & <b>DATA KOIN</b> terlebih dahulu.').show();
-        $settingsIcon.addClass('cta-settings').attr('title','Klik untuk membuka Pengaturan');
+        $settingsIcon.addClass('cta-settings').attr('title','⚠️ Klik untuk membuka Pengaturan');
         setClickableEnabled($toolIcons.not($settingsIcon), false);
         setClickableEnabled($settingsIcon, true);
     }

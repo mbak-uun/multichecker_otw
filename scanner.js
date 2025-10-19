@@ -334,8 +334,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
     let jedaTimeGroup = parseInt(ConfigScan.jedaTimeGroup || 1000);
     // Jeda tambahan agar urutan fetch mengikuti pola lama (tanpa mengubah logika hasil)
     // Catatan: gunakan nilai dari SETTING_SCANNER
-    // - Jeda CEX: per-CEX dari ConfigScan.JedaCexs[cex]
-    // - Jeda DEX: per-DEX dari ConfigScan.JedaDexs[dex]
+    // - Jeda DEX: per-DEX dari ConfigScan.JedaDexs[dex] (Jeda CEX dihapus)
     let speedScan = Math.round(parseFloat(ConfigScan.speedScan || 2) * 1000);
 
     const jedaDexMap = (ConfigScan || {}).JedaDexs || {};
@@ -586,12 +585,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                 return;
             }
 
-            // 2. Beri jeda setelah CEX siap, sebelum lanjut ke DEX (sesuai setting).
-            try {
-                const cexDelayMap = (ConfigScan || {}).JedaCexs || {};
-                const afterCEX = parseInt(cexDelayMap[token.cex]) || 0;
-                if (afterCEX > 0) await new Promise(r => setTimeout(r, afterCEX));
-            } catch(_) {}
+            // 2. Lanjut ke DEX tanpa jeda CEX terkonfigurasi (fitur dihapus)
 
             if (token.dexs && Array.isArray(token.dexs)) {
                 // 3. Loop untuk setiap DEX yang terkonfigurasi untuk token ini.

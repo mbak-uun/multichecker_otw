@@ -624,10 +624,49 @@ input[type="radio"],
     animation: pulse-cta 1.2s infinite;
 }
 
+/* Icon menu with red blinking background when data is missing */
+.icon-alert-missing {
+    position: relative;
+    animation: blink-red-bg 1.5s ease-in-out infinite !important;
+}
+
+.icon-alert-missing::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    bottom: -4px;
+    left: -4px;
+    background: rgba(229, 57, 53, 0.4);
+    border-radius: 50%;
+    z-index: -1;
+    animation: pulse-red-bg 1.5s ease-in-out infinite;
+}
+
 @keyframes pulse-cta {
     0% { box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.2); }
     50% { box-shadow: 0 0 0 6px rgba(229, 57, 53, 0.35); }
     100% { box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.2); }
+}
+
+@keyframes blink-red-bg {
+    0%, 100% {
+        filter: drop-shadow(0 0 8px rgba(229, 57, 53, 0.8));
+    }
+    50% {
+        filter: drop-shadow(0 0 16px rgba(229, 57, 53, 1));
+    }
+}
+
+@keyframes pulse-red-bg {
+    0%, 100% {
+        background: rgba(229, 57, 53, 0.3);
+        transform: scale(1);
+    }
+    50% {
+        background: rgba(229, 57, 53, 0.6);
+        transform: scale(1.1);
+    }
 }
 
 .cta-highlight {
@@ -649,6 +688,12 @@ input[type="radio"],
 #sync-modal .uk-table td,
 #sync-modal .uk-table th {
     font-size: 13px;
+}
+
+/* Perbaikan: Atur layout tabel sinkronisasi agar lebar kolom otomatis */
+#sync-table {
+    table-layout: auto;
+    width: 100%; /* Pastikan tabel tetap mengisi kontainer */
 }
 
 /* ==========================================================================
@@ -1153,4 +1198,165 @@ body.dark-mode .wallet-cex-table tbody tr:hover {
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+/* ==========================================================================
+   DATABASE VIEWER - Refactored Styles
+   ========================================================================== */
+.db-viewer-header {
+    text-align: center;
+    padding: 12px;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+    margin-bottom: 16px;
+}
+.db-viewer-header h2 {
+    margin: 0 0 4px 0;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--theme-accent, #5c9514);
+}
+.db-viewer-header p {
+    margin: 0;
+    font-size: 14px;
+    color: #666;
+}
+.db-stats-bar {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-top: 12px;
+}
+.db-stat-item {
+    text-align: center;
+}
+.db-stat-item .label {
+    font-size: 12px;
+    color: #888;
+    text-transform: uppercase;
+    display: block;
+}
+.db-stat-item .value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #333;
+}
+
+.db-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+.db-toolbar-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.db-table-card {
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(0,0,0,0.08);
+    /* New: Add accent color from chain */
+    border-left: 4px solid var(--card-accent-color, #667eea);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+}
+.db-table-card.expanded {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+
+.db-table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: rgba(0,0,0,0.02);
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.3s ease;
+}
+.expanded .db-table-header {
+    border-bottom-color: rgba(0,0,0,0.1);
+    background: transparent;
+}
+.db-table-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--card-accent-color, #333);
+}
+.db-table-title .uk-badge {
+    background-color: var(--card-accent-color, #1e87f0);
+}
+.db-table-content {
+    padding: 14px;
+    border-top: 1px solid rgba(0,0,0,0.05);
+}
+.db-table-summary {
+    display: flex;
+    gap: 16px;
+    padding: 8px;
+    background: #f9f9f9;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    font-size: 13px;
+}
+.db-data-table {
+    font-size: 12px;
+}
+.db-data-table thead th {
+    cursor: pointer;
+    user-select: none;
+}
+.db-data-table thead th:hover {
+    background-color: rgba(0,0,0,0.05);
+}
+.db-data-table .sort-indicator {
+    font-size: 0.8em;
+    margin-left: 4px;
+    color: var(--card-accent-color, #333);
+}
+
+/* Dark Mode for Database Viewer */
+body.dark-mode .db-viewer-header {
+    border-bottom-color: rgba(255,255,255,0.1);
+}
+body.dark-mode .db-viewer-header p {
+    color: #aaa;
+}
+body.dark-mode .db-stat-item .label {
+    color: #999;
+}
+body.dark-mode .db-stat-item .value {
+    color: #eee;
+}
+body.dark-mode .db-toolbar {
+    background: rgba(40,40,40,0.5);
+}
+body.dark-mode .db-table-card {
+    background: rgba(44, 44, 46, 0.8);
+    border-color: rgba(255,255,255,0.1);
+    border-left-color: var(--card-accent-color, #667eea);
+}
+body.dark-mode .expanded .db-table-header {
+    border-bottom-color: rgba(255,255,255,0.1);
+}
+body.dark-mode .db-table-content {
+    border-top-color: rgba(255,255,255,0.08);
+}
+body.dark-mode .db-table-summary {
+    background: #2a2a2c;
+}
+body.dark-mode .db-table-title {
+    color: var(--card-accent-color, #eee);
+}
+body.dark-mode .db-table-title .uk-badge {
+    background-color: var(--card-accent-color, #1e87f0);
 }
