@@ -15,23 +15,51 @@
     let activeChain = null;
     let selectedCexList = [];
 
-    /**
-     * Apply the same filter rules used by scanner/management tables so wallet view stays in sync.
-     */
+    const chainSynonymResolver = (() => {
+        const map = new Map();
+        const source = (root && root.CHAIN_SYNONYMS) ? root.CHAIN_SYNONYMS : {};
+        Object.keys(source).forEach(key => {
+            const canonical = String(key).toLowerCase();
+            map.set(canonical, canonical);
+            const list = Array.isArray(source[key]) ? source[key] : [];
+            list.forEach(name => {
+                const norm = String(name).toLowerCase();
+                if (!map.has(norm)) {
+                    map.set(norm, canonical);
+                }
+            });
+        });
+        return {
+            canonical(raw) {
+                if (raw === undefined || raw === null) return null;
+                const norm = String(raw).toLowerCase().trim();
+                if (!norm) return null;
+                return map.get(norm) || norm;
+            }
+        };
+    })();
+
+    function getCanonicalChainKey(rawChain) {
+        return chainSynonymResolver.canonical(rawChain);
+    }
+
     function filterTokensForWallet(tokens, mode) {
         if (!Array.isArray(tokens) || tokens.length === 0) return [];
 
         const CONFIG_CHAINS = root.CONFIG_CHAINS || {};
 
         if (mode.type === 'single' && mode.chain) {
-            const chainKey = String(mode.chain).toLowerCase();
+            const chainKey = getCanonicalChainKey(mode.chain) || String(mode.chain).toLowerCase();
             const rawFilter = (typeof getFromLocalStorage === 'function')
                 ? getFromLocalStorage(`FILTER_${String(chainKey).toUpperCase()}`, null)
                 : null;
             const filterVals = (typeof getFilterChain === 'function') ? getFilterChain(chainKey) : { cex: [], pair: [], dex: [] };
             // First load (no saved filter) -> keep all chain tokens
             if (!rawFilter) {
-                return tokens.filter(t => String(t.chain || '').toLowerCase() === chainKey);
+                return tokens.filter(t => {
+                    const tokenChain = getCanonicalChainKey(t.chain) || String(t.chain || '').toLowerCase();
+                    return tokenChain === chainKey;
+                });
             }
 
             const selCex = (filterVals.cex || []).map(x => String(x).toUpperCase());
@@ -46,7 +74,8 @@
             const pairDefs = chainCfg.PAIRDEXS || {};
 
             return tokens.filter(token => {
-                if (String(token.chain || '').toLowerCase() !== chainKey) return false;
+                const tokenChain = getCanonicalChainKey(token.chain) || String(token.chain || '').toLowerCase();
+                if (tokenChain !== chainKey) return false;
 
                 const tokenCexs = (token.selectedCexs || []).map(x => String(x).toUpperCase());
                 const hasCex = tokenCexs.some(cx => selCex.includes(cx));
@@ -72,7 +101,7 @@
             return tokens;
         }
 
-        const chainsSel = (fm.chains || []).map(x => String(x).toLowerCase());
+        const chainsSel = (fm.chains || []).map(x => getCanonicalChainKey(x) || String(x).toLowerCase());
         const cexSel = (fm.cex || []).map(x => String(x).toUpperCase());
         const dexSel = (fm.dex || []).map(x => String(x).toLowerCase());
 
@@ -81,7 +110,7 @@
         }
 
         return tokens.filter(token => {
-            const chainLower = String(token.chain || '').toLowerCase();
+            const chainLower = getCanonicalChainKey(token.chain) || String(token.chain || '').toLowerCase();
             if (!chainsSel.includes(chainLower)) return false;
 
             const tokenCexs = (token.selectedCexs || []).map(x => String(x).toUpperCase());
@@ -104,8 +133,9 @@
             let tokens = [];
 
             if (mode.type === 'single' && mode.chain) {
-                tokens = (typeof getTokensChain === 'function') ? getTokensChain(mode.chain) : [];
-                console.log(`[Wallet Exchanger] Loaded ${tokens.length} coins for chain ${mode.chain}`);
+                const chainKey = getCanonicalChainKey(mode.chain) || mode.chain;
+                tokens = (typeof getTokensChain === 'function') ? getTokensChain(chainKey) : [];
+                console.log(`[Wallet Exchanger] Loaded ${tokens.length} coins for chain ${chainKey}`);
             } else {
                 tokens = (typeof getFromLocalStorage === 'function') ? getFromLocalStorage('TOKEN_MULTICHAIN', []) : [];
                 console.log(`[Wallet Exchanger] Loaded ${tokens.length} coins (multichain mode)`);
@@ -152,12 +182,15 @@
     }
 
     function normalizeChainKey(rawChain, mode) {
-        const chain = rawChain ? String(rawChain).toLowerCase().trim() : '';
-        if (chain) return chain;
+        const canonical = getCanonicalChainKey(rawChain);
+        if (canonical) return canonical;
         if (mode?.type === 'single' && mode.chain) {
+            const fallback = getCanonicalChainKey(mode.chain);
+            if (fallback) return fallback;
             return String(mode.chain).toLowerCase();
         }
-        return 'unknown';
+        const chain = rawChain ? String(rawChain).toLowerCase().trim() : '';
+        return chain || 'unknown';
     }
 
     function cloneDataCexs(dataCexs) {
@@ -176,7 +209,7 @@
         };
 
         coins.forEach((coin, idx) => {
-            const chainKey = String(coin.chain || '').toLowerCase();
+            const chainKey = getCanonicalChainKey(coin.chain) || String(coin.chain || '').toLowerCase();
             if (!chainKey) return;
             const tokenSymbol = String(coin.symbol_in || coin.tokenName || '').toUpperCase();
             if (tokenSymbol) {
@@ -281,7 +314,8 @@
 
             if (mode.type === 'single' && mode.chain) {
                 // Single chain mode - save to specific chain storage
-                const storageKey = `TOKEN_${String(mode.chain).toUpperCase()}`;
+                const chainKey = getCanonicalChainKey(mode.chain) || String(mode.chain).toLowerCase();
+                const storageKey = `TOKEN_${String(chainKey).toUpperCase()}`;
                 if (typeof saveToLocalStorage === 'function') {
                     saveToLocalStorage(storageKey, coins);
                 }
@@ -340,9 +374,10 @@
         let availableCexes = [];
 
         if (mode.type === 'single') {
-            const filterChain = (typeof getFilterChain === 'function') ? getFilterChain(mode.chain || '') : {};
+            const canonicalChain = getCanonicalChainKey(mode.chain) || String(mode.chain || '').toLowerCase();
+            const filterChain = (typeof getFilterChain === 'function') ? getFilterChain(canonicalChain || '') : {};
             availableCexes = (filterChain?.cex || []).map(x => String(x).toUpperCase());
-            activeChain = mode.chain;
+            activeChain = canonicalChain || mode.chain;
         } else {
             const filterMulti = (typeof getFilterMulti === 'function') ? getFilterMulti() : {};
             availableCexes = (filterMulti?.cex || []).map(x => String(x).toUpperCase());
@@ -356,8 +391,9 @@
 
         // Update chain label
         try {
+            const canonicalActive = getCanonicalChainKey(activeChain) || String(activeChain || '').toLowerCase();
             const chainName = (activeChain === 'MULTICHAIN') ? 'MULTICHAIN' :
-                              (CONFIG_CHAINS?.[String(activeChain).toLowerCase()]?.Nama_Chain || activeChain);
+                              (CONFIG_CHAINS?.[canonicalActive]?.Nama_Chain || activeChain);
             $('#wallet-chain-label').text(String(chainName).toUpperCase());
         } catch(_) {}
 
@@ -388,8 +424,8 @@
 
                 // For single chain mode, filter by chain
                 if (mode.type === 'single') {
-                    const coinChain = String(coin.chain || '').toLowerCase();
-                    const targetChain = String(activeChain || '').toLowerCase();
+                    const coinChain = getCanonicalChainKey(coin.chain) || String(coin.chain || '').toLowerCase();
+                    const targetChain = getCanonicalChainKey(activeChain) || String(activeChain || '').toLowerCase();
                     if (coinChain !== targetChain) {
                         return false;
                     }
