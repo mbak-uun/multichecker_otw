@@ -173,7 +173,22 @@ a:hover, .uk-link:hover {
 
 /* Table column widths */
 .th-orderbook { width: auto !important; min-width: 160px; }
-.th-detail { width: 280px; }
+
+/* DETAIL column - Fixed width untuk menampilkan semua info tanpa terpotong */
+.th-detail {
+    width: 220px !important;
+    min-width: 220px !important;
+    max-width: 220px !important;
+}
+.td-detail {
+    width: 220px !important;
+    min-width: 220px !important;
+    max-width: 220px !important;
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    vertical-align: top !important;
+}
+
 .th-dex {
     width: 115px !important;
     min-width: 115px;
@@ -187,12 +202,11 @@ a:hover, .uk-link:hover {
 /* Orderbook scrollable content */
 .td-orderbook .orderbook-wrap {
     display: inline-block;
-    max-width: clamp(160px, 16vw, 320px);
+    max-width: clamp(160px, 16vw, 220px);
 }
 
 .td-orderbook .orderbook-scroll {
-    max-height: 110px;
-    overflow: auto;
+    /* max-height: 110px; */ /* Dihapus untuk menghilangkan scroll */
     padding: 2px;
     scrollbar-width: thin;
 }
@@ -207,38 +221,19 @@ a:hover, .uk-link:hover {
     border-radius: 4px;
 }
 
-/* Table column sizing */
-#tabel-monitoring th:nth-child(1), #tabel-monitoring td:nth-child(1),
-#tabel-monitoring th:nth-child(11), #tabel-monitoring td:nth-child(11) {
-    width: 100px;
-}
-
-/* Column 6: Detail Token - LEBIH LEBAR agar setiap detail-line tidak wrap */
-#tabel-monitoring th:nth-child(6), #tabel-monitoring td:nth-child(6) {
-    width: 220px !important;
-    min-width: 220px;
-}
-
-/* Columns 2-5, 7-10: DEX columns - Optimal untuk nama 6 char + [$modal] + icon */
-#tabel-monitoring th:nth-child(2), #tabel-monitoring td:nth-child(2),
-#tabel-monitoring th:nth-child(3), #tabel-monitoring td:nth-child(3),
-#tabel-monitoring th:nth-child(4), #tabel-monitoring td:nth-child(4),
-#tabel-monitoring th:nth-child(5), #tabel-monitoring td:nth-child(5),
-#tabel-monitoring th:nth-child(7), #tabel-monitoring td:nth-child(7),
-#tabel-monitoring th:nth-child(8), #tabel-monitoring td:nth-child(8),
-#tabel-monitoring th:nth-child(9), #tabel-monitoring td:nth-child(9),
-#tabel-monitoring th:nth-child(10), #tabel-monitoring td:nth-child(10) {
-    width: 160px !important;
-    min-width: 150px;
-}
-
 #tabel-monitoring {
-    min-width: 1510px; /* Total: 8 DEX x 115px + 2 ORDERBOOK x 100px + 1 DETAIL x 190px */
+    min-width: 1640px; /* Total: 8 DEX x 115px (920px) + 2 ORDERBOOK x 160px (220px) + 1 DETAIL x 220px (220px) + borders/padding */
     table-layout: auto;
 }
 
 .monitor-line { display: block; }
-.detail-line { display: block; margin: 3px 2px; }
+.detail-line {
+    display: block;
+    margin: 3px 2px;
+    line-height: 1.4;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
 .dex-price-link { text-decoration: none; }
 
 /* DEX status styling */
@@ -415,8 +410,9 @@ input[type="radio"],
 }
 
 .icon:hover {
+    /* Scale dengan transform origin center agar tidak dorong icon lain */
     transform: scale(1.15) rotate(5deg);
-    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
+    transform-origin: center center;
 }
 
 .toolbar-scroll {
@@ -926,12 +922,21 @@ body.dark-mode {
 
 @media (max-width: 1600px) {
     .td-orderbook { width: 96px; max-width: 106px; }
-    .td-detail { width: 180px; max-width: 240px; }
+    .th-detail, .td-detail {
+        width: 180px !important;
+        min-width: 180px !important;
+        max-width: 180px !important;
+    }
 }
 
 @media (max-width: 1366px) {
     .td-orderbook { width: 92px; max-width: 100px; font-size: 11.5px; }
-    .td-detail { width: 210px; max-width: 230px; font-size: 11.5px; }
+    .th-detail, .td-detail {
+        width: 150px !important;
+        min-width: 150px !important;
+        max-width: 150px !important;
+        font-size: 11.5px;
+    }
     #tabel-monitoring td { font-size: 12px; }
 }
 
@@ -1081,7 +1086,7 @@ body.dark-mode .signal-card {
 }
 
 .wallet-cex-table-wrapper {
-    max-height: 300px;
+    max-height: 180px;
     overflow-y: auto;
     border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: 6px;

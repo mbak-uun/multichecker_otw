@@ -271,7 +271,7 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
         const chainShort = (data.chain || '').substring(0,3).toUpperCase();
 
         rowHtml += `
-            <td id="${idPrefix}${rowId}" class="uk-text-center uk-background td-detail" style="text-align: center; border:1px solid black; width:10%; padding:10px;">
+            <td id="${idPrefix}${rowId}" class="uk-text-center uk-background td-detail" style="text-align: center; border:1px solid black; padding:10px;">
                 <span class="detail-line">[${index + 1}] 
                 <span style="color: ${warnaChain}; font-weight:bolder; font-size:medium;"  >${linkToken} </span> ⇄ <span style="color: ${warnaChain}; font-weight:bolder; font-size:medium;">${linkPair} </span>
                 <span id="${idPrefix}EditMulti-${data.id}" data-id="${data.id}"

@@ -156,11 +156,12 @@
                     const newCexData = newCoin.dataCexs[cexName];
                     merged[existingIndex].dataCexs[cexName] = merged[existingIndex].dataCexs[cexName] || {};
 
-                    // Update status WD/DP untuk Token dan Pair
-                    merged[existingIndex].dataCexs[cexName].depositToken = newCexData.depositEnable;
-                    merged[existingIndex].dataCexs[cexName].withdrawToken = newCexData.withdrawEnable;
-                    merged[existingIndex].dataCexs[cexName].depositPair = newCexData.depositEnable;
-                    merged[existingIndex].dataCexs[cexName].withdrawPair = newCexData.withdrawEnable;
+                    // FIX: Update status WD/DP hanya untuk Token.
+                    // Status untuk Pair (biasanya stablecoin) diasumsikan selalu OPEN (true).
+                    merged[existingIndex].dataCexs[cexName].depositToken = newCexData.depositEnable || false;
+                    merged[existingIndex].dataCexs[cexName].withdrawToken = newCexData.withdrawEnable || false;
+                    merged[existingIndex].dataCexs[cexName].depositPair = true; // Asumsi Pair (USDT, dll) selalu OPEN
+                    merged[existingIndex].dataCexs[cexName].withdrawPair = true; // Asumsi Pair (USDT, dll) selalu OPEN
 
                     // Update fee WD untuk Token (asumsi feeWDs dari API adalah untuk token utama)
                     merged[existingIndex].dataCexs[cexName].feeWDToken = newCexData.feeWDs;

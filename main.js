@@ -2513,7 +2513,9 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
         updateSyncSelectedCount();
     });
 
-    // Handler untuk Pair radio button change - Re-render table and toggle NON inputs
+    // ========== REFACTOR: Handler untuk Pair radio button change ==========
+    // Pair BUKAN filter tampilan, jadi JANGAN re-render table
+    // Pair hanya digunakan saat SAVE dan untuk fetch harga
     $(document).on('change', '#sync-filter-pair input[type="radio"]', function() {
         if (!activeSingleChainKey) return;
 
@@ -2522,7 +2524,8 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
             window.toggleNonPairInputs();
         }
 
-        // Just re-render table with new pair filter
+        // REFACTOR: Re-render table untuk update harga berdasarkan pair baru
+        // (checkbox state akan tetap preserved karena ada logik save/restore)
         renderSyncTable(activeSingleChainKey);
         updateSyncSelectedCount();
     });
@@ -2744,8 +2747,14 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
 
         // debug logs removed
 
+        // ========== REFACTOR: Ambil pair yang dipilih dari RADIO BUTTON ==========
+        const selectedPairFromRadio = $('#sync-filter-pair input[type="radio"]:checked').val();
+        const pairForSave = selectedPairFromRadio ? String(selectedPairFromRadio).toUpperCase() : 'USDT';
+        console.log('[Save] Using pair from radio button:', pairForSave);
+
         const nonPairConfig = readNonPairConfig();
         const hasNonPairOverride = nonPairConfig && nonPairConfig.symbol;
+        const usingCustomNon = (pairForSave === 'NON') && hasNonPairOverride;
 
         const selectedTokens = [];
         $('#sync-modal-tbody tr').each(function() {
@@ -2753,17 +2762,15 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
             const $cb = $row.find('.sync-token-checkbox');
             if (!$cb.is(':checked')) return;
             const idx = Number($cb.data('index'));
-            const pairOverride = String($cb.data('pair') || '').toUpperCase();
-            const sourceOverride = String($cb.data('source') || '');
             const tok = remoteTokens[idx];
             if (!tok) return;
 
             const cexUpper = String(tok.cex || '').toUpperCase().trim();
             const symbolIn = String(tok.symbol_in || '').toUpperCase().trim();
-            const isSnapshot = (sourceOverride === 'snapshot') || String(tok.__source || '').toLowerCase() === 'snapshot';
-            const pairKeyRaw = pairOverride || String(tok.symbol_out || '').toUpperCase().trim();
-            let symbolOut = pairKeyRaw || 'NON';
-            const usingCustomNon = (pairOverride === 'NON' || symbolOut === 'NON') && hasNonPairOverride;
+            const isSnapshot = String(tok.__source || '').toLowerCase() === 'snapshot';
+
+            // ========== PAIR dari RADIO BUTTON, bukan dari checkbox ==========
+            let symbolOut = pairForSave;
             if (usingCustomNon) {
                 symbolOut = String(nonPairConfig.symbol).toUpperCase();
             }
@@ -3037,9 +3044,24 @@ $(document).ready(function() {
         }
     } catch(_) {}
 
+    // ========== PROTEKSI RELOAD LOOP ==========
+    // Mencegah reload loop saat 2 tab dengan URL sama saling broadcast message
+    let lastReloadTimestamp = 0;
+    const RELOAD_COOLDOWN = 3000; // 3 detik cooldown untuk mencegah reload berulang
+
+    // Track page load time untuk ignore early messages (saat page baru reload)
+    const pageLoadTime = Date.now();
+    const IGNORE_MESSAGES_DURATION = 2000; // Ignore messages 2 detik pertama setelah load
+
     // Cross-tab run state sync via BroadcastChannel (per FILTER_* key)
     if (window.__MC_BC) {
         window.__MC_BC.addEventListener('message', function(ev){
+            // ========== IGNORE MESSAGES SAAT BARU RELOAD ==========
+            // Mencegah tab yang baru reload langsung reload lagi karena message dari tab lain
+            if (Date.now() - pageLoadTime < IGNORE_MESSAGES_DURATION) {
+                console.log('[CROSS-TAB] Message ignored - page just loaded');
+                return;
+            }
             const msg = ev?.data;
             if (!msg) return;
             if (msg.type === 'kv') {
@@ -3075,8 +3097,21 @@ $(document).ready(function() {
                             if (r === 'NO') {
                                 const running = (typeof window.App?.Scanner?.isScanRunning !== 'undefined') ? !!window.App.Scanner.isScanRunning : false;
                                 if (running) {
-                                    if (window.App?.Scanner?.stopScannerSoft) window.App.Scanner.stopScannerSoft();
-                                    location.reload();
+                                    // ========== FIX RELOAD LOOP ==========
+                                    // Hanya reload jika sudah lewat cooldown period
+                                    const now = Date.now();
+                                    if (now - lastReloadTimestamp > RELOAD_COOLDOWN) {
+                                        lastReloadTimestamp = now;
+                                        if (window.App?.Scanner?.stopScannerSoft) window.App.Scanner.stopScannerSoft();
+
+                                        // Set flag untuk mencegah broadcast saat reload
+                                        try { sessionStorage.setItem('APP_FORCE_RUN_NO', '1'); } catch(_) {}
+
+                                        console.log('[CROSS-TAB] Reloading due to run:NO from another tab');
+                                        location.reload();
+                                    } else {
+                                        console.log('[CROSS-TAB] Reload skipped - cooldown active to prevent loop');
+                                    }
                                 }
                             }
                         }
@@ -3413,7 +3448,9 @@ $(document).ready(function() {
     window.buildSyncFilters = function(chainKey) {
         const $modal = $('#sync-modal');
         const raw = $modal.data('remote-raw') || [];
-        // Count by CEX and Pair for badges
+
+        // ========== REFACTOR: CEX COUNT (untuk badge) ==========
+        // Count by CEX SAJA (bukan pair, karena pair bukan filter)
         const countByCex = raw.reduce((acc, t) => {
             const k = String(t.cex||'').toUpperCase();
             acc[k] = (acc[k]||0)+1; return acc;
@@ -3421,20 +3458,6 @@ $(document).ready(function() {
 
         const chain = (CONFIG_CHAINS || {})[chainKey] || {};
         const pairDefs = chain.PAIRDEXS || {};
-        const countByPair = raw.reduce((acc, t) => {
-            const p = String(t.symbol_out||'').toUpperCase();
-            const key = pairDefs[p] ? p : 'NON';
-            acc[key] = (acc[key]||0)+1; return acc;
-        }, {});
-        const availablePairs = Object.keys(countByPair).filter(k => countByPair[k] > 0);
-        let defaultPairs = [];
-        if (availablePairs.length) {
-            const preferred = ['USDT','USDC','BUSD','DAI'];
-            defaultPairs = preferred.filter(p => availablePairs.includes(p));
-            if (!defaultPairs.length) defaultPairs = [availablePairs[0]];
-        } else {
-            defaultPairs = ['NON'];
-        }
 
         // Build CEX checkboxes (horizontal chips) - unchecked by default
         const $cex = $('#sync-filter-cex').empty();
@@ -3449,14 +3472,17 @@ $(document).ready(function() {
             </label>`);
         });
 
-        // Build Pair RADIO BUTTONS (only one pair can be selected)
+        // ========== REFACTOR: PAIR RADIO BUTTONS (TANPA COUNTER) ==========
+        // Pair adalah INPUT untuk konfigurasi save, BUKAN filter tampilan
+        // Jadi TIDAK perlu counter/badge
         const $pair = $('#sync-filter-pair').empty();
         const pairKeys = Array.from(new Set([...Object.keys(pairDefs||{}), 'NON']));
-        // Select first pair as default if no default pairs
-        const defaultPair = defaultPairs.length > 0 ? defaultPairs[0] : (pairKeys.length > 0 ? pairKeys[0] : 'NON');
+        // Default: USDT jika ada, kalau tidak pakai pair pertama
+        const defaultPair = pairKeys.includes('USDT') ? 'USDT' : (pairKeys.length > 0 ? pairKeys[0] : 'NON');
         pairKeys.forEach(p => {
             const id = `sync-pair-${p}`;
             const checked = (p === defaultPair) ? 'checked' : '';
+            // TANPA badge/counter karena pair bukan filter
             $pair.append(`<label class="uk-text-small" style="display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid #e5e5e5; border-radius:6px; background:#fafafa; cursor:pointer;">
                 <input type="radio" name="sync-pair-group" id="${id}" value="${p}" class="uk-radio" ${checked}>
                 <span style="font-weight:bolder;">${p}</span>
@@ -3479,6 +3505,23 @@ $(document).ready(function() {
 
     window.renderSyncTable = function(chainKey) {
         const $modal = $('#sync-modal');
+
+        // ========== SIMPAN STATE CHECKBOX SEBELUM RE-RENDER ==========
+        // Simpan state centang checkbox saat ini (termasuk pilihan user yang belum di-save)
+        const currentCheckboxState = new Map();
+        $('#sync-modal-tbody .sync-token-checkbox').each(function() {
+            const $cb = $(this);
+            const idx = Number($cb.data('index'));
+            const cex = String($cb.data('cex') || '').toUpperCase();
+            const symbol = String($cb.data('symbol') || '').toUpperCase();
+            const isChecked = $cb.is(':checked');
+            // Key: kombinasi index+cex+symbol (TANPA pair, karena pair bukan identitas koin)
+            const key = `${idx}__${cex}__${symbol}`;
+            currentCheckboxState.set(key, isChecked);
+        });
+        console.log('[renderSyncTable] Saved checkbox state:', currentCheckboxState.size, 'items');
+        // ==============================================================
+
         const modalBody = $('#sync-modal-tbody').empty();
         const raw = $modal.data('remote-raw') || [];
         const savedTokens = $modal.data('saved-tokens') || [];
@@ -3502,10 +3545,8 @@ $(document).ready(function() {
 
         const search = ($('#sync-search-input').val() || '').toLowerCase();
 
-        const pairKeys = Object.keys(pairDefs || {});
-        const defaultPairs = (preferredPairs.length
-            ? preferredPairs
-            : (pairDefs.USDT ? ['USDT'] : (pairKeys.length ? pairKeys : ['NON'])));
+        // Pair yang dipilih (dari radio button) - akan digunakan saat SAVE, bukan untuk filter tampilan
+        const selectedPairForSave = selectedPair ? String(selectedPair).toUpperCase() : 'USDT';
 
         const savedLookup = new Map();
         (Array.isArray(savedTokens) ? savedTokens : []).forEach(s => {
@@ -3518,44 +3559,31 @@ $(document).ready(function() {
             });
         });
 
-        const expanded = [];
+        // ========== REFACTOR: JANGAN EXPAND BERDASARKAN PAIR ==========
+        // Pair BUKAN filter tampilan, tapi konfigurasi untuk save
+        // 1 token = 1 row di tabel, tidak peduli berapa banyak pair
+        const processed = [];
         let orderCounter = 0;
         raw.forEach((token, idx) => {
             const baseIndex = (typeof token._idx === 'number') ? token._idx : idx;
             const source = String(token.__source || sourceLabel || 'server').toLowerCase();
             const cexUp = String(token.cex || '').toUpperCase();
-            if (source === 'snapshot' && (!token.symbol_out || token.symbol_out === '')) {
-                const pairsForSnapshot = defaultPairs.length ? defaultPairs : ['NON'];
-                pairsForSnapshot.forEach(pairKey => {
-                    const pairUp = String(pairKey || '').toUpperCase();
-                    const isKnownPair = !!pairDefs[pairUp];
-                    const def = pairDefs[pairUp] || pairDefs['NON'] || {};
-                    expanded.push(Object.assign({}, token, {
-                        __source: 'snapshot',
-                        __baseIndex: baseIndex,
-                        cex: cexUp,
-                        symbol_out: pairUp,
-                        sc_out: token.sc_out || def.scAddressPair || '',
-                        des_out: token.des_out || Number(def.desPair || token.des_in || 0),
-                        __pairKnown: isKnownPair,
-                        __order: orderCounter++
-                    }));
-                });
-            } else {
-                expanded.push(Object.assign({}, token, {
-                    __baseIndex: baseIndex,
-                    __source: source,
-                    cex: cexUp,
-                    __order: orderCounter++
-                }));
-            }
+
+            // Simpan token apa adanya, TANPA expand berdasarkan pair
+            processed.push(Object.assign({}, token, {
+                __baseIndex: baseIndex,
+                __source: source,
+                cex: cexUp,
+                __order: orderCounter++
+            }));
         });
 
-        const filtered = expanded.filter(t => {
+        // Filter HANYA berdasarkan CEX dan Search (BUKAN pair)
+        const filtered = processed.filter(t => {
             const cexUp = String(t.cex || '').toUpperCase();
             if (selectedCexs.length && !selectedCexs.includes(cexUp)) return false;
-            const pairUp = String(t.symbol_out || '').toUpperCase();
-            const text = `${t.symbol_in || ''} ${pairUp} ${cexUp}`.toLowerCase();
+            const symIn = String(t.symbol_in || '').toUpperCase();
+            const text = `${symIn} ${cexUp}`.toLowerCase();
             return !search || text.includes(search);
         });
 
@@ -3618,14 +3646,23 @@ $(document).ready(function() {
             const source = String(token.__source || sourceLabel || 'server').toLowerCase();
             const cexUp = String(token.cex || '').toUpperCase();
             const symIn = String(token.symbol_in || '').toUpperCase();
-            const symOut = String(token.symbol_out || '').toUpperCase();
             const scInRaw = token.sc_in || token.contract_in || '';
-            const scOut = String(token.sc_out || token.contract_out || '');
             const desInRaw = token.des_in;
 
             // Cek apakah koin sudah ada di database (per-chain)
             const saved = token.__isSaved ? (token.__savedEntry || {}) : null;
-            const isChecked = !!saved;
+
+            // ========== RESTORE STATE CHECKBOX DARI SEBELUM RE-RENDER ==========
+            // Key berdasarkan identitas koin: index+cex+symbol (TANPA pair)
+            const checkboxKey = `${baseIndex}__${cexUp}__${symIn}`;
+            let isChecked = !!saved; // Default: checked jika sudah tersimpan di DB
+
+            // Jika ada state checkbox sebelumnya, gunakan state tersebut
+            if (currentCheckboxState.has(checkboxKey)) {
+                isChecked = currentCheckboxState.get(checkboxKey);
+            }
+            // ====================================================================
+
             const statusBadge = saved
               ? ' <span class="uk-label uk-label-success" style="font-size:10px;" title="Koin sudah tersimpan di database">[ DIPILIH ]</span>'
               : '';
@@ -3649,11 +3686,18 @@ $(document).ready(function() {
                 tradeLabel = 'INACTIVE';
                 tradeClass = 'uk-label-danger';
             }
+            // ========== PAIR UNTUK HARGA (dari radio button) ==========
+            // Gunakan pair yang dipilih user dari radio button untuk fetch harga
+            const pairForPrice = selectedPairForSave || 'USDT';
+            const eligibleForPrice = pairForPrice && pairForPrice !== 'NON';
+
             const priceStored = Number(token.current_price ?? NaN);
             const priceDisplay = (Number.isFinite(priceStored) && priceStored > 0)
                 ? formatSyncPriceValue(priceStored)
                 : '?';
-            const checkboxHtml = `<input type="checkbox" class="uk-checkbox sync-token-checkbox" data-index="${baseIndex}" data-pair="${symOut}" data-source="${source}" ${isChecked ? 'checked' : ''} ${isChecked ? 'data-saved="1"' : ''}>`;
+
+            // Checkbox: simpan data-cex dan data-symbol (TANPA pair)
+            const checkboxHtml = `<input type="checkbox" class="uk-checkbox sync-token-checkbox" data-index="${baseIndex}" data-cex="${cexUp}" data-symbol="${symIn}" ${isChecked ? 'checked' : ''} ${saved ? 'data-saved="1"' : ''}>`;
             const row = `
                 <tr>
                     <td class="uk-text-center">${checkboxHtml}</td>
@@ -3667,27 +3711,27 @@ $(document).ready(function() {
                     <td>
                         <span class="uk-label ${tradeClass}" style="font-size:10px;">${tradeLabel}</span>
                     </td>
-                    <td class="uk-text-right uk-text-small" data-price-cex="${cexUp}" data-symbol="${symIn}" data-pair="${symOut}">${priceDisplay}</td>
+                    <td class="uk-text-right uk-text-small" data-price-cex="${cexUp}" data-symbol="${symIn}" data-index="${baseIndex}">${priceDisplay}</td>
                 </tr>`;
             modalBody.append(row);
-            const $priceCell = $(`#sync-modal-tbody td[data-price-cex="${cexUp}"][data-symbol="${symIn}"][data-pair="${symOut}"]`);
-            const eligibleForPrice = symOut && symOut !== 'NON';
+
+            // Price fetch: gunakan pair yang dipilih dari radio button
+            const $priceCell = $(`#sync-modal-tbody td[data-price-cex="${cexUp}"][data-symbol="${symIn}"][data-index="${baseIndex}"]`);
             if ($priceCell.length) {
                 if (eligibleForPrice) {
                     $priceCell.text(priceDisplay === '?' ? '?' : priceDisplay);
                 }
                 $priceCell.data('render-id', renderId);
             }
-            const jobKey = `${cexUp}__${symIn}__${symOut}`;
+            const jobKey = `${cexUp}__${symIn}__${pairForPrice}`;
             if (eligibleForPrice && !priceJobKeys.has(jobKey)) {
-                // PERUBAHAN: Ambil harga berdasarkan pair yang sedang dipilih di UI (symOut).
                 priceJobKeys.add(jobKey);
                 priceJobs.push({
                     cex: cexUp,
                     symbol: symIn,
-                    pair: symOut,
-                    scIn,
-                    scOut,
+                    pair: pairForPrice,
+                    scIn: scIn,
+                    scOut: '', // Will be resolved during price fetch
                     chain: chainKey,
                     renderId
                 });
