@@ -41,6 +41,24 @@ let originalTokens = [];
 var SavedSettingData = getFromLocalStorage('SETTING_SCANNER', {});
 let activeSingleChainKey = null; // Active chain key (single mode)
 
+// Log scan limit configuration on load
+(function logScanLimitStatus(){
+    try {
+        const scanLimitEnabled = typeof window !== 'undefined'
+            && window.CONFIG_APP
+            && window.CONFIG_APP.APP
+            && window.CONFIG_APP.APP.SCAN_LIMIT === true;
+
+        if (scanLimitEnabled) {
+            console.log('%c[SCAN LIMIT] ⚠️ ENABLED - Only ONE scan allowed at a time', 'color: #FF9800; font-weight: bold; background: #FFF3E0; padding: 4px 8px; border-left: 4px solid #FF9800;');
+        } else {
+            console.log('%c[SCAN LIMIT] ✓ DISABLED - Multiple scans allowed (parallel scanning enabled)', 'color: #4CAF50; font-weight: bold; background: #E8F5E9; padding: 4px 8px; border-left: 4px solid #4CAF50;');
+        }
+    } catch(e) {
+        console.warn('[SCAN LIMIT] Could not determine scan limit status:', e);
+    }
+})();
+
 // Apply app branding (title/header) based on CONFIG_APP metadata.
 (function applyAppBranding(){
     try {
@@ -1220,12 +1238,38 @@ $("#startSCAN").click(function () {
             if (window.renderMonitoringHeader) window.renderMonitoringHeader(dexList);
         } catch(_) {}
 
-        // === GLOBAL SCANNING LOCK CHECK (DISABLED FOR MULTI-TAB SUPPORT) ===
-        // REMOVED: Global lock logic that prevented multi-tab scanning
-        // Each tab can now scan independently using Tab Manager for coordination
-        // See tab-manager.js for multi-tab communication system
+        // === GLOBAL SCAN LOCK CHECK ===
+        try {
+            const lockCheck = typeof checkCanStartScan === 'function' ? checkCanStartScan() : { canScan: true };
 
-        // Prevent starting if app state indicates a run is already active
+            if (!lockCheck.canScan) {
+                console.warn('[START BUTTON] Cannot start scan - locked by another tab:', lockCheck.lockInfo);
+
+                // Show user-friendly notification
+                if (typeof toast !== 'undefined' && toast.warning) {
+                    const lockInfo = lockCheck.lockInfo || {};
+                    const mode = lockInfo.mode || 'UNKNOWN';
+                    const ageMin = Math.floor((lockInfo.age || 0) / 60000);
+                    const ageSec = Math.floor(((lockInfo.age || 0) % 60000) / 1000);
+                    const timeStr = ageMin > 0 ? `${ageMin}m ${ageSec}s` : `${ageSec}s`;
+
+                    toast.warning(
+                        `⚠️ SCAN SEDANG BERJALAN!\n\n` +
+                        `Mode: ${mode}\n` +
+                        `Durasi: ${timeStr}\n\n` +
+                        `Tunggu scan selesai atau tutup tab lain yang sedang scanning.`,
+                        { timeOut: 5000 }
+                    );
+                }
+
+                return; // Exit early - don't start scan
+            }
+        } catch(e) {
+            console.error('[START BUTTON] Error checking global scan lock:', e);
+            // On error checking lock, allow scan to proceed
+        }
+
+        // Prevent starting if app state indicates a run is already active (per-tab check)
         try {
             const stClick = getAppState();
             if (stClick && stClick.run === 'YES') {

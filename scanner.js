@@ -265,11 +265,65 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
 
     // --- PERSIAPAN STATE & UI SEBELUM SCAN ---
 
-    // === NOTIFY TAB MANAGER ABOUT SCAN START ===
+    // === CHECK GLOBAL SCAN LOCK ===
     try {
-        const chainLabel = allowedChains.map(c => String(c).toUpperCase()).join(', ');
+        const lockCheck = typeof checkCanStartScan === 'function' ? checkCanStartScan() : { canScan: true };
 
-        // Set per-tab scanning lock (sessionStorage - tidak conflict antar tab)
+        if (!lockCheck.canScan) {
+            console.warn('[SCANNER] Cannot start scan - locked by another tab:', lockCheck.lockInfo);
+
+            // Show user-friendly notification
+            if (typeof toast !== 'undefined' && toast.warning) {
+                const lockInfo = lockCheck.lockInfo || {};
+                const mode = lockInfo.mode || 'UNKNOWN';
+                const ageMin = Math.floor((lockInfo.age || 0) / 60000);
+                const ageSec = Math.floor(((lockInfo.age || 0) % 60000) / 1000);
+                const timeStr = ageMin > 0 ? `${ageMin}m ${ageSec}s` : `${ageSec}s`;
+
+                toast.warning(
+                    `⚠️ SCAN SEDANG BERJALAN!\n\n` +
+                    `Mode: ${mode}\n` +
+                    `Durasi: ${timeStr}\n\n` +
+                    `Tunggu scan selesai atau tutup tab lain yang sedang scanning.`,
+                    { timeOut: 5000 }
+                );
+            }
+
+            // Reset UI state
+            $('#startSCAN').prop('disabled', false).text('START').removeClass('uk-button-disabled');
+            return; // Exit early - don't start scan
+        }
+    } catch(e) {
+        console.error('[SCANNER] Error checking global scan lock:', e);
+        // On error checking lock, allow scan to proceed
+    }
+
+    // === SET GLOBAL SCAN LOCK ===
+    try {
+        const mode = getAppMode();
+        const chainLabel = allowedChains.map(c => String(c).toUpperCase()).join(', ');
+        const filterKey = getActiveFilterKey();
+
+        const lockAcquired = typeof setGlobalScanLock === 'function'
+            ? setGlobalScanLock(filterKey, {
+                tabId: typeof getTabId === 'function' ? getTabId() : null,
+                mode: mode.type === 'multi' ? 'MULTICHAIN' : (mode.chain || 'UNKNOWN').toUpperCase(),
+                chain: chainLabel
+            })
+            : true;
+
+        if (!lockAcquired) {
+            console.error('[SCANNER] Failed to acquire global scan lock');
+            if (typeof toast !== 'undefined' && toast.error) {
+                toast.error('Gagal memulai scan - ada scan lain yang berjalan');
+            }
+            $('#startSCAN').prop('disabled', false).text('START').removeClass('uk-button-disabled');
+            return; // Exit early
+        }
+
+        console.log('[SCANNER] Global scan lock acquired:', filterKey);
+
+        // Set per-tab scanning state (sessionStorage - per-tab isolation)
         if (typeof sessionStorage !== 'undefined') {
             sessionStorage.setItem('TAB_SCANNING', 'YES');
             sessionStorage.setItem('TAB_SCAN_CHAIN', chainLabel);
@@ -281,16 +335,6 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
             window.TabManager.notifyScanStart(chainLabel);
             console.log(`[SCANNER] Tab ${window.getTabId()} started scanning: ${chainLabel}`);
         }
-
-        // Set global lock for tracking only (NOT used for blocking multi-tab scanning)
-        // Multi-tab scanning is fully supported - each tab scans independently
-        // This lock is kept for monitoring/debugging purposes via Tab Manager
-        saveToLocalStorage('GLOBAL_SCAN_LOCK', {
-            isScanning: true,
-            chain: chainLabel,
-            tabId: window.getTabId ? window.getTabId() : 'UNKNOWN',
-            timestamp: Date.now()
-        });
     } catch(e) {
         console.error('[SCANNER] Error setting scan start state:', e);
     }
@@ -1376,8 +1420,15 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
         cancelAnimationFrame(animationFrameId);
         setPageTitleForRun(false);
 
-        // === NOTIFY TAB MANAGER ABOUT SCAN STOP ===
+        // === RELEASE GLOBAL SCAN LOCK ===
         try {
+            // Clear global scan lock
+            const filterKey = typeof getActiveFilterKey === 'function' ? getActiveFilterKey() : 'FILTER_MULTICHAIN';
+            if (typeof clearGlobalScanLock === 'function') {
+                clearGlobalScanLock(filterKey);
+                console.log('[SCANNER] Global scan lock released:', filterKey);
+            }
+
             // Clear per-tab scanning state
             if (typeof sessionStorage !== 'undefined') {
                 sessionStorage.removeItem('TAB_SCANNING');
@@ -1390,14 +1441,6 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                 window.TabManager.notifyScanStop();
                 console.log(`[SCANNER] Tab ${window.getTabId()} stopped scanning`);
             }
-
-            // Release global lock (tracking only - does NOT block other tabs)
-            saveToLocalStorage('GLOBAL_SCAN_LOCK', {
-                isScanning: false,
-                chain: null,
-                tabId: window.getTabId ? window.getTabId() : 'UNKNOWN',
-                timestamp: Date.now()
-            });
         } catch(e) {
             console.error('[SCANNER] Error releasing scan state:', e);
         }
@@ -1464,8 +1507,15 @@ async function stopScanner() {
     setPageTitleForRun(false);
     if (typeof form_on === 'function') form_on();
 
-    // === NOTIFY TAB MANAGER ABOUT MANUAL STOP ===
+    // === RELEASE GLOBAL SCAN LOCK (MANUAL STOP) ===
     try {
+        // Clear global scan lock
+        const filterKey = typeof getActiveFilterKey === 'function' ? getActiveFilterKey() : 'FILTER_MULTICHAIN';
+        if (typeof clearGlobalScanLock === 'function') {
+            clearGlobalScanLock(filterKey);
+            console.log('[SCANNER] Global scan lock released (manual stop):', filterKey);
+        }
+
         // Clear per-tab scanning state
         if (typeof sessionStorage !== 'undefined') {
             sessionStorage.removeItem('TAB_SCANNING');
@@ -1479,14 +1529,6 @@ async function stopScanner() {
             window.TabManager.notifyScanStop();
             console.log(`[SCANNER] Tab ${window.getTabId()} stopped scanning (manual stop)`);
         }
-
-        // Release global lock (tracking only - does NOT block other tabs)
-        saveToLocalStorage('GLOBAL_SCAN_LOCK', {
-            isScanning: false,
-            chain: null,
-            tabId: window.getTabId ? window.getTabId() : 'UNKNOWN',
-            timestamp: Date.now()
-        });
     } catch(e) {
         console.error('[SCANNER] Error releasing scan state on manual stop:', e);
     }
@@ -1504,8 +1546,15 @@ function stopScannerSoft() {
     isScanRunning = false;
     try { cancelAnimationFrame(animationFrameId); } catch(_) {}
 
-    // === NOTIFY TAB MANAGER ABOUT SOFT STOP ===
+    // === RELEASE GLOBAL SCAN LOCK (SOFT STOP) ===
     try {
+        // Clear global scan lock
+        const filterKey = typeof getActiveFilterKey === 'function' ? getActiveFilterKey() : 'FILTER_MULTICHAIN';
+        if (typeof clearGlobalScanLock === 'function') {
+            clearGlobalScanLock(filterKey);
+            console.log('[SCANNER] Global scan lock released (soft stop):', filterKey);
+        }
+
         // Clear per-tab scanning state
         if (typeof sessionStorage !== 'undefined') {
             sessionStorage.removeItem('TAB_SCANNING');
@@ -1518,14 +1567,6 @@ function stopScannerSoft() {
             window.TabManager.notifyScanStop();
             console.log(`[SCANNER] Tab ${window.getTabId()} soft stopped scanning`);
         }
-
-        // Release global lock (tracking only - does NOT block other tabs)
-        saveToLocalStorage('GLOBAL_SCAN_LOCK', {
-            isScanning: false,
-            chain: null,
-            tabId: window.getTabId ? window.getTabId() : 'UNKNOWN',
-            timestamp: Date.now()
-        });
     } catch(e) {
         console.error('[SCANNER] Error releasing scan state on soft stop:', e);
     }
