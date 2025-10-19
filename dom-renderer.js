@@ -273,13 +273,13 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
         rowHtml += `
             <td id="${idPrefix}${rowId}" class="uk-text-center uk-background td-detail" style="text-align: center; border:1px solid black; width:10%; padding:10px;">
                 <span class="detail-line">[${index + 1}] 
-                <span style="color: ${warnaChain}; font-weight:bolder;">${linkToken} </span> ⇄ <span style="color: ${warnaChain}; font-weight:bolder;">${linkPair} </span>
+                <span style="color: ${warnaChain}; font-weight:bolder; font-size:medium;"  >${linkToken} </span> ⇄ <span style="color: ${warnaChain}; font-weight:bolder; font-size:medium;">${linkPair} </span>
                 <span id="${idPrefix}EditMulti-${data.id}" data-id="${data.id}"
                 data-chain="${String(data.chain).toLowerCase()}"
                       data-cex="${String(data.cex).toUpperCase()}"
                       data-symbol-in="${String(data.symbol_in).toUpperCase()}"
                       data-symbol-out="${String(data.symbol_out).toUpperCase()}"
-                       title="UBAH DATA KOIN" uk-icon="icon: settings; ratio: 0.7" class="uk-text-dark uk-text-bolder edit-token-button" style="cursor:pointer"></span>
+                       title="UBAH DATA KOIN" uk-icon="icon: settings; ratio: 0.7" class="uk-text-primary uk-text-bolder edit-token-button" style="cursor:pointer"></span>
                 
                 <span id="${idPrefix}DelMulti-${data.id}"
                       data-id="${data.id}"
@@ -288,7 +288,7 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
                       data-symbol-in="${String(data.symbol_in).toUpperCase()}"
                       data-symbol-out="${String(data.symbol_out).toUpperCase()}"
                       title="HAPUS DATA KOIN"
-                      uk-icon="icon: trash; ratio: 0.6"
+                      uk-icon="icon: trash; ratio: 0.7"
                       class="uk-text-danger uk-text-bolder delete-token-button"
                       style="cursor:pointer;">
                 </span>

@@ -215,8 +215,8 @@ a:hover, .uk-link:hover {
 
 /* Column 6: Detail Token - LEBIH LEBAR agar setiap detail-line tidak wrap */
 #tabel-monitoring th:nth-child(6), #tabel-monitoring td:nth-child(6) {
-    width: 190px !important;
-    min-width: 190px;
+    width: 220px !important;
+    min-width: 220px;
 }
 
 /* Columns 2-5, 7-10: DEX columns - Optimal untuk nama 6 char + [$modal] + icon */
@@ -228,8 +228,8 @@ a:hover, .uk-link:hover {
 #tabel-monitoring th:nth-child(8), #tabel-monitoring td:nth-child(8),
 #tabel-monitoring th:nth-child(9), #tabel-monitoring td:nth-child(9),
 #tabel-monitoring th:nth-child(10), #tabel-monitoring td:nth-child(10) {
-    width: 115px !important;
-    min-width: 115px;
+    width: 160px !important;
+    min-width: 150px;
 }
 
 #tabel-monitoring {

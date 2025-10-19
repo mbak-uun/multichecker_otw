@@ -57,12 +57,12 @@
             const appCfg = root.CONFIG_APP?.APP || {};
             const dbCfg = root.CONFIG_DB || {};
 
-            // Database name (hardcoded dari screenshot: MULTIPLUS-DEV)
-            DB_CONFIG.name = 'MULTIPLUS-DEV'; // Dari screenshot IndexedDB
+            // Use the dynamic database name from the main config
+            DB_CONFIG.name = dbCfg.NAME || appCfg.NAME || 'MULTIALL-PLUS';
 
-            // Store names (dari screenshot: APP_KV_STORE, SNAPSHOT_STORE)
-            DB_CONFIG.store = 'APP_KV_STORE';
-            DB_CONFIG.snapshotStore = 'SNAPSHOT_STORE';
+            // Store names from CONFIG_DB so it follows config changes
+            DB_CONFIG.store = (dbCfg && dbCfg.STORES && dbCfg.STORES.KV) ? dbCfg.STORES.KV : 'APP_KV_STORE';
+            DB_CONFIG.snapshotStore = (dbCfg && dbCfg.STORES && dbCfg.STORES.SNAPSHOT) ? dbCfg.STORES.SNAPSHOT : 'SNAPSHOT_STORE';
             DB_CONFIG.initialized = true;
 
             console.log('[Database Viewer] Initialized with config:', DB_CONFIG);
@@ -105,6 +105,89 @@
         }
 
         console.log('[Database Viewer] Loading tables with config:', DB_CONFIG);
+
+        // Preferred path: use centralized storage API so DB responds to config changes
+        try {
+            if (typeof window.exportIDB === 'function') {
+                const tables = {};
+
+                const payload = await window.exportIDB();
+                const storagePrefix = (function(){ try { return String(window.storagePrefix || ''); } catch(_) { return ''; }})();
+                const strip = (k) => (k && storagePrefix && String(k).startsWith(storagePrefix)) ? String(k).slice(storagePrefix.length) : String(k);
+
+                const kvIndex = new Map(); // stripped -> { rawKey, val }
+                if (payload && Array.isArray(payload.items)) {
+                    for (const it of payload.items) {
+                        if (!it || typeof it.key !== 'string') continue;
+                        kvIndex.set(strip(it.key), { rawKey: it.key, val: it.val });
+                    }
+                }
+
+                const getKv = (k) => { const r = kvIndex.get(String(k)); return r ? r.val : undefined; };
+
+                // Settings
+                const settings = getKv('SETTING_SCANNER') ?? (typeof window.getFromLocalStorage === 'function' ? window.getFromLocalStorage('SETTING_SCANNER', undefined) : undefined);
+                if (settings) {
+                    tables['SETTING_SCANNER'] = {
+                        name: 'SETTING_SCANNER', displayName: 'Setting Scanner', type: 'settings', rawKey: (kvIndex.get('SETTING_SCANNER')||{}).rawKey || 'SETTING_SCANNER', data: settings, count: Object.keys(settings).length
+                    };
+                }
+
+                // Tokens by chain
+                const chains = getAllChainKeys();
+                for (const chain of chains) {
+                    const chainUpper = chain.toUpperCase();
+                    const chainCfg = root.CONFIG_CHAINS?.[chain.toLowerCase()] || {};
+                    const chainName = chainCfg.Nama_Chain || chainUpper;
+                    const key = `TOKEN_${chainUpper}`;
+                    const data = getKv(key);
+                    if (Array.isArray(data) && data.length) {
+                        tables[key] = { name: key, displayName: `Koin ${chainName}`, type: 'koin', chain: chain, rawKey: (kvIndex.get(key)||{}).rawKey || key, data, count: data.length };
+                    }
+                }
+
+                // Snapshot map via snapshot module
+                if (typeof window.snapshotDbGet === 'function') {
+                    const snap = await window.snapshotDbGet('SNAPSHOT_DATA_KOIN');
+                    if (snap && typeof snap === 'object') {
+                        Object.keys(snap).forEach(chainKey => {
+                            const arr = snap[chainKey];
+                            if (Array.isArray(arr) && arr.length) {
+                                const chainLower = String(chainKey).toLowerCase();
+                                const chainCfg = root.CONFIG_CHAINS?.[chainLower] || {};
+                                const disp = chainCfg.Nama_Chain || chainKey.toUpperCase();
+                                const tKey = `SNAPSHOT_${chainKey.toUpperCase()}`;
+                                tables[tKey] = { name: tKey, displayName: `Snapshot ${disp}`, type: 'snapshot', chain: chainLower, data: arr, count: arr.length };
+                            }
+                        });
+                    }
+                }
+
+                // Filters
+                for (const chain of chains) {
+                    const chainUpper = chain.toUpperCase();
+                    const chainCfg = root.CONFIG_CHAINS?.[chain.toLowerCase()] || {};
+                    const chainName = chainCfg.Nama_Chain || chainUpper;
+                    const key = `FILTER_${chainUpper}`;
+                    const data = getKv(key);
+                    if (data) {
+                        tables[key] = { name: key, displayName: `Filter ${chainName}`, type: 'filter', chain: chain, rawKey: (kvIndex.get(key)||{}).rawKey || key, data, count: typeof data === 'object' ? Object.keys(data).length : 1 };
+                    }
+                }
+
+                // Filter Multichain
+                const fm = getKv('FILTER_MULTICHAIN');
+                if (fm) {
+                    tables['FILTER_MULTICHAIN'] = { name: 'FILTER_MULTICHAIN', displayName: 'Filter Multichain', type: 'filter', chain: 'multichain', rawKey: (kvIndex.get('FILTER_MULTICHAIN')||{}).rawKey || 'FILTER_MULTICHAIN', data: fm, count: typeof fm === 'object' ? Object.keys(fm).length : 1 };
+                }
+
+                allTablesData = tables;
+                filteredData = { ...tables };
+                return tables;
+            }
+        } catch(e) {
+            console.warn('[Database Viewer] Storage module path failed, falling back to direct IDB:', e);
+        }
 
         try {
             const db = await openDatabase();
@@ -679,6 +762,10 @@
                                 <span uk-icon="icon: download; ratio: 0.7"></span>
                                 Export
                             </button>
+                            <button class="uk-button uk-button-small uk-button-danger delete-table-btn" data-table="${table.name}" title="Hapus Tabel">
+                                <span uk-icon="icon: trash; ratio: 0.7"></span>
+                                Hapus
+                            </button>
                         </div>
                     </div>
                     <div class="db-table-content" style="display: ${contentDisplay}">
@@ -784,6 +871,13 @@
             const tableName = $(this).data('table');
             exportTableToJSON(tableName);
         });
+
+        // Bind delete buttons
+        $('.delete-table-btn').off('click').on('click', function(e) {
+            e.stopPropagation();
+            const tableName = $(this).data('table');
+            deleteTable(tableName);
+        });
     }
     /**
      * Export table data to JSON file
@@ -817,6 +911,92 @@
             console.error('[Database Viewer] Export error:', err);
             if (typeof toast !== 'undefined' && toast.error) {
                 toast.error('Gagal export data');
+            }
+        }
+    }
+
+    /**
+     * Delete table data from IndexedDB
+     */
+    async function deleteTable(tableName) {
+        const table = allTablesData[tableName];
+        if (!table) {
+            if (typeof toast !== 'undefined' && toast.error) {
+                toast.error('Tabel tidak ditemukan');
+            }
+            return;
+        }
+
+        if (!confirm(`Anda yakin ingin menghapus tabel "${table.displayName}"? Tindakan ini tidak dapat dibatalkan.`)) {
+            return;
+        }
+
+        try {
+            if (table.type === 'snapshot') {
+                if (typeof window.snapshotDbGet === 'function' && typeof window.snapshotDbSet === 'function') {
+                    const map = await window.snapshotDbGet('SNAPSHOT_DATA_KOIN') || {};
+                    const keyLower = String(table.chain || '').toLowerCase();
+                    if (Object.prototype.hasOwnProperty.call(map, keyLower)) {
+                        try { delete map[keyLower]; } catch(_) {}
+                        const ok = await window.snapshotDbSet('SNAPSHOT_DATA_KOIN', map);
+                        if (!ok) throw new Error('Gagal menyimpan snapshot');
+                    }
+                } else {
+                    const db = await openDatabase();
+                    const tx = db.transaction([DB_CONFIG.snapshotStore], 'readwrite');
+                    tx.objectStore(DB_CONFIG.snapshotStore).delete('SNAPSHOT_DATA_KOIN');
+                }
+            } else {
+                if (typeof window.removeFromLocalStorage === 'function') {
+                    window.removeFromLocalStorage(table.name);
+                } else {
+                    const db = await openDatabase();
+                    const tx = db.transaction([DB_CONFIG.store], 'readwrite');
+                    tx.objectStore(DB_CONFIG.store).delete(table.name);
+                }
+            }
+
+            if (typeof toast !== 'undefined' && toast.success) {
+                toast.success(`Tabel "${table.displayName}" berhasil dihapus`);
+            }
+            // Log deletion to history (success)
+            try {
+                if (typeof window.addHistoryEntry === 'function') {
+                    await window.addHistoryEntry(
+                        `DELETE TABLE ${table.displayName}`,
+                        'success',
+                        {
+                            name: table.name,
+                            type: table.type,
+                            chain: table.chain || 'n/a',
+                            store: (table.type === 'snapshot') ? DB_CONFIG.snapshotStore : DB_CONFIG.store
+                        },
+                        { includeChain: false }
+                    );
+                }
+            } catch(_) {}
+            await refresh();
+
+        } catch(err) {
+            console.error('[Database Viewer] Error saat menghapus tabel:', err);
+            // Log deletion error to history
+            try {
+                if (typeof window.addHistoryEntry === 'function') {
+                    await window.addHistoryEntry(
+                        `DELETE TABLE ${table.displayName || tableName}`,
+                        'error',
+                        {
+                            name: tableName,
+                            type: (table && table.type) || 'unknown',
+                            chain: (table && table.chain) || 'n/a',
+                            error: String((err && err.message) ? err.message : err)
+                        },
+                        { includeChain: false }
+                    );
+                }
+            } catch(_) {}
+            if (typeof toast !== 'undefined' && toast.error) {
+                toast.error('Gagal menghapus data');
             }
         }
     }

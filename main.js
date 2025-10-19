@@ -487,12 +487,7 @@ function bootApp() {
         if ($('#dataTableBody').length) { $('#dataTableBody').closest('.uk-overflow-auto').hide(); }
         if ($('#form-setting-app').length && $('#form-setting-app')[0] && typeof $('#form-setting-app')[0].scrollIntoView === 'function') {
             $('#form-setting-app')[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-        // Disable everything except settings form controls and scroll-to-top button // REFACTORED
-        $('input, select, textarea, button').not('#btn-scroll-top').prop('disabled', true);
-        $('#form-setting-app').find('input, select, textarea, button').prop('disabled', false);
-        // On first run, prevent closing the form accidentally
-        $('#btn-cancel-setting').prop('disabled', true);
+        }       
     } else {
     // Show the main scanner view by default if settings are complete
     showMainSection('scanner');
@@ -659,19 +654,6 @@ async function deferredInit() {
             $sum.text(`TOTAL KOIN: ${total}`);
             $right.append($sum);
             $wrap.append($right);
-
-            // CTA untuk kondisi tidak ada data koin (mengikuti state aplikasi, bukan hanya MULTICHAIN)
-            try {
-                const needCTA = (typeof hasValidTokens === 'function') ? !hasValidTokens() : false;
-                if (needCTA) {
-                    $('#ManajemenKoin .icon').addClass('cta-settings').attr('title','Klik untuk membuka Manajemen Koin');
-                    // Jika tombol sync tersedia (saat manajemen terbuka), highlight juga
-                    $('#sync-tokens-btn').addClass('cta-sync').attr('title','Klik untuk SYNC data koin');
-                } else {
-                    $('#ManajemenKoin .icon').removeClass('cta-settings').attr('title','Manajemen Koin');
-                    $('#sync-tokens-btn').removeClass('cta-sync');
-                }
-            } catch(_) {}
             $wrap.off('change.multif').on('change.multif','label.fc-chain input, label.fc-cex input, label.fc-dex input',function(){
                 const prev = getFilterMulti();
                 const prevChains = (prev.chains||[]).map(s=>String(s).toLowerCase());
@@ -769,16 +751,6 @@ async function deferredInit() {
             $sum.text(`TOTAL KOIN: ${totalSingle}`);
             $right.append($sum);
             $wrap.append($right);
-            // CTA styling for per-chain when no tokens exist at all (flat source is empty)
-            try {
-                const hasAnyToken = Array.isArray(flat) && flat.length > 0;
-                const $sync = $('#sync-tokens-btn');
-                if (!hasAnyToken) {
-                    $sync.addClass('cta-sync').attr('title','Klik untuk SYNC data koin');
-                } else {
-                    $sync.removeClass('cta-sync');
-                }
-            } catch(_) {}
             $wrap.off('change.scf').on('change.scf','label.sc-cex input, label.sc-pair input, label.sc-dex input',function(){
                 const prev = getFilterChain(chain);
                 const prevC = (prev.cex||[]).map(String);
@@ -816,6 +788,20 @@ async function deferredInit() {
                 renderFilterCard();
             });
         }
+
+        // CTA untuk kondisi tidak ada data koin (berlaku untuk SEMUA mode)
+        try {
+            const needCTA = (typeof hasValidTokens === 'function') ? !hasValidTokens() : false;
+            if (needCTA) {
+                $('#ManajemenKoin .icon').addClass('cta-settings').attr('title','Klik untuk membuka Manajemen Koin');
+                // Jika tombol sync tersedia (saat manajemen terbuka), highlight juga
+                $('#sync-tokens-btn').addClass('cta-sync').attr('title','Klik untuk SYNC data koin');
+            } else {
+                $('#ManajemenKoin .icon').removeClass('cta-settings').attr('title','Manajemen Koin');
+                $('#sync-tokens-btn').removeClass('cta-sync');
+            }
+        } catch(_) {}
+
 
         // Enforce disabled state for filter controls if tokens are missing
         try {
@@ -3184,11 +3170,18 @@ $(document).ready(function() {
             // Multichain view (unified table)
             showMainSection('scanner');
             activeSingleChainKey = null;
+            // Clear AppMode cache to force re-evaluation
+            try { delete window.AppMode; } catch(_) {}
             // Filter card handles UI
             const st = getAppState();
             setHomeHref(st.lastChain || getDefaultChain());
             try { applySortToggleState(); } catch(_) {}
             try { syncPnlInputFromStorage(); } catch(_) {}
+            // Re-apply controls based on multichain state
+            try {
+                const state = computeAppReadiness();
+                applyControlsFor(state);
+            } catch(e) { console.error('applyControlsFor error', e); }
             return;
         }
 
@@ -3200,11 +3193,18 @@ $(document).ready(function() {
 
         // Per-chain view (unified table): keep main table visible and render single-chain data into it
         activeSingleChainKey = requested;
+        // Clear AppMode cache to force re-evaluation for this specific chain
+        try { delete window.AppMode; } catch(_) {}
         showMainSection('scanner');
         setHomeHref(requested);
         try { loadAndDisplaySingleChainTokens(); } catch(e) { console.error('single-chain init error', e); }
         try { applySortToggleState(); } catch(_) {}
         try { syncPnlInputFromStorage(); } catch(_) {}
+        // Re-apply controls based on current chain state (check if tokens exist for this chain)
+        try {
+            const state = computeAppReadiness();
+            applyControlsFor(state);
+        } catch(e) { console.error('applyControlsFor error', e); }
     }
 
     try {
