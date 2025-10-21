@@ -46,80 +46,21 @@
     function filterTokensForWallet(tokens, mode) {
         if (!Array.isArray(tokens) || tokens.length === 0) return [];
 
-        const CONFIG_CHAINS = root.CONFIG_CHAINS || {};
+        // ✅ BARU: Hanya filter by chain (tidak filter CEX/PAIR/DEX)
+        // Update Wallet Exchanger tidak lagi bergantung pada filter scanner
 
         if (mode.type === 'single' && mode.chain) {
             const chainKey = getCanonicalChainKey(mode.chain) || String(mode.chain).toLowerCase();
-            const rawFilter = (typeof getFromLocalStorage === 'function')
-                ? getFromLocalStorage(`FILTER_${String(chainKey).toUpperCase()}`, null)
-                : null;
-            const filterVals = (typeof getFilterChain === 'function') ? getFilterChain(chainKey) : { cex: [], pair: [], dex: [] };
-            // First load (no saved filter) -> keep all chain tokens
-            if (!rawFilter) {
-                return tokens.filter(t => {
-                    const tokenChain = getCanonicalChainKey(t.chain) || String(t.chain || '').toLowerCase();
-                    return tokenChain === chainKey;
-                });
-            }
 
-            const selCex = (filterVals.cex || []).map(x => String(x).toUpperCase());
-            const selPair = (filterVals.pair || []).map(x => String(x).toUpperCase());
-            const selDex = (filterVals.dex || []).map(x => String(x).toLowerCase());
-
-            if (!(selCex.length && selPair.length && selDex.length)) {
-                return [];
-            }
-
-            const chainCfg = CONFIG_CHAINS[chainKey] || {};
-            const pairDefs = chainCfg.PAIRDEXS || {};
-
-            return tokens.filter(token => {
-                const tokenChain = getCanonicalChainKey(token.chain) || String(token.chain || '').toLowerCase();
-                if (tokenChain !== chainKey) return false;
-
-                const tokenCexs = (token.selectedCexs || []).map(x => String(x).toUpperCase());
-                const hasCex = tokenCexs.some(cx => selCex.includes(cx));
-                if (!hasCex) return false;
-
-                const symOut = String(token.symbol_out || '').toUpperCase();
-                const pairKey = pairDefs[symOut] ? symOut : 'NON';
-                if (!selPair.includes(pairKey)) return false;
-
-                const tokenDex = (token.selectedDexs || []).map(x => String(x).toLowerCase());
-                const hasDex = tokenDex.some(dx => selDex.includes(dx));
-                return hasDex;
+            // Filter by chain only
+            return tokens.filter(t => {
+                const tokenChain = getCanonicalChainKey(t.chain) || String(t.chain || '').toLowerCase();
+                return tokenChain === chainKey;
             });
         }
 
-        // Multichain mode
-        const rawFilter = (typeof getFromLocalStorage === 'function')
-            ? getFromLocalStorage('FILTER_MULTICHAIN', null)
-            : null;
-        const fm = (typeof getFilterMulti === 'function') ? getFilterMulti() : { chains: [], cex: [], dex: [] };
-
-        if (!rawFilter) {
-            return tokens;
-        }
-
-        const chainsSel = (fm.chains || []).map(x => getCanonicalChainKey(x) || String(x).toLowerCase());
-        const cexSel = (fm.cex || []).map(x => String(x).toUpperCase());
-        const dexSel = (fm.dex || []).map(x => String(x).toLowerCase());
-
-        if (!(chainsSel.length && cexSel.length && dexSel.length)) {
-            return [];
-        }
-
-        return tokens.filter(token => {
-            const chainLower = getCanonicalChainKey(token.chain) || String(token.chain || '').toLowerCase();
-            if (!chainsSel.includes(chainLower)) return false;
-
-            const tokenCexs = (token.selectedCexs || []).map(x => String(x).toUpperCase());
-            const hasCex = tokenCexs.some(cx => cexSel.includes(cx));
-            if (!hasCex) return false;
-
-            const tokenDex = (token.selectedDexs || []).map(x => String(x).toLowerCase());
-            return tokenDex.some(dx => dexSel.includes(dx));
-        });
+        // Multichain mode: return all tokens
+        return tokens;
     }
 
     /**
@@ -132,7 +73,12 @@
             const mode = modeOverride || ((typeof getAppMode === 'function') ? getAppMode() : { type: 'multi' });
             let tokens = [];
 
-            if (mode.type === 'single' && mode.chain) {
+            // Gunakan getActiveTokens() untuk konsistensi dengan sistem storage
+            if (typeof getActiveTokens === 'function') {
+                tokens = getActiveTokens([]);
+                const storageKey = (typeof getActiveTokenKey === 'function') ? getActiveTokenKey() : 'TOKEN_MULTICHAIN';
+                console.log(`[Wallet Exchanger] Loaded ${tokens.length} coins from ${storageKey}`);
+            } else if (mode.type === 'single' && mode.chain) {
                 const chainKey = getCanonicalChainKey(mode.chain) || mode.chain;
                 tokens = (typeof getTokensChain === 'function') ? getTokensChain(chainKey) : [];
                 console.log(`[Wallet Exchanger] Loaded ${tokens.length} coins for chain ${chainKey}`);
@@ -193,6 +139,43 @@
         return chain || 'unknown';
     }
 
+    /**
+     * Get chain config from CONFIG_CHAINS with fallback lookup
+     * Handles multiple possible chain key formats (ethereum vs erc, bsc vs bep20, etc.)
+     */
+    function getChainConfig(rawChainKey, CONFIG_CHAINS) {
+        if (!rawChainKey) return {};
+
+        // Try exact match first
+        const exactMatch = CONFIG_CHAINS[rawChainKey];
+        if (exactMatch) return exactMatch;
+
+        // Try canonical match
+        const canonical = getCanonicalChainKey(rawChainKey);
+        if (canonical && CONFIG_CHAINS[canonical]) return CONFIG_CHAINS[canonical];
+
+        // Try common synonyms manually as fallback
+        const chainLower = String(rawChainKey).toLowerCase();
+        const synonymMap = {
+            'erc': 'ethereum',
+            'erc20': 'ethereum',
+            'eth': 'ethereum',
+            'bep20': 'bsc',
+            'bep-20': 'bsc',
+            'bnb': 'bsc',
+            'matic': 'polygon',
+            'pol': 'polygon',
+            'arb': 'arbitrum'
+        };
+
+        const mappedKey = synonymMap[chainLower];
+        if (mappedKey && CONFIG_CHAINS[mappedKey]) {
+            return CONFIG_CHAINS[mappedKey];
+        }
+
+        return {};
+    }
+
     function cloneDataCexs(dataCexs) {
         if (!dataCexs || typeof dataCexs !== 'object') return {};
         return Object.keys(dataCexs).reduce((acc, key) => {
@@ -226,10 +209,11 @@
 
     function ensureCexEntry(coin, cexName) {
         coin.dataCexs = coin.dataCexs || {};
-        if (!coin.dataCexs[cexName]) {
-            coin.dataCexs[cexName] = {};
+        const key = String(cexName || '').toUpperCase();
+        if (!coin.dataCexs[key]) {
+            coin.dataCexs[key] = {};
         }
-        return coin.dataCexs[cexName];
+        return coin.dataCexs[key];
     }
 
     function mergeWalletData(existingCoins, walletDataByCex, mode) {
@@ -237,14 +221,31 @@
             const clone = Object.assign({}, coin);
             if (coin.dataCexs) {
                 clone.dataCexs = cloneDataCexs(coin.dataCexs);
+                const selectedSet = new Set((coin.selectedCexs || []).map(cx => String(cx || '').toUpperCase()));
+                if (selectedSet.size > 0) {
+                    Object.keys(clone.dataCexs).forEach(key => {
+                        if (!selectedSet.has(String(key || '').toUpperCase())) {
+                            delete clone.dataCexs[key];
+                        }
+                    });
+                }
             }
             return clone;
         });
 
         const coinIndex = buildCoinIndex(merged);
+        const allowedCexByCoin = merged.map(coin => {
+            const allowed = new Set();
+            (coin.selectedCexs || []).forEach(cx => allowed.add(String(cx || '').toUpperCase()));
+            if (allowed.size === 0 && coin.dataCexs && typeof coin.dataCexs === 'object') {
+                Object.keys(coin.dataCexs).forEach(cx => allowed.add(String(cx || '').toUpperCase()));
+            }
+            return allowed;
+        });
 
         Object.keys(walletDataByCex || {}).forEach(cexName => {
-            const walletItems = walletDataByCex[cexName] || [];
+            const cexUpper = String(cexName || '').toUpperCase();
+            const walletItems = walletDataByCex[cexName] || walletDataByCex[cexUpper] || [];
             if (!Array.isArray(walletItems) || walletItems.length === 0) return;
 
             const normalizedEntries = new Map();
@@ -263,8 +264,12 @@
                 }
 
                 refs.forEach(({ idx, role }) => {
+                    if (!allowedCexByCoin[idx].has(cexUpper)) {
+                        return;
+                    }
+
                     const coin = merged[idx];
-                    const target = ensureCexEntry(coin, cexName);
+                    const target = ensureCexEntry(coin, cexUpper);
 
                     if (role === 'token') {
                         const depositToken = normalizeFlag(entry.depositEnable);
@@ -310,23 +315,30 @@
      */
     function saveCoinsToStorage(coins) {
         try {
-            const mode = (typeof getAppMode === 'function') ? getAppMode() : { type: 'multi' };
-
-            if (mode.type === 'single' && mode.chain) {
-                // Single chain mode - save to specific chain storage
-                const chainKey = getCanonicalChainKey(mode.chain) || String(mode.chain).toLowerCase();
-                const storageKey = `TOKEN_${String(chainKey).toUpperCase()}`;
-                if (typeof saveToLocalStorage === 'function') {
-                    saveToLocalStorage(storageKey, coins);
-                }
+            // Gunakan saveActiveTokens() untuk konsistensi dengan sistem storage
+            if (typeof saveActiveTokens === 'function') {
+                saveActiveTokens(coins);
+                const storageKey = (typeof getActiveTokenKey === 'function') ? getActiveTokenKey() : 'TOKEN_MULTICHAIN';
+                console.log(`[Wallet Exchanger] Saved ${coins.length} coins to ${storageKey}`);
             } else {
-                // Multichain mode
-                if (typeof saveToLocalStorage === 'function') {
-                    saveToLocalStorage('TOKEN_MULTICHAIN', coins);
-                }
-            }
+                const mode = (typeof getAppMode === 'function') ? getAppMode() : { type: 'multi' };
 
-            console.log(`[Wallet Exchanger] Saved ${coins.length} coins to storage`);
+                if (mode.type === 'single' && mode.chain) {
+                    // Single chain mode - save to specific chain storage
+                    const chainKey = getCanonicalChainKey(mode.chain) || String(mode.chain).toLowerCase();
+                    const storageKey = `TOKEN_${String(chainKey).toUpperCase()}`;
+                    if (typeof saveToLocalStorage === 'function') {
+                        saveToLocalStorage(storageKey, coins);
+                    }
+                } else {
+                    // Multichain mode
+                    if (typeof saveToLocalStorage === 'function') {
+                        saveToLocalStorage('TOKEN_MULTICHAIN', coins);
+                    }
+                }
+
+                console.log(`[Wallet Exchanger] Saved ${coins.length} coins to storage`);
+            }
         } catch(err) {
             console.error('[Wallet Exchanger] Error saving coins to storage:', err);
         }
@@ -360,8 +372,8 @@
     }
 
     /**
-     * Render CEX cards grid sesuai dengan filter chain aktif
-     * Menampilkan semua CEX yang ada di filter, dengan data koin dari storage
+     * Render CEX cards grid - ambil semua CEX dari CONFIG_CEX (tidak dari filter)
+     * User pilih CEX mana yang ingin di-update via checkbox
      */
     function renderCexCards() {
         const $grid = $('#wallet-cex-grid');
@@ -371,23 +383,23 @@
 
         // Get active mode and chain
         const mode = (typeof getAppMode === 'function') ? getAppMode() : { type: 'multi' };
-        let availableCexes = [];
-
-        if (mode.type === 'single') {
-            const canonicalChain = getCanonicalChainKey(mode.chain) || String(mode.chain || '').toLowerCase();
-            const filterChain = (typeof getFilterChain === 'function') ? getFilterChain(canonicalChain || '') : {};
-            availableCexes = (filterChain?.cex || []).map(x => String(x).toUpperCase());
-            activeChain = canonicalChain || mode.chain;
-        } else {
-            const filterMulti = (typeof getFilterMulti === 'function') ? getFilterMulti() : {};
-            availableCexes = (filterMulti?.cex || []).map(x => String(x).toUpperCase());
-            activeChain = 'MULTICHAIN';
-        }
-
-        // Filter hanya CEX yang valid dari CONFIG_CEX
         const CONFIG_CEX = root.CONFIG_CEX || {};
         const CONFIG_CHAINS = root.CONFIG_CHAINS || {};
-        availableCexes = availableCexes.filter(cx => !!CONFIG_CEX[cx]);
+
+        // ✅ BARU: Ambil SEMUA CEX dari CONFIG_CEX (sumber yang sama dengan filter)
+        // Tidak lagi tergantung pada filter aktif
+        let availableCexes = Object.keys(CONFIG_CEX)
+            .map(x => String(x).toUpperCase())
+            .filter(cx => !!CONFIG_CEX[cx])
+            .sort(); // Sort alphabetically untuk konsistensi
+
+        // Determine active chain
+        if (mode.type === 'single') {
+            const canonicalChain = getCanonicalChainKey(mode.chain) || String(mode.chain || '').toLowerCase();
+            activeChain = canonicalChain || mode.chain;
+        } else {
+            activeChain = 'MULTICHAIN';
+        }
 
         // Update chain label
         try {
@@ -397,39 +409,60 @@
             $('#wallet-chain-label').text(String(chainName).toUpperCase());
         } catch(_) {}
 
-        // Jika tidak ada CEX yang tersedia
+        // ✅ BARU: Load coins dengan filter by chain only (tidak filter CEX/PAIR/DEX)
+        const allCoinsData = loadCoinsFromStorage({ applyFilter: false });
+
+        // Filter by chain only untuk single mode
+        const chainFilteredCoins = (mode.type === 'single')
+            ? allCoinsData.filter(coin => {
+                const coinChain = getCanonicalChainKey(coin.chain) || String(coin.chain || '').toLowerCase();
+                const targetChain = getCanonicalChainKey(activeChain) || String(activeChain || '').toLowerCase();
+                return coinChain === targetChain;
+              })
+            : allCoinsData;
+
+        // ✅ Filter CEX: hanya tampilkan yang punya koin (sama seperti filter scanner)
+        // Hitung jumlah koin per CEX untuk menentukan mana yang ditampilkan
+        const cexCoinCount = {};
+        chainFilteredCoins.forEach(coin => {
+            if (coin.dataCexs && typeof coin.dataCexs === 'object') {
+                Object.keys(coin.dataCexs).forEach(cexName => {
+                    const upper = String(cexName).toUpperCase();
+                    cexCoinCount[upper] = (cexCoinCount[upper] || 0) + 1;
+                });
+            }
+        });
+
+        // Filter availableCexes: hanya yang punya koin
+        availableCexes = availableCexes.filter(cexName => {
+            const count = cexCoinCount[cexName] || 0;
+            return count > 0; // Sama seperti filter scanner: if (cnt===0) return;
+        });
+
+        console.log(`[Update Wallet] CEX dengan koin:`, Object.keys(cexCoinCount).filter(cx => cexCoinCount[cx] > 0));
+
+        // Jika tidak ada CEX yang punya koin
         if (!availableCexes.length) {
             $grid.html(`
                 <div class="uk-width-1-1">
                     <div class="uk-alert uk-alert-warning">
-                        <p>Tidak ada exchanger yang tersedia pada filter chain aktif. Silakan pilih minimal 1 CEX pada filter.</p>
+                        <p><strong>Belum ada koin untuk chain ${String(activeChain).toUpperCase()}</strong></p>
+                        <p class="uk-text-small uk-margin-remove">Silakan tambah koin terlebih dahulu di menu <strong>MANAJEMEN KOIN</strong>, kemudian buka Update Wallet Exchanger untuk fetch status deposit/withdraw.</p>
                     </div>
                 </div>
             `);
             return;
         }
 
-        // Get all coins from storage untuk chain aktif
-        const allCoinsData = loadCoinsFromStorage();
-
-        // Render each CEX card berdasarkan availableCexes (filter)
+        // Render each CEX card dari availableCexes (yang punya koin)
         availableCexes.forEach(cexName => {
             const cexConfig = CONFIG_CEX[cexName] || {};
             const cexColor = cexConfig.WARNA || '#333';
 
-            // Filter coins untuk CEX ini: hanya yang bermasalah WD/Depo
-            const cexCoins = allCoinsData.filter(coin => {
+            // ✅ Filter coins untuk CEX ini dari chainFilteredCoins (sudah difilter by chain)
+            const cexCoins = chainFilteredCoins.filter(coin => {
                 // Check if coin has data for this CEX
                 if (!coin.dataCexs || !coin.dataCexs[cexName]) return false;
-
-                // For single chain mode, filter by chain
-                if (mode.type === 'single') {
-                    const coinChain = getCanonicalChainKey(coin.chain) || String(coin.chain || '').toLowerCase();
-                    const targetChain = getCanonicalChainKey(activeChain) || String(activeChain || '').toLowerCase();
-                    if (coinChain !== targetChain) {
-                        return false;
-                    }
-                }
 
                 // FILTER: Hanya tampilkan yang bermasalah (WD atau Depo CLOSED untuk TOKEN atau PAIR)
                 const dataCex = coin.dataCexs[cexName];
@@ -446,12 +479,42 @@
                 return wdTokenClosed || dpTokenClosed || wdPairClosed || dpPairClosed;
             });
 
-            console.log(`[${cexName}] Coins after filter (chain: ${activeChain}): ${cexCoins.length} dari total ${allCoinsData.length}`);
-
-            // Jumlah koin bermasalah = jumlah total (karena sudah difilter)
+            // Jumlah koin bermasalah dan total koin
             const problemCount = cexCoins.length;
+            const totalCount = cexCoinCount[cexName] || 0;
+
+            // Console log dengan breakdown per chain untuk mode multi
+            if (mode.type === 'multi') {
+                // Breakdown per chain
+                const chainBreakdown = {};
+                cexCoins.forEach(coin => {
+                    const chainKey = getCanonicalChainKey(coin.chain) || String(coin.chain || '').toLowerCase();
+                    chainBreakdown[chainKey] = (chainBreakdown[chainKey] || 0) + 1;
+                });
+
+                const breakdown = Object.entries(chainBreakdown)
+                    .map(([chain, count]) => `${chain.toUpperCase()}:${count}`)
+                    .join(', ');
+
+                console.log(`[${cexName}] Koin bermasalah (multichain): ${problemCount} dari ${totalCount} | Breakdown: ${breakdown}`);
+            } else {
+                console.log(`[${cexName}] Koin bermasalah di chain ${activeChain}: ${problemCount} dari total ${totalCount}`);
+            }
 
             const isSelected = selectedCexList.includes(cexName);
+
+            // Badge status untuk setiap CEX (sama seperti filter scanner)
+            let statusBadge = '';
+            if (problemCount > 0) {
+                // Ada koin bermasalah
+                statusBadge = `<span class="uk-badge" style="background-color: #dc3545; color: white;">${problemCount} bermasalah dari ${totalCount}</span>`;
+            } else if (totalCount > 0) {
+                // Ada koin tapi tidak bermasalah
+                statusBadge = `<span class="uk-badge" style="background-color: #28a745; color: white;">${totalCount} koin OK</span>`;
+            } else {
+                // Tidak seharusnya terjadi karena sudah difilter di atas
+                statusBadge = `<span class="uk-badge" style="background-color: #6c757d; color: white;">Belum ada data</span>`;
+            }
 
             const cardHtml = `
                 <div class="wallet-cex-grid-item uk-width-1-1 uk-width-1-2@m">
@@ -461,12 +524,12 @@
                                 <input type="checkbox" class="wallet-cex-checkbox" data-cex="${cexName}" ${isSelected ? 'checked' : ''}>
                                 ${cexName}
                             </div>
-                            <span class="uk-text-meta uk-text-small">
-                                ${problemCount} koin bermasalah
-                            </span>
+                            ${statusBadge}
                         </div>
                         <div class="wallet-cex-table-wrapper">
-                            ${renderCexTable(cexName, cexCoins)}
+                            ${problemCount > 0
+                                ? renderCexTable(cexName, cexCoins, mode)
+                                : '<div class="uk-text-center uk-padding-small uk-text-muted"><p class="uk-margin-remove">Tidak ada koin bermasalah</p><p class="uk-text-small uk-margin-remove">Centang untuk update data terbaru</p></div>'}
                         </div>
                     </div>
                 </div>
@@ -488,10 +551,10 @@
     }
 
     /**
-     * Render tabel koin untuk CEX
+     * Render tabel koin untuk CEX dengan breakdown per-chain untuk mode multi
      * Data koin akan di-fetch dari CEX saat user mengklik UPDATE WALLET EXCHANGER
      */
-    function renderCexTable(cexName, coins) {
+    function renderCexTable(cexName, coins, mode) {
         if (!coins || coins.length === 0) {
             return `
                 <div class="uk-text-center uk-padding-small uk-text-muted">
@@ -501,28 +564,78 @@
             `;
         }
 
-        let tableHtml = `
-            <table class="wallet-cex-table uk-table uk-table-divider uk-table-hover uk-table-small">
-                <thead>
-                    <tr>
-                        <th style="width:30px" rowspan="2">No</th>
-                        <th style="width:80px" rowspan="2">Symbol</th>
-                        <th style="width:130px" rowspan="2">SC</th>
-                        <th style="width:70px" rowspan="2" class="uk-text-center">Decimals</th>
-                        <th colspan="2" class="uk-text-center">TOKEN Status</th>
-                        <th colspan="2" class="uk-text-center">PAIR Status</th>
-                    </tr>
-                    <tr>
-                        <th style="width:70px" class="uk-text-center">WD</th>
-                        <th style="width:70px" class="uk-text-center">Depo</th>
-                        <th style="width:70px" class="uk-text-center">WD</th>
-                        <th style="width:70px" class="uk-text-center">Depo</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
+        const CONFIG_CHAINS = root.CONFIG_CHAINS || {};
+        const isMultiMode = mode && mode.type === 'multi';
 
-        coins.forEach((coin, idx) => {
+        // Group coins by chain untuk mode multi
+        let coinsByChain = {};
+        if (isMultiMode) {
+            coins.forEach(coin => {
+                const chainKey = getCanonicalChainKey(coin.chain) || String(coin.chain || '').toLowerCase();
+                if (!coinsByChain[chainKey]) {
+                    coinsByChain[chainKey] = [];
+                }
+                coinsByChain[chainKey].push(coin);
+            });
+        } else {
+            // Single mode: tidak perlu grouping
+            const chainKey = getCanonicalChainKey(coins[0]?.chain) || 'unknown';
+            console.log(`[Wallet Table SINGLE MODE] Original chain: ${coins[0]?.chain} | Canonical chainKey: ${chainKey}`);
+            coinsByChain[chainKey] = coins;
+        }
+
+        // Sort chains alphabetically
+        const sortedChains = Object.keys(coinsByChain).sort();
+
+        let tableHtml = '';
+
+        // Render tabel per chain
+        sortedChains.forEach((chainKey, chainIdx) => {
+            const chainCoins = coinsByChain[chainKey];
+            const chainConfig = getChainConfig(chainKey, CONFIG_CHAINS);
+            const chainName = (chainConfig.Nama_Chain || chainKey).toUpperCase();
+            const chainColor = chainConfig.WARNA || '#333';
+            const headerStyle = `background: ${chainColor}; color: white;`;
+            const headerWidthStyle = width => `style="width:${width}; ${headerStyle}"`;
+            const headerPlainStyle = `style="${headerStyle}"`;
+
+            // Debug logging
+            console.log(`[Wallet Table] Chain: ${chainKey} | Config found: ${!!chainConfig.Nama_Chain} | Color: ${chainColor}`);
+            if (!chainConfig.Nama_Chain) {
+                console.warn(`[Wallet Table] No config found for chainKey: ${chainKey}. Available keys:`, Object.keys(CONFIG_CHAINS));
+            }
+
+            // Header chain untuk mode multi
+            if (isMultiMode) {
+                tableHtml += `
+                    <div class="wallet-chain-header" style="background: ${chainColor}; color: white; padding: 4px 8px; font-weight: bold; font-size: 12px; margin-top: ${chainIdx > 0 ? '8px' : '0'};">
+                        ${chainName} (${chainCoins.length} koin bermasalah)
+                    </div>
+                `;
+            }
+
+            tableHtml += `
+                <table class="wallet-cex-table uk-table uk-table-divider uk-table-hover uk-table-small">
+                    <thead style="background: ${chainColor}; color: white;">
+                        <tr>
+                            <th ${headerWidthStyle('30px')} rowspan="2">No</th>
+                            <th ${headerWidthStyle('80px')} rowspan="2">Symbol</th>
+                            <th ${headerWidthStyle('130px')} rowspan="2">SC</th>
+                            <th ${headerWidthStyle('70px')} rowspan="2" class="uk-text-center">Decimals</th>
+                            <th ${headerPlainStyle} colspan="2" class="uk-text-center">TOKEN Status</th>
+                            <th ${headerPlainStyle} colspan="2" class="uk-text-center">PAIR Status</th>
+                        </tr>
+                        <tr>
+                            <th ${headerWidthStyle('70px')} class="uk-text-center">WD</th>
+                            <th ${headerWidthStyle('70px')} class="uk-text-center">Depo</th>
+                            <th ${headerWidthStyle('70px')} class="uk-text-center">WD</th>
+                            <th ${headerWidthStyle('70px')} class="uk-text-center">Depo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            chainCoins.forEach((coin, idx) => {
             const dataCex = (coin.dataCexs || {})[cexName] || {};
 
             // Symbol dan SC data
@@ -610,12 +723,13 @@
                     </td>
                 </tr>
             `;
-        });
+            }); // End chainCoins.forEach
 
-        tableHtml += `
-                </tbody>
-            </table>
-        `;
+            tableHtml += `
+                    </tbody>
+                </table>
+            `;
+        }); // End sortedChains.forEach
 
         return tableHtml;
     }
@@ -687,8 +801,8 @@
         // Show overlay dengan AppOverlay
         const overlayId = AppOverlay.showItems({
             id: 'wallet-fetch-overlay',
-            title: 'Fetching Wallet Data...',
-            message: 'Mohon tunggu, aplikasi sedang melakukan fetch data wallet dari exchanger',
+            title: 'Memproses Wallet Exchanger...',
+            message: 'Mohon tunggu, aplikasi sedang melakukan Memuat data wallet dari exchanger',
             items: items
         });
 
@@ -700,7 +814,7 @@
      */
     function updateFetchProgress(cexName, status, message, tokenCount) {
         const text = tokenCount
-            ? `${message || ''} - ${tokenCount} koin ditemukan`
+            ? `${message || ''}`
             : (message || '');
 
         AppOverlay.updateItem('wallet-fetch-overlay', cexName, status, text);
@@ -853,10 +967,36 @@
                     const totalCoins = uniqueKeys.size;
                     toast.success(`✅ Berhasil fetch ${totalCoins} koin dari ${selectedCexList.length} CEX`);
                 }
+
+                // Log ke history: Update Wallet berhasil
+                if (typeof addHistoryEntry === 'function') {
+                    const totalTokens = Object.keys(cexWalletData).reduce((sum, name) => sum + (cexWalletData[name] || []).length, 0);
+                    addHistoryEntry(
+                        'UPDATE WALLET EXCHANGER',
+                        'success',
+                        {
+                            cex: selectedCexList.join(', '),
+                            totalTokens: totalTokens,
+                            mode: mode.type === 'single' ? `Chain: ${mode.chain}` : 'Multichain'
+                        }
+                    );
+                }
             } else {
                 showUpdateResult(false, failedCexes);
                 if (typeof toast !== 'undefined' && toast.warning) {
                     toast.warning(`⚠️ Berhasil: ${selectedCexList.length - failedCexes.length}, Gagal: ${failedCexes.length}`);
+                }
+
+                // Log ke history: Update Wallet sebagian berhasil
+                if (typeof addHistoryEntry === 'function') {
+                    addHistoryEntry(
+                        'UPDATE WALLET EXCHANGER',
+                        'warning',
+                        {
+                            success: selectedCexList.filter(c => !failedCexes.includes(c)).join(', '),
+                            failed: failedCexes.join(', ')
+                        }
+                    );
                 }
             }
 
@@ -865,6 +1005,18 @@
             showUpdateResult(false, selectedCexList);
             if (typeof toast !== 'undefined' && toast.error) {
                 toast.error('Gagal memproses hasil: ' + err.message);
+            }
+
+            // Log ke history: Update Wallet error
+            if (typeof addHistoryEntry === 'function') {
+                addHistoryEntry(
+                    'UPDATE WALLET EXCHANGER',
+                    'error',
+                    {
+                        cex: selectedCexList.join(', '),
+                        error: err.message || 'Unknown error'
+                    }
+                );
             }
         }
     }
