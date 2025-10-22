@@ -1782,7 +1782,7 @@ $("#startSCAN").click(function () {
         if (idx !== -1) {
             tokens[idx].status = val;
             if (m.type === 'single') setTokensChain(m.chain, tokens); else setTokensMulti(tokens);
-            if (typeof toast !== 'undefined' && toast.success) toast.success(`Status diubah ke ${val ? 'ACTIVE' : 'INACTIVE'}`);
+            if (typeof toast !== 'undefined' && toast.success) toast.success(`Status diubah ke ${val ? 'ON' : 'OFF'}`);
             try {
                 const chainLbl = String(tokens[idx]?.chain || (m.type==='single'? m.chain : 'all')).toUpperCase();
                 const pairLbl = `${String(tokens[idx]?.symbol_in||'').toUpperCase()}/${String(tokens[idx]?.symbol_out||'').toUpperCase()}`;
@@ -2262,20 +2262,50 @@ function getSyncPriceCache() {
     return window.__SYNC_PRICE_CACHE;
 }
 
-function formatSyncPriceValue(price) {
+function formatSyncPriceValue(price, currency) {
     if (!Number.isFinite(price) || price <= 0) return '-';
-    if (typeof formatPrice === 'function') return formatPrice(price);
-    return price.toFixed(price >= 1 ? 4 : 6);
+
+    // Format berbeda untuk IDR vs USDT
+    const curr = String(currency || 'USDT').toUpperCase();
+    let formatted = '';
+
+    if (curr === 'IDR') {
+        // IDR: format dengan pemisah ribuan, tanpa desimal untuk nilai besar
+        if (price >= 1000) {
+            formatted = new Intl.NumberFormat('id-ID', {
+                style: 'decimal',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(price);
+        } else {
+            formatted = new Intl.NumberFormat('id-ID', {
+                style: 'decimal',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(price);
+        }
+        return `Rp ${formatted}`;
+    } else {
+        // USDT/other crypto: use existing formatPrice or standard format
+        if (typeof formatPrice === 'function') {
+            formatted = formatPrice(price);
+        } else {
+            formatted = price.toFixed(price >= 1 ? 4 : 6);
+        }
+        return `$${formatted}`;
+    }
 }
 try { window.formatSyncPriceValue = formatSyncPriceValue; } catch(_) {}
 
-function setSyncPriceCell(cex, symbol, pair, price, renderId) {
+function setSyncPriceCell(cex, symbol, pair, price, renderId, currency) {
     const $cell = $(`#sync-modal-tbody td[data-price-cex="${cex}"][data-symbol="${symbol}"][data-pair="${pair}"]`);
     if (!$cell.length) return;
     const currentToken = Number($cell.data('render-id')) || 0;
     if (renderId && currentToken && renderId !== currentToken) return;
     if (renderId) $cell.data('render-id', renderId);
-    $cell.text(formatSyncPriceValue(price));
+    // Determine currency: INDODAX uses IDR, others use USDT/pair
+    const priceCurrency = currency || (String(cex).toUpperCase() === 'INDODAX' ? 'IDR' : 'USDT');
+    $cell.text(formatSyncPriceValue(price, priceCurrency));
 }
 
 function getSyncProxyPrefix() {
@@ -2847,31 +2877,36 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
                 const scDisplay = scRaw ? (scRaw.length > 12 ? `${scRaw.slice(0, 6)}...${scRaw.slice(-4)}` : scRaw) : '?';
                 const desRaw = token.des_in ?? token.decimals ?? token.decimals_in;
                 const decimals = (Number.isFinite(desRaw) && desRaw >= 0) ? desRaw : '?';
-                const depositState = parseSnapshotStatus(token.depositToken ?? token.deposit);
-                const withdrawState = parseSnapshotStatus(token.withdrawToken ?? token.withdraw);
-                let tradeLabel = 'UNKNOWN';
-                let tradeClass = 'uk-label-warning';
-                if (depositState === true && withdrawState === true) {
-                    tradeLabel = 'ACTIVE';
-                    tradeClass = 'uk-label-success';
-                } else if (depositState === false || withdrawState === false) {
-                    tradeLabel = 'INACTIVE';
-                    tradeClass = 'uk-label-danger';
+                // Status trade (tradeable) dengan badge ON/OFF
+                const tradeableState = parseSnapshotStatus(token.tradeable);
+                let tradeBadge = '';
+
+                if (tradeableState === true) {
+                    tradeBadge = '<span class="uk-label uk-label-success" style="font-size:10px; padding:3px 8px;">ON</span>';
+                } else if (tradeableState === false) {
+                    tradeBadge = '<span class="uk-label uk-label-danger" style="font-size:10px; padding:3px 8px;">OFF</span>';
+                } else {
+                    tradeBadge = '<span class="uk-label" style="font-size:10px; padding:3px 8px; background:#666; color:#fff;">?</span>';
                 }
+
+                // CEX display dengan SNAPSHOT badge
+                const cexDisplay = `<div class="uk-text-bold uk-text-primary">${cex}</div><div style="font-size:9px; color:#faa05a; font-weight:600; margin-top:2px;">SNAPSHOT</div>`;
+
                 const priceVal = Number(token.current_price ?? token.price ?? token.price_value);
-                const priceDisplay = (Number.isFinite(priceVal) && priceVal > 0) ? formatSyncPriceValue(priceVal) : '?';
+                const priceCurrency = token.price_currency || (cex === 'INDODAX' ? 'IDR' : 'USDT');
+                const priceDisplay = (Number.isFinite(priceVal) && priceVal > 0) ? formatSyncPriceValue(priceVal, priceCurrency) : '?';
                 const rowHtml = `
                     <tr data-temp="1">
                         <td class="uk-text-center"><input type="checkbox" class="uk-checkbox" disabled></td>
                         <td class="uk-text-center">${idx + 1}</td>
-                        <td class="uk-text-bold uk-text-primary uk-text-small">${cex}</td>
+                        <td class="uk-text-small" style="line-height:1.4;">${cexDisplay}</td>
                         <td>
                             <div class="uk-text-bold uk-text-small">${symbol}</div>
                             <div class="uk-text-meta">${tokenName}</div>
                         </td>
                         <td class="uk-text-small mono" title="${scRaw || '?'}">${scDisplay}</td>
                         <td class="uk-text-center">${decimals}</td>
-                        <td><span class="uk-label ${tradeClass}" style="font-size:10px;">${tradeLabel}</span></td>
+                        <td class="uk-text-center" style="padding:8px 12px;">${tradeBadge}</td>
                         <td class="uk-text-right uk-text-small">${priceDisplay}</td>
                     </tr>`;
                 $tbody.append(rowHtml);
@@ -4068,28 +4103,30 @@ $(document).ready(function() {
             }
             // ====================================================================
 
-            const statusBadge = saved
-              ? ' <span class="uk-label uk-label-success" style="font-size:10px;" title="Koin sudah tersimpan di database">[ DIPILIH ]</span>'
-              : '';
+            // CEX display dengan status badge di baris baru
             const showSourceBadge = token.__isSnapshot;
-            const sourceBadge = showSourceBadge
-              ? ' <span class="uk-label uk-label-warning" style="font-size:10px;" title="Berhasil dimuat dari snapshot lokal">SNAPSHOT</span>'
-              : '';
+            const statusText = saved ? '[DIPILIH]' : (showSourceBadge ? '[SNAPSHOT]' : '');
+            const statusColor = saved ? '#054b31ff' : '#d96c19ff'; // success green / warning orange
+            const cexDisplay = statusText
+                ? `<div class="uk-text-bold uk-text-primary">${cexUp}</div><div style="font-size:10px; color:${statusColor}; font-weight:700; margin-top:2px;">${statusText}</div>`
+                : `<div class="uk-text-bold uk-text-primary">${cexUp}</div>`;
+
             const scIn = String(scInRaw || '');
             const scDisplay = scIn ? (scIn.length > 12 ? `${scIn.slice(0, 6)}...${scIn.slice(-4)}` : scIn) : '?';
             const decimalsValue = Number(token.des_in);
             const desIn = Number.isFinite(decimalsValue) && decimalsValue >= 0 ? decimalsValue : '?';
             const tokenName = token.token_name || token.name || symIn || '-';
-            const depositState = parseSnapshotStatus(token.deposit);
-            const withdrawState = parseSnapshotStatus(token.withdraw);
-            let tradeLabel = 'UNKNOWN';
-            let tradeClass = 'uk-label-warning';
-            if (depositState === true && withdrawState === true) {
-                tradeLabel = 'ACTIVE';
-                tradeClass = 'uk-label-success';
-            } else if (depositState === false || withdrawState === false) {
-                tradeLabel = 'INACTIVE';
-                tradeClass = 'uk-label-danger';
+
+            // Status trade (tradeable) dengan badge ON/OFF
+            const tradeableState = parseSnapshotStatus(token.tradeable);
+            let tradeBadge = '';
+
+            if (tradeableState === true) {
+                tradeBadge = '<span class="uk-label uk-label-success" style="font-size:10px; padding:3px 8px;">ON</span>';
+            } else if (tradeableState === false) {
+                tradeBadge = '<span class="uk-label uk-label-danger" style="font-size:10px; padding:3px 8px;">OFF</span>';
+            } else {
+                tradeBadge = '<span class="uk-label" style="font-size:10px; padding:3px 8px; background:#666; color:#fff;">?</span>';
             }
             // ========== PAIR UNTUK HARGA (dari radio button) ==========
             // Gunakan pair yang dipilih user dari radio button untuk fetch harga
@@ -4097,8 +4134,9 @@ $(document).ready(function() {
             const eligibleForPrice = pairForPrice && pairForPrice !== 'NON';
 
             const priceStored = Number(token.current_price ?? NaN);
+            const priceCurrency = token.price_currency || (cexUp === 'INDODAX' ? 'IDR' : 'USDT');
             const priceDisplay = (Number.isFinite(priceStored) && priceStored > 0)
-                ? formatSyncPriceValue(priceStored)
+                ? formatSyncPriceValue(priceStored, priceCurrency)
                 : '?';
 
             // Checkbox: simpan data-cex dan data-symbol (TANPA pair)
@@ -4141,14 +4179,14 @@ $(document).ready(function() {
                 <tr data-sc="${scIn}" data-source="${source}" class="${showSourceBadge ? 'snapshot-row' : ''}">
                     <td class="uk-text-center">${checkboxHtml}</td>
                     <td class="uk-text-center">${index + 1}</td>
-                    <td class="uk-text-bold uk-text-primary uk-text-small">${cexUp}${statusBadge}${sourceBadge}</td>
+                    <td class="uk-text-small" style="line-height:1.4;">${cexDisplay}</td>
                     <td${duplicateStyle}>
                         <span title="${tokenName}${token.__hasDuplicateSC ? ' - Multiple SC Address' : ''}">${duplicateWarning}<strong>${symIn}</strong>${pairsDisplay}</span>
                     </td>
                     <td class="uk-text-small mono" title="${scIn || '-'}"${duplicateStyle}>${scDisplay}</td>
                     <td class="uk-text-center">${desIn}</td>
-                    <td>
-                        <span class="uk-label ${tradeClass}" style="font-size:10px;">${tradeLabel}</span>
+                    <td class="uk-text-center" style="padding:8px 12px;">
+                        ${tradeBadge}
                     </td>
                     <td class="uk-text-right uk-text-small" data-price-cex="${cexUp}" data-symbol="${symIn}" data-index="${baseIndex}">${priceDisplay}</td>
                 </tr>`;
