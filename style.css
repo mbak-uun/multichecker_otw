@@ -822,7 +822,6 @@ body.dark-mode {
 .dark-mode .uk-badge {
     background: rgba(75, 85, 99, 0.8);
     backdrop-filter: blur(5px);
-    color: #e5e7eb;
 }
 
 .dark-mode .uk-label.uk-label-warning {
@@ -1076,7 +1075,7 @@ body.dark-mode {
 .filter-groups-inline label:has(input:checked) {
     /* Background and border colors are set by JS from config */
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-    font-weight: 700;
+    /* font-weight: 700; */
 }
 
 .filter-groups-inline label:has(input:checked):hover {

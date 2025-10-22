@@ -19,9 +19,9 @@
   try {
     if (hasToastr) {
       window.toastr.options = Object.assign({
-        positionClass: 'toast-bottom-right',
-        timeOut: 3500,
-        extendedTimeOut: 1500,
+        positionClass: 'toast-top-right',
+        timeOut: 2500,
+        extendedTimeOut: 1000,
         closeButton: true,
         progressBar: true,
         newestOnTop: true,
@@ -92,7 +92,7 @@
       if (hasToastr) {
         try {
           const curr = window.toastr.options || {};
-          window.toastr.options = Object.assign({}, curr, { positionClass: curr.positionClass || 'toast-center-center' });
+          window.toastr.options = Object.assign({}, curr, { positionClass: curr.positionClass || 'toast-top-right' });
         } catch(_) {}
       }
       if (nativeToastr && nativeToastr[t]) {
@@ -179,7 +179,7 @@
       const current = window.toastr.options || {};
       const native  = nativeToastr.options || {};
       window.toastr.options = Object.assign({}, native, current, {
-        positionClass: current.positionClass || 'toast-center-center'
+        positionClass: current.positionClass || 'toast-top-right'
       });
     }
   } catch(_) {}

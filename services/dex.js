@@ -94,7 +94,7 @@
 
       return Number.isFinite(feeUSD) && feeUSD > 0 ? feeUSD : 0;
     } catch(e) {
-      console.error('[DEX] Error calculating gas fee:', e);
+      // console.error('[DEX] Error calculating gas fee:', e);
       return 0;
     }
   }
@@ -554,7 +554,11 @@
               else coreMsg = `Error: ${textStatus||'unknown'}`;
 
               const label = status > 0 ? (status === 200 ? '[XHR ERROR 200]' : `[HTTP ${status}]`) : '';
-              const linkDEX = generateDexLink(dexType, chainName, codeChain, NameToken, sc_input_in, NamePair, sc_output_in);
+              // FIX: Swap token & pair address untuk arah PairtoToken (DEX→CEX)
+              const isPairtoToken = String(action || '').toLowerCase() === 'pairtotoken';
+              const tokenAddr = isPairtoToken ? sc_output_in : sc_input_in;
+              const pairAddr = isPairtoToken ? sc_input_in : sc_output_in;
+              const linkDEX = generateDexLink(dexType, chainName, codeChain, NameToken, tokenAddr, NamePair, pairAddr);
               rej({ statusCode: status, pesanDEX: `${String(sKey||'').toUpperCase()}: ${label} ${coreMsg}` , DEX: String(sKey||'').toUpperCase(), dexURL: linkDEX, textStatus });
             },
           });

@@ -1,9 +1,8 @@
 
 const CONFIG_APP = {
     APP: {
-        NAME: "MULTICHECKER",
-        VERSION: "1.7",        
-        SCAN_LIMIT:false,
+        NAME: "MULTIPLUS-DEV",
+        VERSION: "2.0"
     }
 };
 
@@ -216,7 +215,7 @@ const CONFIG_CHAINS = {
         },           
     }, 
     ethereum: { 
-        Kode_Chain: 1, Nama_Chain: "ethereum", Nama_Pendek: "erc", URL_Chain: "https://etherscan.io", WARNA:"#8098ee", ICON:"https://icons.iconarchive.com/icons/cjdowner/cryptocurrency-flat/256/Ethereum-ETH-icon.png", DATAJSON: 'https://multiplus-scanner.vercel.app/JSON_KOIN/ETHEREUM.json', BaseFEEDEX : "ETHUSDT", RPC: 'https://eth-mainnet.public.blastapi.io', GASLIMIT: 250000,
+        Kode_Chain: 1, Nama_Chain: "ethereum", Nama_Pendek: "erc", URL_Chain: "https://etherscan.io", WARNA:"#8098ee", ICON:"https://icons.iconarchive.com/icons/cjdowner/cryptocurrency-flat/256/Ethereum-ETH-icon.png", DATAJSON: 'https://multiplus-scanner.vercel.app/JSON_KOIN/ETHEREUM.json', BaseFEEDEX : "ETHUSDT", RPC: 'https://eth.llamarpc.com', GASLIMIT: 250000,
         LINKS: {
             explorer: {
                 token: (address) => `https://etherscan.io/token/${address}`,
@@ -539,7 +538,7 @@ const CONFIG_DEXS = {
 
         warna: "#61ee73ff", // hitam abu-abu (Matcha/0x)
         builder: ({ chainName, tokenAddress, pairAddress, chainCode }) =>
-            `https://matcha.xyz/tokens/${chainName}/${String(tokenAddress||'').toLowerCase()}?buyChain=${chainCode}&buyAddress=${String(pairAddress||'').toLowerCase()}`,
+            `https://matcha.xyz/tokens/${chainName.lowerKey()}/${String(tokenAddress||'').toLowerCase()}?buyChain=${chainCode}&buyAddress=${String(pairAddress||'').toLowerCase()}`,
         fetchdex: {
             primary: {
                 tokentopair: '0x',      // CEX→DEX (Actionkiri): Matcha (0x) API langsung
@@ -595,7 +594,7 @@ const CONFIG_DEXS = {
         label: '1inch',
         badgeClass: 'bg-1inch',
 
-        warna: "#06109bff", // red 1inch branding
+        warna: "#ee3b27ff", // red 1inch branding
         builder: ({ chainCode, tokenAddress, pairAddress }) => `https://app.1inch.io/advanced/swap?network=${chainCode}&src=${tokenAddress}&dst=${pairAddress}`,
 
         // Strategi khusus: Primary SELALU Hinkal, Alternative SELALU ZeroSwap (tidak bergantung arah)
@@ -622,7 +621,7 @@ const CONFIG_DEXS = {
             const network = chainCode || '';
             const from = String(tokenAddress || '').toLowerCase();
             const to = String(pairAddress || '').toLowerCase();
-            return `https://app.paraswap.io/#/?network=${network}&from=${from}&to=${to}`;
+            return `https://app.velora.xyz/#/swap?network=${network}&from=${from}&to=${to}&version=6.2`;
         },
         fetchdex: {
             primary: {
