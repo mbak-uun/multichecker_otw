@@ -475,10 +475,18 @@ function renderSettingsForm() {
 
     // Generate RPC settings inputs with chain colors (compact horizontal layout)
     const chainList = Object.keys(CONFIG_CHAINS || {}).sort();
+    // Get initial RPC values from database migrator (not hardcoded anymore)
+    const getInitialRPC = (chain) => {
+        if (window.RPCDatabaseMigrator && window.RPCDatabaseMigrator.INITIAL_RPC_VALUES) {
+            return window.RPCDatabaseMigrator.INITIAL_RPC_VALUES[chain] || '';
+        }
+        return '';
+    };
     let rpcHtml = '';
+
     chainList.forEach(chain => {
         const cfg = CONFIG_CHAINS[chain];
-        const defaultRpc = cfg.RPC || '';
+        const suggestedRpc = getInitialRPC(chain);
         const chainLabel = (cfg.Nama_Chain || chain).toUpperCase();
         const chainColor = cfg.WARNA || '#333';
         const chainIcon = cfg.ICON || '';
@@ -497,9 +505,10 @@ function renderSettingsForm() {
                     <div class="uk-width-expand">
                         <input type="text" class="uk-input uk-form-small rpc-input"
                                data-chain="${chain}"
-                               data-default="${defaultRpc}"
-                               value="${defaultRpc}"
+                               placeholder="${suggestedRpc}"
+                               value=""
                                style="font-size:12px; font-family: monospace; border-color: ${chainColor}40; padding: 4px 8px; height: 28px;">
+                        <small class="uk-text-muted" style="font-size: 10px;">Default: ${suggestedRpc || 'N/A'}</small>
                     </div>
                 </div>
             </div>
@@ -507,12 +516,17 @@ function renderSettingsForm() {
     });
     $('#rpc-settings-group').html(rpcHtml);
 
-    // Load custom RPC dari setting (jika ada) - override default
-    const customRPCs = appSettings.customRPCs || {};
+    // Load user RPCs dari setting (jika ada), atau auto-fill dengan default
+    const userRPCs = appSettings.userRPCs || {};
     $('.rpc-input').each(function() {
         const chain = $(this).data('chain');
-        if (customRPCs[chain]) {
-            $(this).val(customRPCs[chain]);
+        if (userRPCs[chain]) {
+            // User sudah punya custom RPC
+            $(this).val(userRPCs[chain]);
+        } else {
+            // Auto-fill dengan default suggestion untuk kemudahan user
+            const initialRPC = getInitialRPC(chain);
+            if (initialRPC) $(this).val(initialRPC);
         }
     });
 
@@ -1194,33 +1208,51 @@ async function deferredInit() {
             JedaDexs[$(this).data('dex')] = parseFloat($(this).val()) || 100;
         });
 
-        // Collect custom RPC settings
-        let customRPCs = {};
+        // Collect user RPC settings (NEW: simplified structure using database)
+        let userRPCs = {};
+        // Get initial values from database migrator (not hardcoded anymore)
+        const getInitialRPC = (chain) => {
+            if (window.RPCDatabaseMigrator && window.RPCDatabaseMigrator.INITIAL_RPC_VALUES) {
+                return window.RPCDatabaseMigrator.INITIAL_RPC_VALUES[chain] || '';
+            }
+            return '';
+        };
+
         $('.rpc-input').each(function() {
             const chain = $(this).data('chain');
             const rpc = $(this).val().trim();
-            const defaultRpc = $(this).data('default') || '';  // ✅ Gunakan data-default dari input
-            // Hanya simpan jika berbeda dari default dan tidak kosong
-            if (rpc && rpc !== defaultRpc) {
-                customRPCs[chain] = rpc;
+
+            // Simpan RPC yang diinput user, atau gunakan initial value dari migrator jika kosong
+            if (rpc) {
+                userRPCs[chain] = rpc;
+            } else {
+                const initialRPC = getInitialRPC(chain);
+                if (initialRPC) {
+                    userRPCs[chain] = initialRPC;
+                }
             }
         });
+
+        // Validasi: pastikan semua chain punya RPC
+        const missingRPCs = Object.keys(CONFIG_CHAINS).filter(chain => !userRPCs[chain]);
+        if (missingRPCs.length > 0) {
+            UIkit.notification({
+                message: `RPC untuk chain berikut harus diisi: ${missingRPCs.join(', ')}`,
+                status: 'danger',
+                timeout: 5000
+            });
+            return;
+        }
 
         const settingData = {
             nickname, jedaTimeGroup, jedaKoin, walletMeta,
             scanPerKoin: parseInt(scanPerKoin, 10),
             speedScan: parseFloat(speedScan),
             JedaDexs,
-            customRPCs,  // Tambah custom RPC
-            AllChains: Object.keys(CONFIG_CHAINS)
+            userRPCs  // NEW: hanya simpan RPC yang diinput user (1 per chain)
         };
 
         saveToLocalStorage('SETTING_SCANNER', settingData);
-
-        // Sync with RPC Manager extended config (if available)
-        if (typeof window.RPCManager !== 'undefined' && typeof window.RPCManager.syncRPCFromSettingsForm === 'function') {
-            await window.RPCManager.syncRPCFromSettingsForm();
-        }
 
         try { setLastAction("SIMPAN SETTING"); } catch(_) {}
         alert("✅ SETTING SCANNER BERHASIL DISIMPAN");
@@ -2059,7 +2091,17 @@ function sleep(ms) {
 
 function resetSyncModalSelections() {
     try {
-        $('#sync-select-controls input[name="sync-pick-mode"]').prop('checked', false);
+        // Reset radio button selection dan disable sampai tabel selesai di-render
+        const $modeRadios = $('input[name="sync-pick-mode"]');
+        $modeRadios.prop('checked', false);
+        $modeRadios.prop('disabled', true);
+
+        // Visual feedback: disabled state
+        $modeRadios.closest('label').css({
+            opacity: '0.5',
+            pointerEvents: 'none',
+            cursor: 'not-allowed'
+        });
     } catch(_) {}
 }
 
@@ -2158,13 +2200,26 @@ function validateNonPairInputs() {
 
         const isValid = pairName && pairSc && pairDes && Number.isFinite(Number(pairDes));
 
-        // Update visual feedback
+        // Update visual feedback HANYA untuk input NON (cepat)
         $('#sync-non-pair-name').toggleClass('uk-form-danger', !pairName);
         $('#sync-non-pair-sc').toggleClass('uk-form-danger', !pairSc);
         $('#sync-non-pair-des').toggleClass('uk-form-danger', !pairDes || !Number.isFinite(Number(pairDes)));
 
-        // Disable/enable add button based on validation
-        updateAddTokenButtonState();
+        // ========== OPTIMASI: Update button state secara langsung ==========
+        // Jangan panggil updateAddTokenButtonState() karena itu query semua checkbox (lambat!)
+        // Langsung update button Save berdasarkan validasi NON saja
+        const $saveBtn = $('#sync-save-btn');
+        if ($saveBtn.length) {
+            // Jika NON dipilih, button Save enable/disable berdasarkan validasi input NON
+            // (Asumsi: koin sudah dipilih sebelumnya, pair baru bisa diklik)
+            $saveBtn.prop('disabled', !isValid);
+            if (!isValid) {
+                $saveBtn.attr('title', 'Lengkapi data Pair NON terlebih dahulu');
+            } else {
+                $saveBtn.removeAttr('title');
+            }
+        }
+        // =====================================================================
 
         return isValid;
     } catch(e) {
@@ -2212,20 +2267,44 @@ try { window.updateAddTokenButtonState = updateAddTokenButtonState; } catch(_) {
 function updateSyncSelectedCount() {
     try {
         const total = $('#sync-modal-tbody .sync-token-checkbox:checked').length;
-        $('#sync-selected-count').text(`Dipilih: ${total}`);
+        // Update counter dengan angka saja (lebih simpel)
+        $('#sync-selected-count').text(total);
         const hasSelection = total > 0;
 
-        const $modeRadios = $('input[name="sync-pick-mode"]');
-        if ($modeRadios.length) {
-            // PERUBAHAN: Selalu aktifkan radio button "Memilih" jika ada data di tabel.
-            const hasRows = $('#sync-modal-tbody tr').length > 0;
-            $modeRadios.prop('disabled', !hasRows);
-            $modeRadios.closest('label').css({ opacity: hasRows ? '' : '0.5', pointerEvents: hasRows ? '' : 'none' });
+        console.log(`[updateSyncSelectedCount] Counter updated: ${total} koin dipilih`);
+
+        // ========== RADIO BUTTON ENABLE/DISABLE DIPINDAH KE renderSyncTable() ==========
+        // Radio button diaktifkan di renderSyncTable() setelah tabel selesai di-render
+        // (TIDAK di sini, agar konsisten dengan konsep baru)
+        // ================================================================================
+
+        // ========== PAIR: AKTIF/NONAKTIF SESUAI ADA/TIDAKNYA KOIN YANG DICENTANG ==========
+        // Sama seperti DEX, pair hanya aktif jika ada koin yang dipilih
+        const $pairRadios = $('#sync-filter-pair input[type="radio"]');
+        if ($pairRadios.length) {
+            $pairRadios.prop('disabled', !hasSelection);
+
+            // Visual feedback
+            $pairRadios.closest('label').css({
+                opacity: hasSelection ? '1' : '0.5',
+                pointerEvents: hasSelection ? 'auto' : 'none',
+                cursor: hasSelection ? 'pointer' : 'not-allowed'
+            });
+
+            console.log(`[updateSyncSelectedCount] Pair radios: ${hasSelection ? 'ENABLED' : 'DISABLED'}`);
         }
 
+        // Toggle NON inputs visibility hanya jika TIDAK ada selection
+        // Jika ada selection, biarkan handler pair change yang handle toggle
+        if (!hasSelection) {
+            // Jika tidak ada koin yang dipilih, sembunyikan NON inputs
+            $('#sync-non-config').css('display', 'none');
+        }
+        // =================================================================================
+
+        // Input DEX: aktif/nonaktif sesuai ada/tidaknya koin yang dicentang
         const $dexInputs = $('#sync-dex-config').find('input');
         if ($dexInputs.length) {
-            // PERUBAHAN: Input DEX juga mengikuti state dari ada/tidaknya koin yang dicentang.
             $dexInputs.prop('disabled', !hasSelection);
             $('#sync-dex-config').css({ opacity: hasSelection ? '' : '0.5', pointerEvents: hasSelection ? '' : 'none' });
         }
@@ -2805,21 +2884,20 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
     });
 
     // ========== REFACTOR: Handler untuk Pair radio button change ==========
-    // Pair BUKAN filter tampilan, jadi JANGAN re-render table
-    // Pair hanya digunakan saat SAVE dan untuk fetch harga
+    // Pair BUKAN filter tampilan dan TIDAK untuk fetch harga
+    // Pair HANYA digunakan saat SAVE untuk menentukan symbol_out
+    // Fetch harga selalu menggunakan USDT (kecuali INDODAX pakai IDR)
     $(document).on('change', '#sync-filter-pair input[type="radio"]', function() {
-        if (!activeSingleChainKey) return;
+        const selectedPair = $(this).val();
+        console.log('[Pair Change] Selected pair:', selectedPair, '(HANYA untuk save, BUKAN fetch harga)');
 
-        // Toggle NON pair inputs visibility
+        // Toggle NON pair inputs visibility dan validasi
+        // toggleNonPairInputs() akan memanggil validateNonPairInputs() yang sudah update button state
         if (typeof window.toggleNonPairInputs === 'function') {
             window.toggleNonPairInputs();
         }
 
-        // REFACTOR: Re-render table untuk update harga berdasarkan pair baru
-        // (checkbox state akan tetap preserved karena ada logik save/restore)
-        renderSyncTable(activeSingleChainKey);
-        updateSyncSelectedCount();
-        updateAddTokenButtonState();
+        console.log('[Pair Change] No table re-render needed - harga tetap pakai USDT');
     });
 
     // Handler untuk NON pair inputs - Real-time validation
@@ -3288,82 +3366,82 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
         }
     });
 
-    // Sync modal select mode (exclusive via radio)
-    // Mode: "all" (Semua), "clear" (Hapus), "snapshot" (Snapshot), "selected" (Dipilih)
+    // ========================================
+    // RADIO BUTTON: Auto-Select Modes
+    // ========================================
+    // Mode: "all" (Semua), "selected" (Dipilih), "snapshot" (Snapshot), "clear" (Hapus)
+    // KONSEP BARU: Radio button hanya baca dari DOM tabel yang sudah di-render
     $(document).on('change', 'input[name="sync-pick-mode"]', function(){
         const mode = $(this).val();
         const $allBoxes = $('#sync-modal-tbody .sync-token-checkbox');
 
-        // console.log(`[Sync Pick Mode] Mode: ${mode}, Found ${$allBoxes.length} checkboxes.`);
+        console.log(`[Sync Pick Mode] Mode: ${mode}, Found ${$allBoxes.length} checkboxes.`);
 
-        // 🚀 OPTIMASI: Set flag untuk mencegah individual change handler
+        // Set flag untuk mencegah individual change handler (optimasi)
         if (typeof window.setSyncBulkSelecting === 'function') {
             window.setSyncBulkSelecting(true);
         }
 
         if (mode === 'all') {
-            // Pilih semua
+            // 1. SEMUA: Centang semua koin
+            console.log('[Sync Pick Mode] Mencentang semua checkbox...');
             $allBoxes.prop('checked', true);
-        } else if (mode === 'clear') {
-            // Hapus semua
-            $allBoxes.prop('checked', false);
-        } else if (mode === 'snapshot') {
-            // Pilih yang ada tag "snapshot" di row
+
+        } else if (mode === 'selected') {
+            // 2. DIPILIH: Centang koin yang punya badge [DIPILIH] di kolom CEX
+            console.log('[Sync Pick Mode] Mencari koin dengan badge [DIPILIH]...');
+            let checkedCount = 0;
+
             $allBoxes.each(function() {
                 const $row = $(this).closest('tr');
-                const hasSnapshotTag = $row.attr('data-source') === 'snapshot' ||
-                                      $row.find('[data-source="snapshot"]').length > 0 ||
-                                      $row.hasClass('snapshot-row');
-                $(this).prop('checked', hasSnapshotTag);
+                // Cari badge [DIPILIH] di kolom CEX (kolom ke-3, td:eq(2))
+                const $cexCell = $row.find('td:eq(2)');
+                const cexText = $cexCell.text().trim();
+                const hasDipilihBadge = cexText.includes('[DIPILIH]');
+
+                $(this).prop('checked', hasDipilihBadge);
+                if (hasDipilihBadge) checkedCount++;
             });
-        } else if (mode === 'selected') {
-            // Pilih yang ada di localStorage/database TOKEN_<chain>
-            const chainKey = window.activeSingleChainKey || '';
-            if (chainKey) {
-                const tokenDbKey = `TOKEN_${String(chainKey).toUpperCase()}`;
-                let savedTokens = [];
 
-                try {
-                    // Load from localStorage
-                    if (typeof window.getFromLocalStorage === 'function') {
-                        savedTokens = window.getFromLocalStorage(tokenDbKey, []);
-                    } else if (typeof localStorage !== 'undefined') {
-                        const raw = localStorage.getItem(tokenDbKey);
-                        savedTokens = raw ? JSON.parse(raw) : [];
-                    }
-                } catch(err) {
-                    // console.error('Failed to load saved tokens:', err);
-                    savedTokens = [];
-                }
+            console.log('[Sync Pick Mode] Koin [DIPILIH] ditemukan:', checkedCount);
 
-                // Create lookup set by SC address
-                const savedScSet = new Set();
-                if (Array.isArray(savedTokens)) {
-                    savedTokens.forEach(token => {
-                        const sc = String(token.sc_in || token.sc || '').toLowerCase().trim();
-                        if (sc && sc !== '0x') {
-                            savedScSet.add(sc);
-                        }
-                    });
-                }
+        } else if (mode === 'snapshot') {
+            // 3. SNAPSHOT: Centang koin yang punya badge [SNAPSHOT] di kolom CEX
+            console.log('[Sync Pick Mode] Mencari koin dengan badge [SNAPSHOT]...');
+            let snapshotCount = 0;
 
-                // Check each checkbox
-                $allBoxes.each(function() {
-                    const $row = $(this).closest('tr');
-                    const rowSc = String($row.attr('data-sc') || $row.find('.sc-cell').text() || '').toLowerCase().trim();
-                    const isSelected = rowSc && savedScSet.has(rowSc);
-                    $(this).prop('checked', isSelected);
-                });
-            }
+            $allBoxes.each(function() {
+                const $row = $(this).closest('tr');
+                // Cari badge [SNAPSHOT] di kolom CEX (kolom ke-3, td:eq(2))
+                const $cexCell = $row.find('td:eq(2)');
+                const cexText = $cexCell.text().trim();
+                const hasSnapshotBadge = cexText.includes('[SNAPSHOT]');
+
+                $(this).prop('checked', hasSnapshotBadge);
+                if (hasSnapshotBadge) snapshotCount++;
+            });
+
+            console.log('[Sync Pick Mode] Koin [SNAPSHOT] ditemukan:', snapshotCount);
+
+        } else if (mode === 'clear') {
+            // 4. HAPUS: Uncheck semua koin
+            console.log('[Sync Pick Mode] Menghapus semua centangan...');
+            $allBoxes.prop('checked', false);
         }
 
-        // 🚀 OPTIMASI: Reset flag dan update UI sekali saja di akhir
+        // Reset flag dan update UI
         if (typeof window.setSyncBulkSelecting === 'function') {
             window.setSyncBulkSelecting(false);
         }
 
-        updateSyncSelectedCount();
-        updateAddTokenButtonState();
+        // ========== UPDATE COUNTER DAN BUTTON STATE SETELAH RADIO BUTTON DIPILIH ==========
+        updateSyncSelectedCount();  // Update jumlah koin yang dipilih
+        updateAddTokenButtonState(); // Update status button Save
+
+        // Log jumlah akhir yang tercentang
+        const finalCount = $('#sync-modal-tbody .sync-token-checkbox:checked').length;
+        console.log(`[Sync Pick Mode] Total checkbox tercentang setelah update: ${finalCount}`);
+        // ===================================================================================
     });
 
     // Removed legacy single-chain start button handler (using unified #startSCAN now)
@@ -3881,6 +3959,7 @@ $(document).ready(function() {
         // ========== REFACTOR: PAIR RADIO BUTTONS (TANPA COUNTER) ==========
         // Pair adalah INPUT untuk konfigurasi save, BUKAN filter tampilan
         // Jadi TIDAK perlu counter/badge
+        // Pair DISABLED sampai user centang minimal 1 koin (sama seperti DEX)
         const $pair = $('#sync-filter-pair').empty();
         const pairKeys = Array.from(new Set([...Object.keys(pairDefs||{}), 'NON']));
         // Default: USDT jika ada, kalau tidak pakai pair pertama
@@ -3889,12 +3968,14 @@ $(document).ready(function() {
             const id = `sync-pair-${p}`;
             const checked = (p === defaultPair) ? 'checked' : '';
             // TANPA badge/counter karena pair bukan filter
-            $pair.append(`<label class="uk-text-small" style="display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid #e5e5e5; border-radius:6px; background:#fafafa; cursor:pointer;">
-                <input type="radio" name="sync-pair-group" id="${id}" value="${p}" class="uk-radio" ${checked}>
+            // DISABLED by default (akan enabled di updateSyncSelectedCount saat ada koin dipilih)
+            $pair.append(`<label class="uk-text-small" style="display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid #e5e5e5; border-radius:6px; background:#fafafa; opacity:0.5; pointer-events:none; cursor:not-allowed;">
+                <input type="radio" name="sync-pair-group" id="${id}" value="${p}" class="uk-radio" ${checked} disabled>
                 <span style="font-weight:bolder;">${p}</span>
             </label>`);
         });
-        toggleNonPairInputs();
+        // Sembunyikan NON inputs by default (akan di-toggle saat pair aktif)
+        $('#sync-non-config').css('display', 'none');
 
         // Build DEX config dengan checkbox untuk memilih DEX mana yang aktif
         const $dex = $('#sync-dex-config').empty();
@@ -3954,8 +4035,12 @@ $(document).ready(function() {
             return;
         }
 
-        // Pair yang dipilih (dari radio button) - akan digunakan saat SAVE, bukan untuk filter tampilan
-        const selectedPairForSave = selectedPair ? String(selectedPair).toUpperCase() : 'USDT';
+        // ========== FETCH HARGA SELALU PAKAI USDT ==========
+        // Fetch harga SELALU pakai USDT (kecuali INDODAX pakai IDR)
+        // Pair yang dipilih user (selectedPair) HANYA untuk SAVE, bukan fetch harga
+        // selectedPair akan dibaca ulang saat tombol Save diklik
+        const pairForPrice = 'USDT'; // ← Hardcoded USDT untuk fetch harga
+        // ====================================================
 
         const savedLookup = new Map();
         const savedPairsLookup = new Map(); // Map untuk menyimpan pairs per koin
@@ -4095,9 +4180,10 @@ $(document).ready(function() {
             // ========== RESTORE STATE CHECKBOX DARI SEBELUM RE-RENDER ==========
             // Key berdasarkan identitas koin: HANYA cex+symbol (TANPA index dan pair)
             const checkboxKey = `${cexUp}__${symIn}`;
-            let isChecked = !!saved; // Default: checked jika sudah tersimpan di DB
+            let isChecked = false; // ← DEFAULT: TIDAK TERCENTANG (user harus manual centang atau pakai radio button)
 
             // Jika ada state checkbox sebelumnya, gunakan state tersebut (PRIORITAS UTAMA)
+            // Ini untuk preserve pilihan user saat tabel di-render ulang (filter/sort)
             if (currentCheckboxState.has(checkboxKey)) {
                 isChecked = currentCheckboxState.get(checkboxKey);
             }
@@ -4107,9 +4193,13 @@ $(document).ready(function() {
             const showSourceBadge = token.__isSnapshot;
             const statusText = saved ? '[DIPILIH]' : (showSourceBadge ? '[SNAPSHOT]' : '');
             const statusColor = saved ? '#054b31ff' : '#d96c19ff'; // success green / warning orange
+
+            // Ambil warna CEX dari CONFIG_CEX
+            const cexColor = (CONFIG_CEX && CONFIG_CEX[cexUp]) ? CONFIG_CEX[cexUp].WARNA : '#333';
+
             const cexDisplay = statusText
-                ? `<div class="uk-text-bold uk-text-primary">${cexUp}</div><div style="font-size:10px; color:${statusColor}; font-weight:700; margin-top:2px;">${statusText}</div>`
-                : `<div class="uk-text-bold uk-text-primary">${cexUp}</div>`;
+                ? `<div class="uk-text-bold" style="color:${cexColor};">${cexUp}</div><div style="font-size:10px; color:${statusColor}; font-weight:700; margin-top:2px;">${statusText}</div>`
+                : `<div class="uk-text-bold" style="color:${cexColor};">${cexUp}</div>`;
 
             const scIn = String(scInRaw || '');
             const scDisplay = scIn ? (scIn.length > 12 ? `${scIn.slice(0, 6)}...${scIn.slice(-4)}` : scIn) : '?';
@@ -4128,10 +4218,11 @@ $(document).ready(function() {
             } else {
                 tradeBadge = '<span class="uk-label" style="font-size:10px; padding:3px 8px; background:#666; color:#fff;">?</span>';
             }
-            // ========== PAIR UNTUK HARGA (dari radio button) ==========
-            // Gunakan pair yang dipilih user dari radio button untuk fetch harga
-            const pairForPrice = selectedPairForSave || 'USDT';
-            const eligibleForPrice = pairForPrice && pairForPrice !== 'NON';
+            // ========== PAIR UNTUK HARGA SELALU USDT ==========
+            // Fetch harga SELALU pakai USDT (kecuali INDODAX pakai IDR)
+            // Tidak peduli pair apa yang dipilih user untuk save
+            // pairForPrice sudah dideklarasikan di atas (line 4005)
+            const eligibleForPrice = true; // Selalu fetch harga dengan USDT
 
             const priceStored = Number(token.current_price ?? NaN);
             const priceCurrency = token.price_currency || (cexUp === 'INDODAX' ? 'IDR' : 'USDT');
@@ -4218,6 +4309,26 @@ $(document).ready(function() {
         updateAddTokenButtonState();
         priceJobs.forEach(queueSyncPriceFetch);
         updateSyncSortIndicators();
+
+        // ========== ENABLE/DISABLE RADIO BUTTON BERDASARKAN DATA TABEL ==========
+        // Radio button hanya aktif setelah tabel selesai di-render dan punya data
+        const hasTableData = $('#sync-modal-tbody tr').length > 0 &&
+                            !$('#sync-modal-tbody tr td[colspan]').length; // Pastikan bukan row kosong/error
+        const $modeRadios = $('input[name="sync-pick-mode"]');
+
+        if ($modeRadios.length) {
+            $modeRadios.prop('disabled', !hasTableData);
+
+            // Visual feedback: opacity + pointer events
+            $modeRadios.closest('label').css({
+                opacity: hasTableData ? '1' : '0.5',
+                pointerEvents: hasTableData ? 'auto' : 'none',
+                cursor: hasTableData ? 'pointer' : 'not-allowed'
+            });
+
+            console.log('[renderSyncTable] Radio buttons:', hasTableData ? 'ENABLED' : 'DISABLED', '- Table rows:', $('#sync-modal-tbody tr').length);
+        }
+        // =========================================================================
     };
 });
 

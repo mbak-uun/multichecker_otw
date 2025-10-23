@@ -793,10 +793,10 @@
         }
 
         try {
-            // Use getRPC() for custom RPC support from SETTING_SCANNER
-            const rpc = (typeof getRPC === 'function')
-                ? getRPC(chainKey)
-                : (chainConfig.RPC || null);
+            // Use RPCManager for RPC access (auto fallback to defaults)
+            const rpc = (typeof window !== 'undefined' && window.RPCManager && typeof window.RPCManager.getRPC === 'function')
+                ? window.RPCManager.getRPC(chainKey)
+                : null;
 
             if (!rpc) {
                 throw new Error(`No RPC configured for chain ${chainKey}`);
