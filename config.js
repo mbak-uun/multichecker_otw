@@ -1,8 +1,8 @@
 
 const CONFIG_APP = {
     APP: {
-        NAME: "MULTICHECKER",
-        VERSION: "1.7",        
+        NAME: "MULTICHECKER-DEV",
+        VERSION: "2.1",        
         SCAN_LIMIT:false,
     }
 };
