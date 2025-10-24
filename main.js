@@ -3958,13 +3958,13 @@ $(document).ready(function() {
         const chain = (CONFIG_CHAINS || {})[chainKey] || {};
         const pairDefs = chain.PAIRDEXS || {};
 
-        // Build CEX checkboxes (horizontal chips) - auto-check CEX yang ada data
+        // Build CEX checkboxes (horizontal chips) - JANGAN auto-check CEX yang ada data
         const $cex = $('#sync-filter-cex').empty();
         Object.keys(CONFIG_CEX || {}).forEach(cex => {
             const id = `sync-cex-${cex}`;
            const badge = countByCex[cex] || 0;
-           // Auto-check CEX yang memiliki data (badge > 0)
-           const checked = badge > 0 ? 'checked' : '';
+           // TIDAK auto-check - biarkan user yang memilih
+           const checked = '';
            $cex.append(`<label class="uk-text-small" style="display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid #e5e5e5; border-radius:6px; background:#fafafa;">
                 <input type="checkbox" id="${id}" value="${cex}" class="uk-checkbox" ${checked}>
                 <span style="color:${CONFIG_CEX[cex].WARNA||'#333'}; font-weight:bolder;">${cex}</span>
