@@ -792,6 +792,12 @@ async function deferredInit() {
             }
             $sum.text(`TOTAL KOIN: ${total}`);
             $right.append($sum);
+
+            // Add search input to the right of TOTAL KOIN badge (preserve existing value if any)
+            const existingSearchValue = $('#searchInput').val() || '';
+            const $searchInput = $(`<input id="searchInput" class="uk-input uk-form-small" type="text" placeholder="Cari koin..." style="width:160px;" value="${String(existingSearchValue).replace(/"/g, '&quot;')}">`);
+            $right.append($searchInput);
+
             $wrap.append($right);
             $wrap.off('change.multif').on('change.multif','label.fc-chain input, label.fc-cex input, label.fc-dex input',function(){
                 const prev = getFilterMulti();
@@ -822,8 +828,7 @@ async function deferredInit() {
                 const msg = parts.length ? parts.join(' | ') : `Filter MULTI diperbarui: CHAIN=${chains.length}, CEX=${cex.length}`;
                 try { if (typeof toast !== 'undefined' && toast.info) toast.info(msg); } catch(_){ }
 
-                // Clear both monitoring and management search boxes after filter change
-                try { $('#searchInput').val(''); $('#mgrSearchInput').val(''); } catch(_){}
+                // searchInput in filter card is now used for both monitoring and management tables
                 // Also clear any existing signal cards produced by a previous scan
                 try { if (typeof window.clearSignalCards === 'function') window.clearSignalCards(); } catch(_) {}
                 refreshTokensTable();
@@ -889,6 +894,12 @@ async function deferredInit() {
             }
             $sum.text(`TOTAL KOIN: ${totalSingle}`);
             $right.append($sum);
+
+            // Add search input to the right of TOTAL KOIN badge (preserve existing value if any)
+            const existingSearchValue = $('#searchInput').val() || '';
+            const $searchInput = $(`<input id="searchInput" class="uk-input uk-form-small" type="text" placeholder="Cari koin..." style="width:160px;" value="${String(existingSearchValue).replace(/"/g, '&quot;')}">`);
+            $right.append($searchInput);
+
             $wrap.append($right);
             $wrap.off('change.scf').on('change.scf','label.sc-cex input, label.sc-pair input, label.sc-dex input',function(){
                 const prev = getFilterChain(chain);
@@ -918,8 +929,7 @@ async function deferredInit() {
                 const label = String(chain).toUpperCase();
                 const msg = parts.length ? `[${label}] ${parts.join(' | ')}` : `[${label}] Filter diperbarui: CEX=${c.length}, PAIR=${p.length}`;
                 try { if (typeof toast !== 'undefined' && toast.info) toast.info(msg); } catch(_){ }
-                // Clear both monitoring and management search boxes after filter change
-                try { $('#searchInput').val(''); $('#mgrSearchInput').val(''); } catch(_){}
+                // searchInput in filter card is now used for both monitoring and management tables
                 // Also clear any existing signal cards produced by a previous scan
                 try { if (typeof window.clearSignalCards === 'function') window.clearSignalCards(); } catch(_) {}
                 loadAndDisplaySingleChainTokens();
@@ -1342,7 +1352,8 @@ $("#reload").click(function () {
     });
 
     // Global search (in filter card) updates both monitoring and management views
-    $('#searchInput').on('input', debounce(function() {
+    // Use event delegation since #searchInput is created dynamically
+    $(document).on('input', '#searchInput', debounce(function() {
         // Filter monitoring table rows (multi and single chain)
         const searchValue = ($(this).val() || '').toLowerCase();
         const filterTable = (tbodyId) => {
@@ -1385,11 +1396,6 @@ $("#reload").click(function () {
         } catch(_) {}
 
         // Re-render token management list to apply same query
-        try { renderTokenManagementList(); } catch(_) {}
-    }, 250));
-
-    // Management search input (visible only on Token Management view)
-    $(document).on('input', '#mgrSearchInput', debounce(function(){
         try { renderTokenManagementList(); } catch(_) {}
     }, 250));
 

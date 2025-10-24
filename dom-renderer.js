@@ -434,11 +434,10 @@ function renderTokenManagementList() {
        
     }
 
-    const currentQ = ($('#mgrSearchInput').length ? ($('#mgrSearchInput').val() || '') : ($('#searchInput').length ? ($('#searchInput').val() || '') : ''));
-    const safeQ = String(currentQ || '').replace(/"/g, '&quot;');
+    // Use searchInput from filter card for filtering (no need for separate mgrSearchInput)
+    const currentQ = ($('#searchInput').length ? ($('#searchInput').val() || '') : '');
     const controls = (() => {
         const base = [
-          `<input id="mgrSearchInput" class="uk-input uk-form-small" type="text" placeholder="Cari koin..." style="width:160px;" value="${safeQ}">`,
           `<button id=\"btnNewToken\" class=\"uk-button uk-button-default uk-button-small\" title=\"Tambah Data Koin\"><span uk-icon=\"plus-circle\"></span> ADD COIN</button>`,
           `<button id=\"btnExportTokens\" data-feature=\"export\" class=\"uk-button uk-button-small uk-button-secondary\" title=\"Export CSV\"><span uk-icon=\"download\"></span> Export</button>`,
           `<button id=\"btnImportTokens\" data-feature=\"import\" class=\"uk-button uk-button-small uk-button-danger\" title=\"Import CSV\"><span uk-icon=\"upload\"></span> Import</button>`,
