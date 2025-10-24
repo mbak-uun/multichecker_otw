@@ -2626,35 +2626,60 @@ function queueSyncPriceFetch(job) {
 }
 try { window.queueSyncPriceFetch = queueSyncPriceFetch; } catch(_) {}
 
+// ========== OPTIMASI: PARALLEL PRICE FETCHING ==========
+// Gunakan concurrency control untuk fetch multiple prices secara parallel
+// Mengurangi waktu dari sequential (1000 × 500ms = 500 detik) menjadi parallel (1000/15 × 500ms = 33 detik)
+const SYNC_PRICE_CONCURRENCY = 15; // Fetch 15 prices secara bersamaan
+window.__SYNC_PRICE_WORKERS = window.__SYNC_PRICE_WORKERS || 0; // Track active workers
+
 async function processSyncPriceQueue() {
-    if (window.__SYNC_PRICE_ACTIVE) return;
+    // Jika sudah ada cukup banyak workers aktif, jangan tambah lagi
+    if (window.__SYNC_PRICE_WORKERS >= SYNC_PRICE_CONCURRENCY) return;
+
     const queue = window.__SYNC_PRICE_QUEUE || [];
     const next = queue.shift();
     if (!next) return;
-    window.__SYNC_PRICE_ACTIVE = true;
+
+    // Increment worker count
+    window.__SYNC_PRICE_WORKERS = (window.__SYNC_PRICE_WORKERS || 0) + 1;
+
     const cache = getSyncPriceCache();
     const cacheKey = `${next.cex}__${next.symbol}__${next.pair}`;
     const cached = cache.get(cacheKey);
     const now = Date.now();
+
+    // Check cache first
     if (cached && (now - cached.ts) < SYNC_PRICE_CACHE_TTL) {
         setSyncPriceCell(next.cex, next.symbol, next.pair, cached.price, next.renderId);
-        window.__SYNC_PRICE_ACTIVE = false;
-        processSyncPriceQueue();
+        window.__SYNC_PRICE_WORKERS--;
+        processSyncPriceQueue(); // Process next job
         return;
     }
-    try {
-        const map = await fetchTickerMapForCex(next.cex);
-        let price = resolveTickerPriceFromMap(next.cex, map, next.symbol, next.pair);
-        if (!Number.isFinite(price) || price <= 0) price = NaN;
-        if (Number.isFinite(price) && price > 0) {
-            cache.set(cacheKey, { price, ts: now });
+
+    // Fetch price (async, tidak blocking)
+    (async () => {
+        try {
+            const map = await fetchTickerMapForCex(next.cex);
+            let price = resolveTickerPriceFromMap(next.cex, map, next.symbol, next.pair);
+            if (!Number.isFinite(price) || price <= 0) price = NaN;
+            if (Number.isFinite(price) && price > 0) {
+                cache.set(cacheKey, { price, ts: now });
+            }
+            setSyncPriceCell(next.cex, next.symbol, next.pair, price, next.renderId);
+        } catch(err) {
+            setSyncPriceCell(next.cex, next.symbol, next.pair, NaN, next.renderId);
+        } finally {
+            // Decrement worker count dan lanjutkan ke job berikutnya
+            window.__SYNC_PRICE_WORKERS--;
+            if (queue.length > 0) {
+                processSyncPriceQueue(); // Process next job
+            }
         }
-        setSyncPriceCell(next.cex, next.symbol, next.pair, price, next.renderId);
-    } catch(err) {
-        setSyncPriceCell(next.cex, next.symbol, next.pair, NaN, next.renderId);
-    } finally {
-        window.__SYNC_PRICE_ACTIVE = false;
-        if (queue.length) processSyncPriceQueue();
+    })();
+
+    // Jika masih ada slot worker tersedia dan masih ada job, start worker lain
+    if (window.__SYNC_PRICE_WORKERS < SYNC_PRICE_CONCURRENCY && queue.length > 0) {
+        processSyncPriceQueue();
     }
 }
 
@@ -3346,9 +3371,13 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
         updateAddTokenButtonState();
     });
 
-    $(document).on('change', '#sync-filter-cex input[type="checkbox"]', function(){
-        renderSyncTable(activeSingleChainKey);
-    });
+    // ========== REMOVED DUPLICATE EVENT HANDLER ==========
+    // Event handler untuk CEX checkbox sudah ada di line ~2920
+    // Duplikat ini menyebabkan renderSyncTable() dipanggil 2× dan overlay tidak hilang
+    // $(document).on('change', '#sync-filter-cex input[type="checkbox"]', function(){
+    //     renderSyncTable(activeSingleChainKey);
+    // });
+    // ====================================================
 
     // Event handler untuk checkbox DEX - Toggle visual state dan disable/enable inputs
     $(document).on('change', '#sync-dex-config .sync-dex-checkbox', function(){
@@ -4019,7 +4048,36 @@ $(document).ready(function() {
     window.renderSyncTable = function(chainKey) {
         const $modal = $('#sync-modal');
 
-        // ========== SIMPAN STATE CHECKBOX SEBELUM RE-RENDER ==========
+        // ========== LOADING OVERLAY: START ==========
+        const overlayId = window.AppOverlay ? window.AppOverlay.show({
+            id: 'sync-table-render',
+            title: 'Memuat Data Koin',
+            message: 'Mohon menunggu, sedang memproses tabel...',
+            spinner: true,
+            freezeScreen: false // Jangan freeze, biarkan user bisa cancel modal
+        }) : null;
+        console.log('[renderSyncTable] Loading overlay created:', overlayId);
+        // ===========================================
+
+        // Use setTimeout to allow UI to update before heavy rendering
+        setTimeout(() => {
+            try {
+                renderSyncTableCore(chainKey, overlayId);
+            } catch (err) {
+                console.error('[renderSyncTable] Error:', err);
+                if (overlayId && window.AppOverlay) {
+                    console.log('[renderSyncTable] Hiding overlay due to error:', overlayId);
+                    window.AppOverlay.hide(overlayId);
+                }
+            }
+        }, 50);
+    };
+
+    function renderSyncTableCore(chainKey, overlayId) {
+        try {
+            const $modal = $('#sync-modal');
+
+            // ========== SIMPAN STATE CHECKBOX SEBELUM RE-RENDER ==========
         // Simpan state centang checkbox saat ini (termasuk pilihan user yang belum di-save)
         const currentCheckboxState = new Map();
         $('#sync-modal-tbody .sync-token-checkbox').each(function() {
@@ -4186,6 +4244,12 @@ $(document).ready(function() {
         const priceJobKeys = new Set();
         const priceJobs = [];
 
+        // ========== OPTIMASI: BATCH DOM RENDERING ==========
+        // Build semua HTML rows dalam 1 string, lalu insert sekali saja
+        // Mengurangi reflow dari 1000+ kali menjadi 1 kali
+        let batchHtml = '';
+        const priceCellsToUpdate = []; // Array untuk menyimpan data price cells yang perlu diupdate
+
         filtered.forEach((token, index) => {
             const baseIndex = (typeof token.__baseIndex === 'number') ? token.__baseIndex : (token._idx ?? index);
             const source = String(token.__source || sourceLabel || 'server').toLowerCase();
@@ -4301,16 +4365,20 @@ $(document).ready(function() {
                     </td>
                     <td class="uk-text-right uk-text-small" data-price-cex="${cexUp}" data-symbol="${symIn}" data-index="${baseIndex}">${priceDisplay}</td>
                 </tr>`;
-            modalBody.append(row);
 
-            // Price fetch: gunakan pair yang dipilih dari radio button
-            const $priceCell = $(`#sync-modal-tbody td[data-price-cex="${cexUp}"][data-symbol="${symIn}"][data-index="${baseIndex}"]`);
-            if ($priceCell.length) {
-                if (eligibleForPrice) {
-                    $priceCell.text(priceDisplay === '?' ? '?' : priceDisplay);
-                }
-                $priceCell.data('render-id', renderId);
-            }
+            // Tambahkan ke batch HTML string (bukan append satu-satu)
+            batchHtml += row;
+
+            // Simpan data untuk price cell update nanti (setelah DOM di-insert)
+            priceCellsToUpdate.push({
+                cexUp,
+                symIn,
+                baseIndex,
+                eligibleForPrice,
+                priceDisplay,
+                renderId
+            });
+
             const jobKey = `${cexUp}__${symIn}__${pairForPrice}`;
             if (eligibleForPrice && !priceJobKeys.has(jobKey)) {
                 priceJobKeys.add(jobKey);
@@ -4323,6 +4391,20 @@ $(document).ready(function() {
                     chain: chainKey,
                     renderId
                 });
+            }
+        });
+
+        // Insert semua rows sekaligus (1× reflow, bukan 1000× reflow)
+        modalBody.html(batchHtml);
+
+        // Update price cells setelah DOM ter-insert
+        priceCellsToUpdate.forEach(cellData => {
+            const $priceCell = $(`#sync-modal-tbody td[data-price-cex="${cellData.cexUp}"][data-symbol="${cellData.symIn}"][data-index="${cellData.baseIndex}"]`);
+            if ($priceCell.length) {
+                if (cellData.eligibleForPrice) {
+                    $priceCell.text(cellData.priceDisplay === '?' ? '?' : cellData.priceDisplay);
+                }
+                $priceCell.data('render-id', cellData.renderId);
             }
         });
         updateSyncSelectedCount();
@@ -4347,9 +4429,24 @@ $(document).ready(function() {
             });
 
             console.log('[renderSyncTable] Radio buttons:', hasTableData ? 'ENABLED' : 'DISABLED', '- Table rows:', $('#sync-modal-tbody tr').length);
+            }
+            // =========================================================================
+
+        } catch (error) {
+            console.error('[renderSyncTableCore] Error during rendering:', error);
+        } finally {
+            // ========== LOADING OVERLAY: END ==========
+            // Hide overlay setelah rendering selesai (atau error)
+            // Tambahkan delay kecil agar transisi lebih smooth
+            setTimeout(() => {
+                if (overlayId && window.AppOverlay) {
+                    console.log('[renderSyncTableCore] Hiding overlay after render:', overlayId);
+                    window.AppOverlay.hide(overlayId);
+                }
+            }, 100);
+            // ==========================================
         }
-        // =========================================================================
-    };
+    }
 });
 
 // Ensure any hard reload navigations do not leave run=YES persisted

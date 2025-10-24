@@ -106,6 +106,16 @@
 
         console.log('[Database Viewer] Loading tables with config:', DB_CONFIG);
 
+        // ========== LOADING OVERLAY: START ==========
+        const overlayId = window.AppOverlay ? window.AppOverlay.show({
+            id: 'database-viewer-load',
+            title: 'Memuat Database',
+            message: 'Mohon menunggu, sedang membaca data dari IndexedDB...',
+            spinner: true,
+            freezeScreen: false
+        }) : null;
+        // ===========================================
+
         // Preferred path: use centralized storage API so DB responds to config changes
         try {
             if (typeof window.exportIDB === 'function') {
@@ -197,6 +207,13 @@
 
                 allTablesData = tables;
                 filteredData = { ...tables };
+
+                // ========== LOADING OVERLAY: END ==========
+                if (overlayId && window.AppOverlay) {
+                    window.AppOverlay.hide(overlayId);
+                }
+                // ==========================================
+
                 return tables;
             }
         } catch(e) {
@@ -337,10 +354,24 @@
 
             console.log('[Database Viewer] ✅ Total tables loaded:', Object.keys(tables).length);
             console.log('[Database Viewer] Table list:', Object.keys(tables));
+
+            // ========== LOADING OVERLAY: END ==========
+            if (overlayId && window.AppOverlay) {
+                window.AppOverlay.hide(overlayId);
+            }
+            // ==========================================
+
             return tables;
 
         } catch(err) {
             console.error('[Database Viewer] Error loading data:', err);
+
+            // ========== LOADING OVERLAY: END (ERROR CASE) ==========
+            if (overlayId && window.AppOverlay) {
+                window.AppOverlay.hide(overlayId);
+            }
+            // =======================================================
+
             return {};
         }
     }
