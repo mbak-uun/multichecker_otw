@@ -293,7 +293,7 @@ function MultisendMessage(
   const lines = [];
   lines.push('---------------------------------------------------');
   lines.push(`${APP_HEADER} #${String(chainConfig.Nama_Chain||'').toUpperCase()}`);
-  lines.push(`#INFO_USER : #${String(nickname||'').trim()||'-'}`);
+  lines.push(`#USERNAME : #${String(nickname||'').trim()||'-'}`);
   lines.push('---------------------------------------------------');
   lines.push(`<b>PROSES :</b> ${procLeft} => ${procRight}`);
   lines.push(`<b>TRANSAKSI :</b> <a href="${linkScFrom}">${String(fromSymbol).toUpperCase()}</a> => <a href="${linkScTo}">${String(toSymbol).toUpperCase()}</a>`);

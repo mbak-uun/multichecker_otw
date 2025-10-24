@@ -579,7 +579,7 @@ function bootApp() {
             if (typeof toast !== 'undefined') {
                 if (state === 'MISSING_SETTINGS' && toast.warning) toast.warning('Lengkapi SETTING terlebih dahulu');
                 else if (state === 'MISSING_TOKENS' && toast.warning) toast.warning('Tambah/Import/Sinkronisasi KOIN terlebih dahulu');
-                else if (toast.error) toast.error('LAKUKAN SETTING APLIASI & LENGKAPI DATA KOIN TOKEN');
+                else if (toast.error) toast.error('LAKUKAN SETTING APLIKASI & LENGKAPI DATA KOIN TOKEN');
             }
         }
     }
@@ -1045,9 +1045,16 @@ async function deferredInit() {
             setScanUIGating(true);
         }
     } catch(_) {}
-    // Auto open Token Management when no tokens exist
+    // Auto open Token Management when no tokens exist (but settings are valid)
     (function autoOpenManagerIfNoTokens(){
         try {
+            // FIXED: Only auto-open token management if settings are already complete
+            // If settings are missing, bootApp() already showed the settings section
+            if (!hasValidSettings()) {
+                // Settings missing - do NOT override the settings section
+                return;
+            }
+
             const mode = getAppMode();
             let hasTokens = false;
             if (mode.type === 'single') {
@@ -1198,7 +1205,9 @@ async function deferredInit() {
         const scanPerKoin = $('input[name="koin-group"]:checked').val();
         const speedScan = $('input[name="waktu-tunggu"]:checked').val();
 
-        if (!nickname) return UIkit.notification({message: 'Nickname harus diisi!', status: 'danger'});
+        if (!nickname || nickname.length < 6) return UIkit.notification({message: 'Nickname harus diisi (minimal 6 karakter)!', status: 'danger'});
+        if (!/^[a-zA-Z\s]+$/.test(nickname)) return UIkit.notification({message: 'Nickname hanya boleh berisi huruf dan spasi!', status: 'danger'});
+
         if (!jedaTimeGroup || jedaTimeGroup <= 0) return UIkit.notification({message: 'Jeda / Group harus lebih dari 0!', status: 'danger'});
         if (!jedaKoin || jedaKoin <= 0) return UIkit.notification({message: 'Jeda / Koin harus lebih dari 0!', status: 'danger'});
         if (!walletMeta || !walletMeta.startsWith('0x')) return UIkit.notification({message: 'Wallet Address harus valid!', status: 'danger'});
@@ -3943,14 +3952,15 @@ $(document).ready(function() {
         const chain = (CONFIG_CHAINS || {})[chainKey] || {};
         const pairDefs = chain.PAIRDEXS || {};
 
-        // Build CEX checkboxes (horizontal chips) - unchecked by default
+        // Build CEX checkboxes (horizontal chips) - auto-check CEX yang ada data
         const $cex = $('#sync-filter-cex').empty();
         Object.keys(CONFIG_CEX || {}).forEach(cex => {
             const id = `sync-cex-${cex}`;
            const badge = countByCex[cex] || 0;
-           // No auto-check - user must select manually
+           // Auto-check CEX yang memiliki data (badge > 0)
+           const checked = badge > 0 ? 'checked' : '';
            $cex.append(`<label class="uk-text-small" style="display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid #e5e5e5; border-radius:6px; background:#fafafa;">
-                <input type="checkbox" id="${id}" value="${cex}" class="uk-checkbox">
+                <input type="checkbox" id="${id}" value="${cex}" class="uk-checkbox" ${checked}>
                 <span style="color:${CONFIG_CEX[cex].WARNA||'#333'}; font-weight:bolder;">${cex}</span>
                 <span class="uk-text-muted">(${badge})</span>
             </label>`);
@@ -3959,7 +3969,7 @@ $(document).ready(function() {
         // ========== REFACTOR: PAIR RADIO BUTTONS (TANPA COUNTER) ==========
         // Pair adalah INPUT untuk konfigurasi save, BUKAN filter tampilan
         // Jadi TIDAK perlu counter/badge
-        // Pair DISABLED sampai user centang minimal 1 koin (sama seperti DEX)
+        // PAIR ENABLED by default (user bisa pilih pair kapan saja setelah data dimuat)
         const $pair = $('#sync-filter-pair').empty();
         const pairKeys = Array.from(new Set([...Object.keys(pairDefs||{}), 'NON']));
         // Default: USDT jika ada, kalau tidak pakai pair pertama
@@ -3967,10 +3977,10 @@ $(document).ready(function() {
         pairKeys.forEach(p => {
             const id = `sync-pair-${p}`;
             const checked = (p === defaultPair) ? 'checked' : '';
-            // TANPA badge/counter karena pair bukan filter
-            // DISABLED by default (akan enabled di updateSyncSelectedCount saat ada koin dipilih)
-            $pair.append(`<label class="uk-text-small" style="display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid #e5e5e5; border-radius:6px; background:#fafafa; opacity:0.5; pointer-events:none; cursor:not-allowed;">
-                <input type="radio" name="sync-pair-group" id="${id}" value="${p}" class="uk-radio" ${checked} disabled>
+            // ENABLED by default - user bisa pilih pair setelah data dimuat
+            // Akan disabled hanya jika tidak ada koin yang tercentang (diatur oleh updateSyncSelectedCount)
+            $pair.append(`<label class="uk-text-small" style="display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid #e5e5e5; border-radius:6px; background:#fafafa;">
+                <input type="radio" name="sync-pair-group" id="${id}" value="${p}" class="uk-radio" ${checked}>
                 <span style="font-weight:bolder;">${p}</span>
             </label>`);
         });
