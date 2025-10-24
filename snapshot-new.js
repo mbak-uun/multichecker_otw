@@ -559,7 +559,7 @@
                                     symbol_in: symbol,
                                     token_name: existing?.token_name || item.tokenName || '',
                                     sc_in: contractAddress, // Use contract address from CEX API
-                                    tradeable: true, // Default value, not available from wallet API
+                                    tradeable: item.trading !== undefined ? !!item.trading : true, // Use trading status dari CEX API, fallback true jika tidak ada
                                     decimals: existing?.des_in || existing?.decimals || '',
                                     des_in: existing?.des_in || existing?.decimals || '',
                                     deposit: item.depositEnable ? '1' : '0',
@@ -988,6 +988,8 @@
 
         // Process each CEX - INDODAX terakhir untuk lookup TOKEN database
         let allTokens = [];
+        const cexResults = new Map(); // Track hasil per CEX
+        const failedCexList = []; // Track CEX yang gagal
 
         // Pisahkan INDODAX dari CEX lain
         const regularCex = selectedCex.filter(c => String(c).toUpperCase() !== 'INDODAX');
@@ -1015,6 +1017,29 @@
 
             // Fetch CEX data (deposit/withdraw status from wallet API)
             let cexTokens = await fetchCexData(chainKey, cex);
+
+            // ========== VALIDASI HASIL FETCH CEX ==========
+            if (!cexTokens || cexTokens.length === 0) {
+                failedCexList.push(cexUpper);
+                cexResults.set(cexUpper, { success: false, count: 0 });
+
+                // Show warning in overlay
+                if (window.SnapshotOverlay) {
+                    window.SnapshotOverlay.updateMessage(
+                        `Update Snapshot ${chainDisplay}`,
+                        `⚠️ ${cexUpper}: Tidak ada data atau gagal fetch`
+                    );
+                }
+
+                // Log error untuk debugging
+                console.warn(`[${cexUpper}] Failed to fetch data or returned empty array`);
+
+                // Lanjut ke CEX berikutnya
+                continue;
+            }
+
+            // CEX berhasil
+            cexResults.set(cexUpper, { success: true, count: cexTokens.length });
 
             // Special handling untuk INDODAX: lookup TOKEN database
             if (isIndodax && cexTokens.length > 0) {
@@ -1045,6 +1070,14 @@
                     const mergedList = Array.from(tokenMap.values());
                     await saveToSnapshot(chainKey, mergedList);
 
+                    // Show success message
+                    if (window.SnapshotOverlay) {
+                        window.SnapshotOverlay.updateMessage(
+                            `Update Snapshot ${chainDisplay}`,
+                            `✅ ${cexUpper}: ${cexTokens.length} koin berhasil`
+                        );
+                    }
+
                     // console.log(`✅ Auto-saved ${cexTokens.length} tokens from ${cex}`);
                 } catch(saveErr) {
                     // console.error(`Failed to auto-save ${cex}:`, saveErr);
@@ -1052,6 +1085,61 @@
             }
 
             await sleep(100); // Small delay between CEX
+        }
+
+        // ========== VALIDASI HASIL AKHIR SEMUA CEX ==========
+        const successCount = orderedCex.length - failedCexList.length;
+
+        // Jika SEMUA CEX GAGAL, hentikan proses
+        if (failedCexList.length === orderedCex.length) {
+            const errorMsg = `Semua CEX gagal mengambil data!\n\nCEX yang gagal: ${failedCexList.join(', ')}\n\nKemungkinan penyebab:\n- API Key tidak valid atau expired\n- Network/koneksi bermasalah\n- Rate limit dari CEX\n- Service CEX sedang down\n\nSilakan cek API Key di menu Setting dan coba lagi.`;
+
+            // Show error in overlay
+            if (window.SnapshotOverlay) {
+                window.SnapshotOverlay.showError(errorMsg, 0); // 0 = no auto-hide
+            }
+
+            // Show toast error
+            if (typeof toast !== 'undefined' && toast.error) {
+                toast.error(`❌ Semua CEX gagal! Cek API Key di Setting.`, {
+                    duration: 8000,
+                    position: 'top-center'
+                });
+            }
+
+            // Throw error untuk dihentikan di catch block
+            throw new Error(`Semua CEX gagal fetch data: ${failedCexList.join(', ')}`);
+        }
+
+        // Jika SEBAGIAN CEX GAGAL, tampilkan warning tapi lanjut proses
+        if (failedCexList.length > 0) {
+            const warningMsg = `⚠️ ${failedCexList.length} CEX gagal mengambil data\n\nGagal: ${failedCexList.join(', ')}\nBerhasil: ${successCount} CEX (${allTokens.length} koin)\n\nProses dilanjutkan dengan CEX yang berhasil.`;
+
+            // Show warning toast
+            if (typeof toast !== 'undefined' && toast.warning) {
+                toast.warning(warningMsg, {
+                    duration: 6000,
+                    position: 'top-center'
+                });
+            }
+
+            // Update overlay dengan warning
+            if (window.SnapshotOverlay) {
+                window.SnapshotOverlay.updateMessage(
+                    `Update Snapshot ${chainDisplay}`,
+                    `⚠️ ${failedCexList.length} CEX gagal | Lanjut dengan ${successCount} CEX`
+                );
+            }
+
+            console.warn(`[Snapshot] Partial success: ${successCount}/${orderedCex.length} CEX succeeded`, {
+                failed: failedCexList,
+                tokens: allTokens.length
+            });
+        }
+
+        // Jika tidak ada token sama sekali (edge case)
+        if (allTokens.length === 0) {
+            throw new Error('Tidak ada data koin yang berhasil diambil dari semua CEX');
         }
 
         // Validate & enrich data with PARALLEL batch processing

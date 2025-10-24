@@ -867,7 +867,9 @@ async function deferredInit() {
                 const id=`sc-pair-${p}`; const cnt=byPair[p]||0;
                 if (cnt===0) return; // hide chips with 0 token
                 const checked=pairSel.includes(p);
-                $secPair.append(chipHtml('sc-pair',id,p,'',cnt,checked, undefined, false));
+                // Set warna hitam untuk NON, kosong untuk pair lainnya
+                const pairColor = (p === 'NON') ? '#000' : '';
+                $secPair.append(chipHtml('sc-pair',id,p,pairColor,cnt,checked, undefined, false));
             });
             // DEX chips based on chain-allowed DEXes and filtered dataset
             const $secDex=$('<div class="uk-flex uk-flex-middle" style="gap:8px;flex-wrap:wrap;"><span class="uk-text-bolder uk-text-danger">DEX:</span></div>');
@@ -3983,11 +3985,13 @@ $(document).ready(function() {
         pairKeys.forEach(p => {
             const id = `sync-pair-${p}`;
             const checked = (p === defaultPair) ? 'checked' : '';
+            // Set warna: NON = hitam (#000), pair lainnya default
+            const pairColor = (p === 'NON') ? '#000' : 'inherit';
             // ENABLED by default - user bisa pilih pair setelah data dimuat
             // Akan disabled hanya jika tidak ada koin yang tercentang (diatur oleh updateSyncSelectedCount)
             $pair.append(`<label class="uk-text-small" style="display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid #e5e5e5; border-radius:6px; background:#fafafa;">
                 <input type="radio" name="sync-pair-group" id="${id}" value="${p}" class="uk-radio" ${checked}>
-                <span style="font-weight:bolder;">${p}</span>
+                <span style="font-weight:bolder; color:${pairColor};">${p}</span>
             </label>`);
         });
         // Sembunyikan NON inputs by default (akan di-toggle saat pair aktif)
