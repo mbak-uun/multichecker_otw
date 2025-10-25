@@ -1097,7 +1097,7 @@ function InfoSinyal(DEXPLUS, TokenPair, PNL, totalFee, cex, NameToken, NamePair,
   // Item sinyal: kompak + border kanan (separator)
   const sLink = `
     <div class="signal-item uk-flex uk-flex-middle uk-flex-nowrap uk-text-small uk-padding-remove-vertical" >
-      <a href="#${idPrefix}${baseId}" class="uk-link-reset uk-text-bold" style="text-decoration:none; font-size:12px; margin-top:2px; margin-left:4px;">
+      <a href="#${idPrefix}${baseId}" class="uk-link-reset " style="text-decoration:none; font-size:12px; margin-top:2px; margin-left:4px;">
         <span class="${Number(PNL) > filterPNLValue ? 'signal-highlight' : ''}" style="color:${warnaCEX}; ${highlightStyle}; display:inline-block;">
           🔸 ${String(cex).slice(0,3).toUpperCase()}X
           <span class="uk-text-dark">:${modal}</span>
