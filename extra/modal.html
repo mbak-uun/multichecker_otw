@@ -191,14 +191,6 @@ body {
     box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
 
-.uk-accordion-title {
-    font-weight: 700;
-    letter-spacing: 0.06em;
-}
-
-.uk-accordion-title span {
-    color: var(--text-primary);
-}
 
 .asset-line {
     padding: 6px 0;
@@ -437,17 +429,26 @@ img:hover {
 
 /* Accordion Enhancement */
 .uk-accordion-title {
-    background: #f8f9fa;
+    background: #4a5568;
+    color: #ffffff;
     padding: 10px 12px;
     border-radius: 6px;
     margin-bottom: 10px;
     transition: all 0.2s ease;
 }
-
-.uk-accordion-title:hover {
-    background: #e9ecef;
+.uk-accordion-title span {
+    color: #ffffff !important;
 }
-
+/* Hover/Active: ensure text color switches cleanly */
+.uk-accordion-title:hover,
+.uk-open > a.uk-accordion-title {
+    background: #eff0f1;
+    color: #1f2937;
+}
+.uk-accordion-title:hover span,
+.uk-open > a.uk-accordion-title span {
+    color: #1f2937 !important;
+}
 /* Enhanced Modal Capital Section */
 .modal-capital-section {
     background: #ffffff;
@@ -652,8 +653,149 @@ img:hover {
         grid-template-columns: 1fr;
     }
 }
+
+/* ============================================ */
+/* LOADING OVERLAY STYLES - BLACK & WHITE THEME */
+/* ============================================ */
+.balance-check-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+    animation: fadeIn 0.3s ease;
+}
+
+.balance-check-overlay.active {
+    display: flex;
+}
+
+.overlay-content {
+    background: linear-gradient(145deg, #1a1a1a 0%, #2d2d2d 100%);
+    padding: 40px 50px;
+    border-radius: 16px;
+    text-align: center;
+    box-shadow: 0 25px 70px rgba(0, 0, 0, 0.6),
+                0 0 0 1px rgba(255, 255, 255, 0.1);
+    max-width: 450px;
+    animation: slideUp 0.4s ease;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.overlay-spinner {
+    width: 70px;
+    height: 70px;
+    margin: 0 auto 25px;
+    border: 5px solid rgba(255, 255, 255, 0.1);
+    border-top-color: #ffffff;
+    border-right-color: rgba(255, 255, 255, 0.6);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.overlay-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 12px;
+    text-shadow: 0 2px 15px rgba(255, 255, 255, 0.1);
+    letter-spacing: 0.5px;
+}
+
+.overlay-message {
+    font-size: 15px;
+    color: rgba(255, 255, 255, 0.75);
+    margin-bottom: 20px;
+    line-height: 1.6;
+}
+
+.overlay-progress {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50px;
+    height: 8px;
+    overflow: hidden;
+    margin-top: 20px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.overlay-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #ffffff 0%, #e0e0e0 50%, #ffffff 100%);
+    border-radius: 50px;
+    transition: width 0.3s ease;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+    position: relative;
+}
+
+.overlay-progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.4) 50%,
+        transparent 100%);
+    animation: shimmer 1.5s infinite;
+}
+
+.overlay-details {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 15px;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.5px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
 </style>
 <body>
+
+<!-- ============================================ -->
+<!-- LOADING OVERLAY FOR BALANCE CHECK -->
+<!-- ============================================ -->
+<div id="balanceCheckOverlay" class="balance-check-overlay">
+    <div class="overlay-content">
+        <div class="overlay-spinner"></div>
+        <div class="overlay-title" id="overlayTitle">Memuat Saldo...</div>
+        <div class="overlay-message" id="overlayMessage">Mohon tunggu, sedang mengambil data dari exchanger dan wallet...</div>
+        <div class="overlay-progress">
+            <div class="overlay-progress-bar" id="overlayProgressBar" style="width: 0%"></div>
+        </div>
+        <div class="overlay-details" id="overlayDetails"></div>
+    </div>
+</div>
 
 <div class="uk-container uk-margin-small-top">
         <!-- Main Header with Description -->
@@ -992,15 +1134,15 @@ img:hover {
 
                 <!-- Status Info -->
                 <div style="background: #f8f9fa; padding: 10px; border-radius: 6px; margin: 12px 0; font-size: 0.85rem;">
-                    <div class="  uk-text-success"style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                    <div class="uk-text-danger" style="display: flex; justify-content: space-between; margin-bottom: 6px;">
                         <span class="  uk-text-bold">Last Check:</span>
                         <strong id="lastUpdate">...</strong>
                     </div>
-                    <div class="  uk-text-primary" style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                    <div class="uk-text-secondary" style="display: flex; justify-content: space-between; margin-bottom: 6px;">
                         <span class="  uk-text-bold" >Modal Saat Ini:</span>
                         <strong id="m_akhirs">...</strong>
                     </div>
-                    <div class="  uk-text-danger" style="display: flex; justify-content: space-between;">
+                    <div id="pnl-container" style="display: flex; justify-content: space-between;">
                         <span class="  uk-text-bold">PNL Saat Ini:</span>
                         <strong id="m_pnls">...</strong>
                     </div>
@@ -1104,12 +1246,84 @@ img:hover {
     </div>
 </div>
 
-<script>  
+<script>
     $(document).ready(async function () {
         // Ensure IndexedDB-backed localStorage is initialized
         if (window.__IDB_LOCALSTORAGE_READY__) {
             try { await window.__IDB_LOCALSTORAGE_READY__; } catch (e) {}
         }
+
+        // ============================================
+        // LOADING OVERLAY CONTROLLER
+        // ============================================
+        window.BalanceCheckOverlay = {
+            isActive: false,
+
+            show: function(title = "Memuat Saldo...", message = "Mohon tunggu...") {
+                this.isActive = true;
+                $('#balanceCheckOverlay').addClass('active');
+                $('#overlayTitle').text(title);
+                $('#overlayMessage').text(message);
+                $('#overlayProgressBar').css('width', '0%');
+                $('#overlayDetails').text('');
+            },
+
+            hide: function() {
+                this.isActive = false;
+                $('#balanceCheckOverlay').removeClass('active');
+                $('#overlayProgressBar').css('width', '0%');
+            },
+
+            updateProgress: function(percent, details = '') {
+                if (!this.isActive) return; // Don't update if not active
+                $('#overlayProgressBar').css('width', percent + '%');
+                if (details) {
+                    $('#overlayDetails').text(details);
+                }
+            },
+
+            updateMessage: function(title, message) {
+                if (!this.isActive) return; // Don't update if not active
+                $('#overlayTitle').text(title);
+                $('#overlayMessage').text(message);
+            }
+        };
+
+        // Helpers to wait until tables are actually populated before hiding overlay
+        async function waitFor(conditionFn, timeoutMs = 15000, intervalMs = 100) {
+            const start = Date.now();
+            return new Promise((resolve) => {
+                const timer = setInterval(() => {
+                    if (conditionFn()) {
+                        clearInterval(timer);
+                        resolve(true);
+                    } else if (Date.now() - start > timeoutMs) {
+                        clearInterval(timer);
+                        resolve(false);
+                    }
+                }, intervalMs);
+            });
+        }
+
+        function isCexTableReady() {
+            // Ensure no placeholder values remain on visible rows and total is computed
+            const hasPlaceholders = $("#assetTableCexs tbody.cex-static tr:visible td[id$='Saldo']")
+                .toArray()
+                .some(td => /xxx|\?\?\?/.test($(td).text()));
+            const totalText = $('#TotalSaldoCEX').text().trim();
+            const totalReady = totalText !== '...' && totalText.length > 0;
+            return !hasPlaceholders && totalReady;
+        }
+
+        function isWalletTableReady(expectedResults) {
+            const rowsCount = $('#output_chain tr').length;
+            const expected = Array.isArray(expectedResults)
+                ? expectedResults.filter(r => !r.error).length
+                : rowsCount; // fallback
+            const totalReady = $('#TotalSaldoWallets').text().trim() !== '...';
+            return rowsCount >= expected && expected > 0 && totalReady;
+        }
+
         // KALKULATOR 
             var ratePrice = {
                 usdt: 1,
@@ -1748,12 +1962,28 @@ img:hover {
                 checkedExchanges.push(id);
             });
 
+            // Show loading overlay only if not already active
+            const isStandaloneCall = !window.BalanceCheckOverlay.isActive;
+            if (isStandaloneCall) {
+                window.BalanceCheckOverlay.show(
+                    'Cek Saldo Exchanger',
+                    'Mengambil data saldo dari exchanger...'
+                );
+                window.BalanceCheckOverlay.updateProgress(10, `Memproses ${checkedExchanges.length} exchanger(s)...`);
+            }
+
             let allChecksPassed = true; // Flag untuk memastikan semua pengecekan berhasil
 
             // Jalankan fungsi pengecekan untuk setiap exchange yang dicentang
             // Tunggu sampai semua pengecekan selesai dengan async/await
+            const totalExchanges = checkedExchanges.length;
+            let processedCount = 0;
+
             await Promise.all(checkedExchanges.map(async function (exchange) {
                 try {
+                    const progressPercent = 20 + (processedCount / totalExchanges) * 70;
+                    window.BalanceCheckOverlay.updateProgress(progressPercent, `Memproses ${exchange}...`);
+
                     switch (exchange) {
                         case 'BINANCE':
                             await cekAssetBinance(); // Tunggu hingga selesai
@@ -1779,25 +2009,51 @@ img:hover {
                         default:
                             break;
                     }
+                    processedCount++;
                 } catch (error) {
                     // Jika pengecekan gagal, tampilkan pesan error
-                    
+
                     allChecksPassed = false; // Tandai bahwa ada pengecekan yang gagal
                     $('#TotalSaldoCEX').text(`???`);
+                    processedCount++;
                 }
             }));
 
             // Jika ada pengecekan yang gagal, beri tahu pengguna dan berhenti
             if (!allChecksPassed) {
-        
+                // Emit completion on error so combined flow can continue
+                $(document).trigger('CEXCheckCompleted');
+                // Hide overlay on error only if standalone call
+                if (isStandaloneCall) {
+                    setTimeout(() => {
+                        window.BalanceCheckOverlay.hide();
+                    }, 200);
+                }
                 // Jika pengecekan gagal, tampilkan pesan error
                 return; // Keluar dari fungsi jika ada pengecekan yang gagal
             }
 
+            window.BalanceCheckOverlay.updateProgress(95, 'Menghitung total saldo...');
+
             // Setelah semua pengecekan selesai dan berhasil, hitung total saldo
             await getTotalSaldoCEXS(); // Panggil setelah semua pengecekan selesai
-            
+
+            // Tunggu hingga tabel exchanger benar-benar terisi dan total siap
+            await waitFor(isCexTableReady, 15000, 100);
+
+            window.BalanceCheckOverlay.updateProgress(100, 'Memeriksa Ulang Data...');
+
             ShowLabelModal("load");
+
+            // Emit completion event for combined flow listeners
+            $(document).trigger('CEXCheckCompleted');
+
+            // Sembunyikan overlay bila pemanggilan mandiri (bukan combined)
+            if (isStandaloneCall) {
+                setTimeout(() => {
+                    window.BalanceCheckOverlay.hide();
+                }, 200);
+            }
 
         });
 
@@ -1872,6 +2128,16 @@ img:hover {
         $('#SaveWalletChains').on('click', async function () {
             $(this).prop('disabled', true);  // Menonaktifkan tombol selama proses
 
+            // Show loading overlay only if not already active
+            const isStandaloneCall = !window.BalanceCheckOverlay.isActive;
+            if (isStandaloneCall) {
+                window.BalanceCheckOverlay.show(
+                    'Cek Saldo Wallet',
+                    'Mengambil data saldo dari wallet chains...'
+                );
+                window.BalanceCheckOverlay.updateProgress(10, 'Memvalidasi input...');
+            }
+
             $('#LTotalSaldoWallets').text('');
             $('#TotalSaldoWallets').text('');
 
@@ -1896,6 +2162,9 @@ img:hover {
                 );
                 $('#assetTableWallet').show();
                 $(this).prop('disabled', false);  // Mengaktifkan kembali tombol jika ada error
+                // Emit completion on error/invalid so combined flow can continue
+                $(document).trigger('WalletCheckCompleted');
+                if (isStandaloneCall) window.BalanceCheckOverlay.hide(); // Hide overlay on error only if standalone
                 return;
             }
 
@@ -1905,24 +2174,38 @@ img:hover {
                 $('#output_chain').html('<tr><td colspan="4">Pilih Min 1 Chain!!</td></tr>');
                 $('#assetTableWallet').show();
                 $(this).prop('disabled', false);
+                // Emit completion on error/invalid so combined flow can continue
+                $(document).trigger('WalletCheckCompleted');
+                if (isStandaloneCall) window.BalanceCheckOverlay.hide(); // Hide overlay on error only if standalone
                 return;
             }
 
+
             $('#output_chain').html('<tr><td colspan="4">Loading...</td></tr>');
             $('#assetTableWallet').show();
+            window.BalanceCheckOverlay.updateProgress(30, `Memproses ${validChains.length} chain(s)...`);
 
             try {
+                window.BalanceCheckOverlay.updateProgress(40, 'Mengambil rate token...');
                 const tokenRates = await fetchTokenRates();
 
                 if (!tokenRates || Object.keys(tokenRates).length === 0) {
                     throw new Error('Tidak dapat mengambil data rate token.');
                 }
 
-                const results = await Promise.all(validChains.map(chain =>
-                    chain === 'solana' ? 
-                    getSolanaBalance(selectedChains[chain], tokenRates) :
-                    getAssetBalancesEVM(chains[chain], erc20Contracts[chain], selectedChains[chain], chain, tokenRates)
-                ));
+                window.BalanceCheckOverlay.updateProgress(60, 'Mengambil saldo dari wallet chains...');
+
+                const results = await Promise.all(validChains.map((chain, index) => {
+                    // Update progress for each chain
+                    const progressPercent = 60 + (index / validChains.length) * 30;
+                    window.BalanceCheckOverlay.updateProgress(progressPercent, `Memproses ${chain.toUpperCase()}...`);
+
+                    return chain === 'solana' ?
+                        getSolanaBalance(selectedChains[chain], tokenRates) :
+                        getAssetBalancesEVM(chains[chain], erc20Contracts[chain], selectedChains[chain], chain, tokenRates);
+                }));
+
+                window.BalanceCheckOverlay.updateProgress(90, 'Menampilkan hasil ke tabel...');
 
                 $('#output_chain').html(results.map(result => {
                     if (result.error) {
@@ -1943,6 +2226,9 @@ img:hover {
                     }
                 }).join(''));
 
+                // Wait for DOM to update the table
+                await new Promise(resolve => setTimeout(resolve, 100));
+
                 // Simpan data ke localStorage setelah semua selesai
                 const assetData = results.filter(result => !result.error).map(result => {
                     return {
@@ -1958,6 +2244,8 @@ img:hover {
                 }).filter(item => item !== null);
 
                 if (assetData.length > 0) {
+                    window.BalanceCheckOverlay.updateProgress(95, 'Menyimpan data...');
+
                     localStorage.setItem('MULTI_assetDataCEX', JSON.stringify(assetData));
 
                     const formattedTime = getFormattedTime();
@@ -1970,6 +2258,11 @@ img:hover {
 
                     // Update summary cards
                     updateSummaryCards();
+
+                    // Tunggu hingga tabel wallet benar-benar terisi dan total siap
+                    await waitFor(() => isWalletTableReady(results), 15000, 100);
+
+                    window.BalanceCheckOverlay.updateProgress(100, 'Memeriksa Ulang Data...');
                 } else {
                     throw new Error('Tidak ada data valid untuk disimpan.');
                 }
@@ -1978,9 +2271,25 @@ img:hover {
                 $('#output_chain').html(
                     `<tr><td colspan="4">ERROR : ${error.message}</td></tr>`
                 );
+                // Emit completion on error so combined flow can continue
+                $(document).trigger('WalletCheckCompleted');
+                if (isStandaloneCall) {
+                    setTimeout(() => window.BalanceCheckOverlay.hide(), 200);
+                }
             }
+
             ShowLabelModal("load");
             updateSummaryCards();
+
+            // Emit completion event for combined flow listeners (success path)
+            $(document).trigger('WalletCheckCompleted');
+
+            // Hide overlay after completion only if standalone call
+            if (isStandaloneCall) {
+                setTimeout(() => {
+                    window.BalanceCheckOverlay.hide();
+                }, 200);
+            }
 
             $(this).prop('disabled', false);  // Mengaktifkan kembali tombol setelah selesai
         });
@@ -2551,7 +2860,7 @@ img:hover {
             if (method === 'check') {
                 // Jika method adalah 'check'
                 saldoAkhir = saldoExchanger + saldoAllChain;  // Saldo akhir adalah saldo exchanger + saldo chain
-                pnl = modalAwal-saldoAkhir;  // PNL adalah modal awal dikurangi saldo akhir
+                pnl = saldoAkhir-modalAwal;  // PNL adalah modal awal dikurangi saldo akhir
             }else if (method==="load") {
                 // Jika method adalah 'check'
                 saldoAkhir = saldoExchanger + saldoAllChain;  // Saldo akhir adalah saldo exchanger + saldo chain
@@ -2566,6 +2875,17 @@ img:hover {
             $('#m_awal').text(Number(modalAwal).toFixed(2) + ' USDT');
             $('#m_akhir').text(saldoAkhir.toFixed(2) + ' USDT');
             $('#m_pnl').text(pnl.toFixed(2) + ' USDT');
+
+            // Update PNL color
+            const $pnlContainer = $('#pnl-container');
+            $pnlContainer.removeClass('uk-text-success uk-text-danger uk-text-primary');
+            if (pnl > 0) {
+                $pnlContainer.addClass('uk-text-success');
+            } else if (pnl < 0) {
+                $pnlContainer.addClass('uk-text-danger');
+            } else {
+                $pnlContainer.addClass('uk-text-primary');
+            }
 
             $('#lastUpdate').text(localStorage.getItem('MULTI_lastCheck'));
             USDTIDR(modalAwal).then((idrusdt) => {
@@ -2603,25 +2923,56 @@ img:hover {
         }
 
         $('#CheckModal').on('click', async function () {
-            LoadTableHistory(); 
+            LoadTableHistory();
 
-            // Menunggu hingga kedua proses pengecekan selesai
-            await Promise.all([
-                new Promise((resolve) => {
-                    $('#SaveWalletChains').one('click', resolve);  // Menunggu hingga #SaveWalletChains selesai
-                    $('#SaveWalletChains').trigger('click'); // Proses pengecekan wallet chains
-                }),
-                new Promise((resolve) => {
-                    $('#SaveConfigCEXS').one('click', resolve);  // Menunggu hingga #SaveConfigCEXS selesai
-                    $('#SaveConfigCEXS').trigger('click'); // Proses pengecekan CEX
-                })
-            ]);
-            // Menyimpan waktu saat data diperbarui
-            var formattedTime = getFormattedTime();
-            // Simpan waktu terakhir diperbarui ke localStorage
-            localStorage.setItem('MULTI_lastCheck', formattedTime);               
+            // Show loading overlay for combined check
+            window.BalanceCheckOverlay.show(
+                'Cek Semua Saldo',
+                'Mengambil data saldo dari wallet dan exchanger...'
+            );
+            window.BalanceCheckOverlay.updateProgress(5, 'Memulai proses pengecekan...');
 
-            ShowLabelModal("check");    
+            try {
+                // Menunggu hingga kedua proses pengecekan selesai
+                window.BalanceCheckOverlay.updateProgress(10, 'Memproses wallet chains...');
+
+                await Promise.all([
+                    new Promise((resolve) => {
+                        $(document).one('WalletCheckCompleted', resolve);
+                        $('#SaveWalletChains').trigger('click'); // Proses pengecekan wallet chains
+                    }),
+                    new Promise((resolve) => {
+                        $(document).one('CEXCheckCompleted', resolve);
+                        $('#SaveConfigCEXS').trigger('click'); // Proses pengecekan CEX
+                    })
+                ]);
+
+                window.BalanceCheckOverlay.updateProgress(95, 'Menyimpan hasil...');
+
+                // Menyimpan waktu saat data diperbarui
+                var formattedTime = getFormattedTime();
+                // Simpan waktu terakhir diperbarui ke localStorage
+                localStorage.setItem('MULTI_lastCheck', formattedTime);
+
+                ShowLabelModal("check");
+
+                // Pastikan kedua tabel sudah siap sebelum menutup overlay
+                await waitFor(() => isCexTableReady(), 15000, 100);
+                await waitFor(() => isWalletTableReady(), 15000, 100);
+
+                window.BalanceCheckOverlay.updateProgress(100, 'Memeriksa Ulang Data...');
+
+                // Tutup overlay setelah semua siap
+                setTimeout(() => {
+                    window.BalanceCheckOverlay.hide();
+                }, 200);
+            } catch (error) {
+                console.error('Error during check:', error);
+                // Hide overlay on error
+                setTimeout(() => {
+                    window.BalanceCheckOverlay.hide();
+                }, 500);
+            }
         });
 
         // Fungsi untuk memuat data dari localStorage saat halaman di-refresh

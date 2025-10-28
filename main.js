@@ -2388,6 +2388,31 @@ function updateAddTokenButtonState() {
 }
 try { window.updateAddTokenButtonState = updateAddTokenButtonState; } catch(_) {}
 
+function updatePriceFilterState() {
+    try {
+        // Check if table has data (koin sudah dimuat)
+        const hasData = $('#sync-modal-tbody tr').length > 0;
+        const isEmpty = $('#sync-modal-tbody tr td[colspan]').length > 0; // Cek jika ada pesan kosong
+
+        const shouldEnable = hasData && !isEmpty;
+
+        // Enable/disable radio buttons
+        const $priceRadios = $('input[name="sync-price-filter"]');
+        $priceRadios.prop('disabled', !shouldEnable);
+
+        // Visual feedback
+        $('#sync-price-filter-container label').css({
+            opacity: shouldEnable ? '1' : '0.5',
+            cursor: shouldEnable ? 'pointer' : 'not-allowed'
+        });
+
+        console.log(`[updatePriceFilterState] Price filter ${shouldEnable ? 'enabled' : 'disabled'}`);
+    } catch(e) {
+        console.error('[updatePriceFilterState] Error:', e);
+    }
+}
+try { window.updatePriceFilterState = updatePriceFilterState; } catch(_) {}
+
 function updateSyncSelectedCount() {
     try {
         const total = $('#sync-modal-tbody .sync-token-checkbox:checked').length;
@@ -3058,6 +3083,18 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
         if (!activeSingleChainKey) return;
 
         // Just re-render table with new filters
+        renderSyncTable(activeSingleChainKey);
+        updateSyncSelectedCount();
+    });
+
+    // Handler untuk Price Filter radio button change - Re-render table
+    $(document).on('change', 'input[name="sync-price-filter"]', function() {
+        if (!activeSingleChainKey) return;
+
+        const filterValue = $(this).val();
+        console.log('[Price Filter] Changed to:', filterValue);
+
+        // Re-render table with price filter
         renderSyncTable(activeSingleChainKey);
         updateSyncSelectedCount();
     });
@@ -4169,6 +4206,11 @@ $(document).ready(function() {
                     <input type="number" class="uk-input uk-form-small sync-dex-right" data-dex="${dx}" placeholder="Modal Kanan" value="100" style="flex: 1;">
                 </div>`);
         });
+
+        // Disable price filter initially (akan di-enable saat tabel sudah ada data)
+        if (typeof window.updatePriceFilterState === 'function') {
+            window.updatePriceFilterState();
+        }
     };
 
     window.renderSyncTable = function(chainKey) {
@@ -4287,10 +4329,21 @@ $(document).ready(function() {
             }));
         });
 
-        // Filter HANYA berdasarkan CEX (BUKAN pair atau search)
+        // Filter berdasarkan CEX dan Harga
+        const priceFilter = $('input[name="sync-price-filter"]:checked').val() || 'all';
         const filtered = processed.filter(t => {
             const cexUp = String(t.cex || '').toUpperCase();
             if (selectedCexs.length && !selectedCexs.includes(cexUp)) return false;
+
+            // Filter harga
+            if (priceFilter !== 'all') {
+                const price = Number(t.current_price || 0);
+                const hasPrice = Number.isFinite(price) && price > 0;
+
+                if (priceFilter === 'with-price' && !hasPrice) return false;
+                if (priceFilter === 'no-price' && hasPrice) return false;
+            }
+
             return true;
         });
 
@@ -4561,6 +4614,11 @@ $(document).ready(function() {
             });
 
             console.log('[renderSyncTable] Radio buttons:', hasTableData ? 'ENABLED' : 'DISABLED', '- Table rows:', $('#sync-modal-tbody tr').length);
+            }
+
+            // Update price filter state (enable/disable berdasarkan data tabel)
+            if (typeof window.updatePriceFilterState === 'function') {
+                window.updatePriceFilterState();
             }
             // =========================================================================
 
