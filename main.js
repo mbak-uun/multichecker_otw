@@ -3177,21 +3177,25 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
                 const scRaw = String(token.sc_in || token.contract_in || '').trim();
                 const scDisplay = scRaw ? (scRaw.length > 12 ? `${scRaw.slice(0, 6)}...${scRaw.slice(-4)}` : scRaw) : '?';
 
-                // ========== WALLET STATUS: DEPO & WITHDRAW ==========
+                // ========== WALLET STATUS: WITHDRAW & DEPOSIT ==========
                 const depositStatus = parseSnapshotStatus(token.deposit || token.depositEnable);
                 const withdrawStatus = parseSnapshotStatus(token.withdraw || token.withdrawEnable);
 
-                const depoStatusText = depositStatus === true ? 'ON' : (depositStatus === false ? 'OFF' : '?');
-                const depoStatusColor = depositStatus === true ? '#4caf50' : (depositStatus === false ? '#f44336' : '#999');
-
+                // Format display untuk WITHDRAW status (urutan pertama)
                 const wdStatusText = withdrawStatus === true ? 'ON' : (withdrawStatus === false ? 'OFF' : '?');
                 const wdStatusColor = withdrawStatus === true ? '#4caf50' : (withdrawStatus === false ? '#f44336' : '#999');
 
+                // Format display untuk DEPOSIT status (urutan kedua)
+                const depoStatusText = depositStatus === true ? 'ON' : (depositStatus === false ? 'OFF' : '?');
+                const depoStatusColor = depositStatus === true ? '#4caf50' : (depositStatus === false ? '#f44336' : '#999');
+
+                const tooltipTitle = `Withdraw: ${wdStatusText} | Deposit: ${depoStatusText}`;
+
                 const walletStatusDisplay = `
-                    <div style="display:flex; gap:4px; justify-content:center; font-size:11px; font-weight:bold;">
-                        <span style="color:${depoStatusColor};">D:${depoStatusText}</span>
+                    <div style="display:flex; gap:4px; justify-content:center; font-size:11px; font-weight:bold;" title="${tooltipTitle}">
+                        <span style="color:${wdStatusColor};">${wdStatusText}</span>
                         <span style="color:#ccc;">|</span>
-                        <span style="color:${wdStatusColor};">W:${wdStatusText}</span>
+                        <span style="color:${depoStatusColor};">${depoStatusText}</span>
                     </div>`;
                 // =====================================================
 
@@ -4494,24 +4498,42 @@ $(document).ready(function() {
             const scDisplay = scIn ? (scIn.length > 12 ? `${scIn.slice(0, 6)}...${scIn.slice(-4)}` : scIn) : '?';
             const tokenName = token.token_name || token.name || symIn || '-';
 
-            // ========== WALLET STATUS: DEPO & WITHDRAW ==========
+            // ========== WALLET STATUS: WITHDRAW & DEPOSIT ==========
             // Parse status deposit dan withdraw dari data token
             const depositStatus = parseSnapshotStatus(token.deposit || token.depositEnable);
             const withdrawStatus = parseSnapshotStatus(token.withdraw || token.withdrawEnable);
 
-            // Format display untuk DEPO status
-            const depoStatusText = depositStatus === true ? 'ON' : (depositStatus === false ? 'OFF' : '?');
-            const depoStatusColor = depositStatus === true ? '#4caf50' : (depositStatus === false ? '#f44336' : '#999');
-
-            // Format display untuk WITHDRAW status
+            // Format display untuk WITHDRAW status (urutan pertama)
             const wdStatusText = withdrawStatus === true ? 'ON' : (withdrawStatus === false ? 'OFF' : '?');
             const wdStatusColor = withdrawStatus === true ? '#4caf50' : (withdrawStatus === false ? '#f44336' : '#999');
 
+            // Format display untuk DEPOSIT status (urutan kedua)
+            const depoStatusText = depositStatus === true ? 'ON' : (depositStatus === false ? 'OFF' : '?');
+            const depoStatusColor = depositStatus === true ? '#4caf50' : (depositStatus === false ? '#f44336' : '#999');
+
+            // Build title untuk tooltip - tambahkan info DEX dan Modal jika koin sudah dipilih
+            let tooltipTitle = `Withdraw: ${wdStatusText} | Deposit: ${depoStatusText}`;
+            if (saved) {
+                // Ambil info DEX dan Modal dari saved entry
+                const dexsList = Array.isArray(saved.dexs) ? saved.dexs.map(d => d.dex || '').filter(Boolean) : [];
+                const dexsText = dexsList.length > 0 ? dexsList.join(', ').toUpperCase() : '-';
+
+                // Ambil modal dari setiap DEX
+                const modalsInfo = Array.isArray(saved.dexs) ? saved.dexs.map(d => {
+                    const dexName = (d.dex || '').toUpperCase();
+                    const modalKiri = d.amount_in_token || d.modalKiri || 0;
+                    const modalKanan = d.amount_in_pair || d.modalKanan || 0;
+                    return `${dexName}: [${modalKiri} | ${modalKanan}]`;
+                }).join(', ') : '-';
+
+                tooltipTitle = `[DIPILIH]\nWithdraw: ${wdStatusText} | Deposit: ${depoStatusText}\nDEX: ${dexsText}\nModal: ${modalsInfo}`;
+            }
+
             const walletStatusDisplay = `
-                <div style="display:flex; gap:4px; justify-content:center; font-size:11px; font-weight:bold;">
-                    <span style="color:${depoStatusColor};">D:${depoStatusText}</span>
+                <div style="display:flex; gap:4px; justify-content:center; font-size:11px; font-weight:bold;" title="${tooltipTitle}">
+                    <span style="color:${wdStatusColor};">${wdStatusText}</span>
                     <span style="color:#ccc;">|</span>
-                    <span style="color:${wdStatusColor};">W:${wdStatusText}</span>
+                    <span style="color:${depoStatusColor};">${depoStatusText}</span>
                 </div>`;
             // =====================================================
 
