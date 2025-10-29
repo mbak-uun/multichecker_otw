@@ -1747,7 +1747,7 @@ img:hover {
             const visibleAssets = assetsWithValues.filter(item => item.rate && item.usdtValue >= MIN_DISPLAY_USDT);
 
             if (!visibleAssets.length) {
-                container.innerHTML = `<span class="uk-text-muted ${brandClass}">Tidak ada aset â‰¥ 0.5 USDT</span>`;
+                container.innerHTML = `<span class="uk-text-muted ${brandClass}">Tidak Ada</span>`;
                 localStorage.setItem(`MULTI_${exchangeId}Saldo`, "0");
                 localStorage.removeItem(`MULTI_${exchangeId}_DETAIL`);
                 return;
@@ -1778,7 +1778,7 @@ img:hover {
             const assetLines = detail.assets.map(item => {
                 const amountText = formatTokenAmount(item.amount);
                 const rateText = formatRate(item.rate);
-                const valueText = item.rate ? `â‰ˆ ${formatUsdtValue(item.usdtValue)} $` : "â‰ˆ N/A";
+                const valueText = item.rate ? ` ${formatUsdtValue(item.usdtValue)} $` : " N/A";
                 return `
                     <div class="asset-line uk-flex uk-flex-between uk-flex-wrap">
                         <span><b>${escapeHtml(item.symbol)}</b> ${amountText}</span>
@@ -1792,7 +1792,7 @@ img:hover {
             return `
                 ${assetLines}
                 <hr class="uk-margin-small-top uk-margin-small-bottom">
-                <b class="${exClass}">Total â‰ˆ ${totalText} {USDT}</b>
+                <b class="${exClass}">Total ${totalText} {USDT}</b>
             `;
         }
 
