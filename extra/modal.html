@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -31,6 +31,17 @@ body {
     max-width: 100%;
     padding: 10px;
     font-size: 13.5px;
+}
+
+/* Perbesar ukuran modal filter PNL */
+#search-pnl-modal .uk-modal-dialog {
+    max-width: none;   /* override default UIkit max-width */
+    width: 90vw;       /* lebar responsif */
+}
+@media (min-width: 1200px) {
+    #search-pnl-modal .uk-modal-dialog {
+        width: 900px;  /* batas nyaman untuk layar lebar */
+    }
 }
 
 .modal-title span {
@@ -1152,7 +1163,10 @@ img:hover {
                     <h6 style="margin: 0; font-weight: 600; color: #495057;">
                         <span uk-icon="icon: history"></span> History Modal
                     </h6>
-                    <button class="uk-button uk-button-small uk-button-primary" id="UpdateHistoryPNL"><span uk-icon="icon: refresh"></span> Update</button>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="uk-button uk-button-small uk-button-secondary" id="SearchHistoryPNL" title="Filter Pencarian"><span uk-icon="icon: search"></span></button>
+                        <button class="uk-button uk-button-small uk-button-primary" id="UpdateHistoryPNL"><span uk-icon="icon: refresh"></span> Update</button>
+                    </div>
                 </div>
                        
                        <!-- Modal Kalkulator -->
@@ -1221,7 +1235,81 @@ img:hover {
                                     </div>
                             </div>
                         </div>
-                       
+
+                        <!-- Modal Filter Pencarian PNL -->
+                        <div id="search-pnl-modal" uk-modal>
+                            <div class="uk-modal-dialog uk-modal-body uk-width-large">
+                                <button class="uk-modal-close-default" type="button" uk-close></button>
+
+                                <h3 class="uk-heading-divider uk-align-center uk-text-primary uk-margin-small-bottom">
+                                    <span uk-icon="icon: search"></span> REKAP PNL BERDASARKAN TANGGAL
+                                </h3>
+                                <p class="uk-text-center uk-text-small uk-text-primary uk-margin-remove-top">
+                                    <span uk-icon="icon: calendar"></span> Pilih Rentang Tanggal untuk Melihat Rekap PNL Harian
+                                </p>
+
+                                <!-- Filter Form (sejajar) -->
+                                <div class="uk-grid-small uk-flex-middle uk-child-width-auto uk-margin-small-top" uk-grid>
+                                    <div>
+                                        <label class="uk-form-label uk-text-bold" for="startDate">Tanggal Mulai</label>
+                                        <input class="uk-input" type="date" id="startDate" placeholder="Pilih tanggal mulai">
+                                    </div>
+                                    <div>
+                                        <label class="uk-form-label uk-text-bold" for="endDate">Tanggal Akhir</label>
+                                        <input class="uk-input" type="date" id="endDate" placeholder="Pilih tanggal akhir">
+                                    </div>
+                                    <div>
+                                        <button class="uk-button uk-button-primary" id="applyFilterPNL">
+                                            <span uk-icon="icon: check"></span> Tampilkan
+                                        </button>
+                                    </div>
+                                    <div>
+                                        <button class="uk-button uk-button-secondary" id="resetFilterPNL">
+                                            <span uk-icon="icon: refresh"></span> Reset
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Hasil Rekap -->
+                                <div id="rekapPNLContainer" class="uk-margin-top" style="display: none;">
+                                    <hr class="uk-divider-icon">
+                                
+                                    <!-- Ringkasan card dihilangkan sesuai permintaan -->
+
+                                    <!-- Table Rekap -->
+                                    <div class="uk-overflow-auto uk-margin-small-top">
+                                        <table class="uk-table uk-table-striped uk-table-hover table-glass">
+                                            <thead>
+                                                <tr>
+                                                    <th>Tanggal</th>
+                                                    <th>Modal Awal</th>
+                                                    <th>Modal Akhir</th>
+                                                    <th>PNL</th>
+                                                    <th>% Change</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="rekapPNLTableBody">
+                                                <tr class="uk-text-center uk-text-muted">
+                                                    <td colspan="5">Belum ada data</td>
+                                                </tr>
+                                            </tbody>
+                                            <tfoot>
+                                                <tr class="table-total-row">
+                                                    <th>TOTAL</th>
+                                                    <th id="footerModalAwal">$0.00</th>
+                                                    <th id="footerModalAkhir">$0.00</th>
+                                                    <th id="footerPNL">$0.00</th>
+                                                    <th id="footerPercentage">0%</th>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        
+
                         <div class="uk-overflow-auto uk-margin-small-top">
                             <table class="uk-table uk-table-striped uk-table-hover table-glass" id="assetTablePNL">
                                 <thead>
@@ -1240,6 +1328,11 @@ img:hover {
                                 </tbody>
                             </table>
                         </div>
+                        <div id="pnl-pagination" class="uk-flex uk-flex-between uk-margin-small-top">
+                            <button id="pnlPrev" class="uk-button uk-button-small uk-button-secondary">previ&lt;&lt;</button>
+                            <span id="pnlPageInfo" class="uk-text-meta">Halaman 1/1</span>
+                            <button id="pnlNext" class="uk-button uk-button-small uk-button-secondary">next&gt;&gt;</button>
+                        </div>
                                        
             </div>
         </div>
@@ -1252,6 +1345,10 @@ img:hover {
         if (window.__IDB_LOCALSTORAGE_READY__) {
             try { await window.__IDB_LOCALSTORAGE_READY__; } catch (e) {}
         }
+
+        // Paging state for PNL history
+        let pnlCurrentPage = 0;
+        const PNL_PAGE_SIZE = 10; // jumlah item per halaman
 
         // ============================================
         // LOADING OVERLAY CONTROLLER
@@ -1404,9 +1501,9 @@ img:hover {
                     });
 
                     ratePrice.idr = parseFloat(indodaxData.ticker.last);
-                    console.log('✅ ratePrice:', ratePrice);
+                    console.log('âœ… ratePrice:', ratePrice);
                 }).fail(function (error) {
-                    console.warn('❌ Failed to fetch rates:', error);
+                    console.warn('âŒ Failed to fetch rates:', error);
                 });
             }
 
@@ -1479,6 +1576,8 @@ img:hover {
             if (!isFinite(value)) return "0.00";
             return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
+        // Expose formatter for usage outside this closure (legacy handlers)
+        window.formatUsdtValue = formatUsdtValue;
 
         function formatRate(value) {
             if (!isFinite(value) || value <= 0) return "N/A";
@@ -1506,7 +1605,7 @@ img:hover {
                 priceTickerCache.lastFetch = Date.now();
                 priceTickerCache.assetRates.clear();
             } catch (error) {
-                console.warn("❌ Failed to refresh Binance ticker cache", error);
+                console.warn("âŒ Failed to refresh Binance ticker cache", error);
                 if (!priceTickerCache.tickers.size) {
                     throw error;
                 }
@@ -1587,7 +1686,7 @@ img:hover {
                     }
                 }
             } catch (error) {
-                console.warn(`❌ Unable to resolve USDT rate for ${upper}`, error);
+                console.warn(`âŒ Unable to resolve USDT rate for ${upper}`, error);
             } finally {
                 pendingRateLookups.delete(upper);
             }
@@ -1648,7 +1747,7 @@ img:hover {
             const visibleAssets = assetsWithValues.filter(item => item.rate && item.usdtValue >= MIN_DISPLAY_USDT);
 
             if (!visibleAssets.length) {
-                container.innerHTML = `<span class="uk-text-muted ${brandClass}">Tidak ada aset ≥ 0.5 USDT</span>`;
+                container.innerHTML = `<span class="uk-text-muted ${brandClass}">Tidak ada aset â‰¥ 0.5 USDT</span>`;
                 localStorage.setItem(`MULTI_${exchangeId}Saldo`, "0");
                 localStorage.removeItem(`MULTI_${exchangeId}_DETAIL`);
                 return;
@@ -1679,7 +1778,7 @@ img:hover {
             const assetLines = detail.assets.map(item => {
                 const amountText = formatTokenAmount(item.amount);
                 const rateText = formatRate(item.rate);
-                const valueText = item.rate ? `≈ ${formatUsdtValue(item.usdtValue)} $` : "≈ N/A";
+                const valueText = item.rate ? `â‰ˆ ${formatUsdtValue(item.usdtValue)} $` : "â‰ˆ N/A";
                 return `
                     <div class="asset-line uk-flex uk-flex-between uk-flex-wrap">
                         <span><b>${escapeHtml(item.symbol)}</b> ${amountText}</span>
@@ -1693,7 +1792,7 @@ img:hover {
             return `
                 ${assetLines}
                 <hr class="uk-margin-small-top uk-margin-small-bottom">
-                <b class="${exClass}">Total ≈ ${totalText} {USDT}</b>
+                <b class="${exClass}">Total â‰ˆ ${totalText} {USDT}</b>
             `;
         }
 
@@ -1707,7 +1806,7 @@ img:hover {
                     container.innerHTML = buildExchangeHtmlFromDetail(detail, exchangeId);
                     return;
                 } catch (error) {
-                    console.warn(`❌ Failed to parse stored detail for ${exchangeId}`, error);
+                    console.warn(`âŒ Failed to parse stored detail for ${exchangeId}`, error);
                 }
             }
             const saldo = parseFloat(localStorage.getItem(`MULTI_${exchangeId}Saldo`)) || 0;
@@ -2787,7 +2886,8 @@ img:hover {
                   action: action  // Set action ke "reset"
               };
               history.unshift(newHistoryEntry); // Tambahkan entri ke array di posisi awal
-              localStorage.setItem('MULTI_history', JSON.stringify(history.slice(0, 14)));
+              // Simpan seluruh riwayat (biarkan pagination yang membatasi tampilan)
+              localStorage.setItem('MULTI_history', JSON.stringify(history));
               if (typeof toast !== 'undefined' && toast.info) toast.info("MODAL "+action.toUpperCase()+" BERHASIL.");
               LoadTableHistory()
         }
@@ -2795,15 +2895,27 @@ img:hover {
         function LoadTableHistory(){
           // Memuat data riwayat PNL dari localStorage
           const history = JSON.parse(localStorage.getItem('MULTI_history')) || [];
+                  // Hitung paging
+                  const totalItems = history.length;
+                  const totalPages = Math.max(1, Math.ceil(totalItems / PNL_PAGE_SIZE));
+                  if (pnlCurrentPage > totalPages - 1) pnlCurrentPage = totalPages - 1;
+                  if (pnlCurrentPage < 0) pnlCurrentPage = 0;
+
+                  // Update kontrol paging
+                  $('#pnlPageInfo').text(`Halaman ${totalItems === 0 ? 0 : (pnlCurrentPage + 1)}/${totalPages}`);
+                  $('#pnlPrev').prop('disabled', pnlCurrentPage <= 0 || totalItems === 0);
+                  $('#pnlNext').prop('disabled', pnlCurrentPage >= totalPages - 1 || totalItems === 0);
+
+                  // Kosongkan tabel sebelum render
+                  $('#assetTablePNL tbody').empty();
+
                   if (history.length > 0) {
-                      // Kosongkan tabel PNL sebelum menambahkan data baru
-                      $('#assetTablePNL tbody').empty();
+                      const start = pnlCurrentPage * PNL_PAGE_SIZE;
+                      const end = start + PNL_PAGE_SIZE;
+                      const pageItems = history.slice(start, end);
 
-                      // Batasi data yang ditampilkan hingga 10 entri terbaru
-                      const limitedHistory = history.slice(0, 14);
-
-                      // Render data riwayat ke tabel PNL
-                      limitedHistory.forEach(entry => {
+                      // Render data riwayat ke tabel PNL (per halaman)
+                      pageItems.forEach(entry => {
                           // Tentukan kelas untuk kolom action
                           let actionClass = '';
                           let actionText = entry.action.toUpperCase(); // memastikan huruf kapital
@@ -2844,6 +2956,16 @@ img:hover {
                           `;
                           $('#assetTablePNL tbody').append(row);
                       });
+                  } else {
+                      // Tampilkan baris kosong jika tidak ada data
+                      const emptyRow = `
+                        <tr class="uk-text-center uk-text-muted">
+                            <td colspan="5">Belum ada data</td>
+                        </tr>`;
+                      $('#assetTablePNL tbody').append(emptyRow);
+                      $('#pnlPageInfo').text('Halaman 0/1');
+                      $('#pnlPrev').prop('disabled', true);
+                      $('#pnlNext').prop('disabled', true);
                   }
         }
 
@@ -2921,6 +3043,22 @@ img:hover {
             // Update summary cards
             updateSummaryCards();
         }
+
+        // Event handlers untuk paging PNL history
+        $(document).on('click', '#pnlPrev', function() {
+            if (pnlCurrentPage > 0) {
+                pnlCurrentPage--;
+                LoadTableHistory();
+            }
+        });
+        $(document).on('click', '#pnlNext', function() {
+            const history = JSON.parse(localStorage.getItem('MULTI_history')) || [];
+            const totalPages = Math.max(1, Math.ceil(history.length / PNL_PAGE_SIZE));
+            if (pnlCurrentPage < totalPages - 1) {
+                pnlCurrentPage++;
+                LoadTableHistory();
+            }
+        });
 
         $('#CheckModal').on('click', async function () {
             LoadTableHistory();
@@ -3331,13 +3469,264 @@ img:hover {
             // Menggabungkan waktu dan tanggal
             const formattedTime = `${date}-${time}`;
             
+            // Ganti singkatan bulan agar konsisten
+            const monthMap = { 'Agu': 'Ags', 'Okt': 'Okt', 'Des': 'Des' };
+            Object.keys(monthMap).forEach(key => {
+                if (formattedTime.includes(key)) {
+                    // Tidak perlu replace, karena formatnya sudah benar
+                }
+            });
             return formattedTime;
         }
+
+        // ============================================
+        // FILTER PENCARIAN PNL HARIAN
+        // ============================================
+
+        // Handle button click to show search modal
+        $('#SearchHistoryPNL').on('click', function(event) {
+            event.preventDefault();
+
+            // Set default date range (last 7 days)
+            const today = new Date();
+            const lastWeek = new Date(today);
+            lastWeek.setDate(today.getDate() - 7);
+
+            $('#endDate').val(today.toISOString().split('T')[0]);
+            $('#startDate').val(lastWeek.toISOString().split('T')[0]);
+
+            // Hide results container
+            $('[id=rekapPNLContainer]').hide();
+
+            // Show modal
+            UIkit.modal('#search-pnl-modal').show();
+        });
+
+        // Apply filter and generate recap
+        $('#applyFilterPNL').on('click', function() {
+            const startDate = $('#startDate').val();
+            const endDate = $('#endDate').val();
+
+            if (!startDate || !endDate) {
+                if (typeof toast !== 'undefined' && toast.error) {
+                    toast.error('Harap pilih tanggal mulai dan tanggal akhir!');
+                }
+                return;
+            }
+
+            if (new Date(startDate) > new Date(endDate)) {
+                if (typeof toast !== 'undefined' && toast.error) {
+                    toast.error('Tanggal mulai tidak boleh lebih besar dari tanggal akhir!');
+                }
+                return;
+            }
+
+            // Generate recap
+            generatePNLRecap(startDate, endDate);
+        });
+
+        // Reset filter
+        $('#resetFilterPNL').on('click', function() {
+            $('#startDate').val('');
+            $('#endDate').val('');
+            $('[id=rekapPNLContainer]').hide();
+        });
+
+        // Function to generate PNL recap
+        function generatePNLRecap(startDate, endDate) {
+            try {
+                // Get PNL history from localStorage (use existing key MULTI_history)
+                // Expected fields per entry: { date, saldoAwal, saldoAkhir, pnl, action }
+                const historyData = JSON.parse(localStorage.getItem('MULTI_history') || '[]');
+
+                console.log('=== DEBUG REKAP PNL ===');
+                console.log('Total data history:', historyData.length);
+                console.log('Start Date:', startDate);
+                console.log('End Date:', endDate);
+
+                if (!historyData || historyData.length === 0) {
+                    if (typeof toast !== 'undefined' && toast.warning) {
+                        toast.warning('Belum ada data history PNL!');
+                    }
+                    return;
+                }
+
+                // Convert dates to timestamp for comparison
+                const startTimestamp = new Date(startDate).setHours(0, 0, 0, 0);
+                const endTimestamp = new Date(endDate).setHours(23, 59, 59, 999);
+
+                console.log('Start Timestamp:', new Date(startTimestamp));
+                console.log('End Timestamp:', new Date(endTimestamp));
+
+                // Filter data by date range
+                const filteredData = historyData.filter(item => {
+                    // Parse timestamp from item.date (format: "DD MMM YY-HH:MM:SS")
+                    const rawTs = (item.date || '').toString();
+                    const dateStr = rawTs.split('-')[0].trim(); // Get "DD MMM YY"
+                    const parts = dateStr.split(' ').filter(p => p.trim() !== '');
+
+                    if (parts.length < 3) {
+                        console.warn('Invalid date format:', rawTs);
+                        return false;
+                    }
+
+                    const day = parts[0];
+                    const monthStr = parts[1];
+                    const year = parts[2];
+
+                    // Convert month abbreviation to number (support both Indonesian and English)
+                    const monthMap = {
+                        'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
+                        'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11,
+                        'Mei': 4, 'Agu': 7, 'Okt': 9, 'Des': 11
+                    };
+
+                    const monthIndex = monthMap[monthStr];
+                    if (monthIndex === undefined) {
+                        console.warn('Unknown month:', monthStr, 'in timestamp:', rawTs);
+                        return false;
+                    }
+
+                    const itemDate = new Date(2000 + parseInt(year), monthIndex, parseInt(day));
+                    const itemTimestamp = itemDate.getTime();
+
+                    const isInRange = itemTimestamp >= startTimestamp && itemTimestamp <= endTimestamp;
+
+                    // Debug first few items
+                    if (historyData.indexOf(item) < 3) {
+                        console.log('Item:', rawTs, '| Parsed:', itemDate, '| In Range:', isInRange);
+                    }
+
+                    return isInRange;
+                });
+
+                console.log('Filtered data count:', filteredData.length);
+
+                if (filteredData.length === 0) {
+                    if (typeof toast !== 'undefined' && toast.warning) {
+                        toast.warning('Tidak ada data dalam rentang tanggal yang dipilih!');
+                    }
+                    $('[id=rekapPNLContainer]').hide();
+                    return;
+                }
+
+                // Group data by date
+                const dailyRecap = {};
+                filteredData.forEach(item => {
+                    const rawTs = (item.date || '').toString();
+                    const dateStr = rawTs.split('-')[0].trim(); // "DD MMM YY"
+                    if (!dailyRecap[dateStr]) dailyRecap[dateStr] = [];
+                    dailyRecap[dateStr].push(item);
+                });
+
+                console.log('Daily recap keys:', Object.keys(dailyRecap));
+                console.log('Sample daily recap data:', dailyRecap[Object.keys(dailyRecap)[0]]);
+
+                // Calculate daily summary for every date in the selected range (show all dates)
+                const dailySummary = [];
+                let totalModalAwal = 0;
+                let totalModalAkhir = 0;
+                let totalPNL = 0;
+
+                const monthId = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+                const iter = new Date(startTimestamp);
+                let debugCount = 0;
+                while (iter.getTime() <= endTimestamp) {
+                    // Format date key consistently: "DD MMM YY"
+                    const day = String(iter.getDate()).padStart(2, '0');
+                    const month = monthId[iter.getMonth()];
+                    const year = String(iter.getFullYear()).slice(-2);
+                    const dateKey = `${day} ${month} ${year}`;
+
+                    const entries = dailyRecap[dateKey] || [];
+
+                    // Debug first 3 iterations
+                    if (debugCount < 3) {
+                        console.log(`Iteration ${debugCount}: Looking for key "${dateKey}", found ${entries.length} entries`);
+                        debugCount++;
+                    }
+
+                    let modalAwal = 0, modalAkhir = 0, pnl = 0, percentChange = 0;
+                    if (entries.length) {
+                        entries.sort((a,b) => {
+                            const ta = (a.date || '').toString().split('-')[1] || '';
+                            const tb = (b.date || '').toString().split('-')[1] || '';
+                            return ta.localeCompare(tb);
+                        });
+                        const firstEntry = entries[0];
+                        const lastEntry = entries[entries.length - 1];
+                        modalAwal = parseFloat(firstEntry.saldoAwal) || 0;
+                        modalAkhir = parseFloat(lastEntry.saldoAkhir) || 0;
+                        pnl = modalAkhir - modalAwal;
+                        percentChange = modalAwal > 0 ? ((pnl / modalAwal) * 100) : 0;
+                        totalModalAwal += modalAwal;
+                        totalModalAkhir += modalAkhir;
+                        totalPNL += pnl;
+                    }
+                    dailySummary.push({
+                        date: dateKey,
+                        modalAwal, modalAkhir, pnl, percentChange
+                    });
+                    iter.setDate(iter.getDate() + 1);
+                }
+
+                // Ringkasan card dihilangkan; hanya table + footer
+
+                // Render table
+                let tableHTML = '';
+                dailySummary.forEach(day => {
+                    const pnlClass = day.pnl >= 0 ? 'uk-text-success' : 'uk-text-danger';
+                    const percentClass = day.percentChange >= 0 ? 'uk-text-success' : 'uk-text-danger';
+
+                    tableHTML += `
+                        <tr>
+                            <td class="uk-text-bold">${day.date}</td>
+                            <td class="uk-text-right">$${formatUsdtValue(day.modalAwal)}</td>
+                            <td class="uk-text-right">$${formatUsdtValue(day.modalAkhir)}</td>
+                            <td class="uk-text-right ${pnlClass}"><b>${day.pnl >= 0 ? '&uarr;' : '&darr;'} $${formatUsdtValue(Math.abs(day.pnl))}</b></td>
+                            <td class="uk-text-right ${percentClass}"><b>${day.percentChange.toFixed(2)}%</b></td>
+                        </tr>
+                    `;
+                });
+
+                $('[id=rekapPNLTableBody]').html(tableHTML);
+
+                // Update footer
+                const avgModalAwal = dailySummary.length > 0 ? totalModalAwal / dailySummary.length : 0;
+                const avgModalAkhir = dailySummary.length > 0 ? totalModalAkhir / dailySummary.length : 0;
+                const totalPercentChange = avgModalAwal > 0 ? ((totalPNL / avgModalAwal) * 100) : 0;
+                const footerPNLClass = totalPNL >= 0 ? 'uk-text-success' : 'uk-text-danger';
+                const footerPercentClass = totalPercentChange >= 0 ? 'uk-text-success' : 'uk-text-danger';
+
+                $('[id=footerModalAwal]').text('$' + formatUsdtValue(avgModalAwal));
+                $('[id=footerModalAkhir]').text('$' + formatUsdtValue(avgModalAkhir));
+                $('[id=footerPNL]').html(`<span class="${footerPNLClass}">$${formatUsdtValue(totalPNL)}</span>`);
+                $('[id=footerPercentage]').html(`<span class="${footerPercentClass}">${totalPercentChange.toFixed(2)}%</span>`);
+
+                // Show results
+                $('[id=rekapPNLContainer]').slideDown();
+
+                if (typeof toast !== 'undefined' && toast.success) {
+                    toast.success(`Berhasil menampilkan ${dailySummary.length} hari data rekap PNL!`);
+                }
+
+            } catch (error) {
+                console.error('Error generating PNL recap:', error);
+                if (typeof toast !== 'undefined' && toast.error) {
+                    toast.error('Terjadi kesalahan saat membuat rekap PNL!');
+                }
+            }
+        }
+
+        // Render awal riwayat PNL saat halaman dimuat
+        LoadTableHistory();
     });
-</script>
 
-<script src="https://cdn.jsdelivr.net/npm/uikit@3.6.22/dist/js/uikit.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/uikit@3.6.22/dist/js/uikit-icons.min.js"></script>
+    
+    </script>
 
-</body>
-</html>
+    <script src="https://cdn.jsdelivr.net/npm/uikit@3.6.22/dist/js/uikit.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/uikit@3.6.22/dist/js/uikit-icons.min.js"></script>
+
+    </body>
+    </html>

@@ -1413,21 +1413,10 @@ $("#reload").click(function () {
     // Global search (in filter card) updates both monitoring and management views
     // Use event delegation since #searchInput is created dynamically
     $(document).on('input', '#searchInput', debounce(function() {
-        // Filter monitoring table rows (multi and single chain)
+        // Filter monitoring table: tampilkan semua data yang sesuai dengan filter dan pencarian
         const searchValue = ($(this).val() || '').toLowerCase();
-        const filterTable = (tbodyId) => {
-            const el = document.getElementById(tbodyId);
-            if (!el) return;
-            const rows = el.getElementsByTagName('tr');
-            for (let i = 0; i < rows.length; i++) {
-                const row = rows[i];
-                const rowText = row.textContent || row.innerText || '';
-                row.style.display = rowText.toLowerCase().indexOf(searchValue) > -1 ? '' : 'none';
-            }
-        };
-        filterTable('dataTableBody');
 
-        // Build scan candidates based on search and current mode
+        // Build filtered data based on search and current mode
         try {
             const mode = getAppMode();
             const q = searchValue;
@@ -1443,14 +1432,32 @@ $("#reload").click(function () {
                         .join(' ');
                 } catch(_) { return ''; }
             };
+
+            let filteredData = [];
             if (!q) {
-                window.scanCandidateTokens = null; // reset to default scanning
-            } else if (mode.type === 'single') {
-                const base = Array.isArray(window.singleChainTokensCurrent) ? window.singleChainTokensCurrent : [];
-                window.scanCandidateTokens = base.filter(t => pick(t).includes(q));
+                // Tidak ada pencarian: tampilkan semua data sesuai filter aktif
+                window.scanCandidateTokens = null;
+                if (mode.type === 'single') {
+                    filteredData = Array.isArray(window.singleChainTokensCurrent) ? window.singleChainTokensCurrent : [];
+                } else {
+                    filteredData = Array.isArray(window.currentListOrderMulti) ? window.currentListOrderMulti : (Array.isArray(window.filteredTokens) ? window.filteredTokens : []);
+                }
             } else {
-                const base = Array.isArray(window.currentListOrderMulti) ? window.currentListOrderMulti : (Array.isArray(window.filteredTokens) ? window.filteredTokens : []);
-                window.scanCandidateTokens = base.filter(t => pick(t).includes(q));
+                // Ada pencarian: filter data dan tampilkan semua yang cocok
+                if (mode.type === 'single') {
+                    const base = Array.isArray(window.singleChainTokensCurrent) ? window.singleChainTokensCurrent : [];
+                    filteredData = base.filter(t => pick(t).includes(q));
+                    window.scanCandidateTokens = filteredData;
+                } else {
+                    const base = Array.isArray(window.currentListOrderMulti) ? window.currentListOrderMulti : (Array.isArray(window.filteredTokens) ? window.filteredTokens : []);
+                    filteredData = base.filter(t => pick(t).includes(q));
+                    window.scanCandidateTokens = filteredData;
+                }
+            }
+
+            // Re-render tabel scanning dengan semua data yang sesuai filter
+            if (typeof loadKointoTable === 'function') {
+                loadKointoTable(filteredData, 'dataTableBody');
             }
         } catch(_) {}
 
