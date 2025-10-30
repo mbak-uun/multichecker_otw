@@ -517,7 +517,68 @@
      * Render summary statistics for a table
      */
     function renderTableSummary(table) {
-        if (table.type === 'koin' || table.type === 'snapshot') {
+        if (table.type === 'snapshot') {
+            // Snapshot statistics - no DEX, simpler format with WD/Depo stats
+            const data = table.data;
+            const cexSet = new Set();
+            let withSC = 0;
+            let withoutSC = 0;
+            let withPrice = 0;
+            let openWD = 0;
+            let openDepo = 0;
+
+            data.forEach(item => {
+                // Count CEX
+                if (item.cex) {
+                    cexSet.add(String(item.cex).toUpperCase());
+                }
+
+                // Count SC
+                const sc = item.sc_in || '';
+                if (sc && sc !== '0x' && sc !== '-') {
+                    withSC++;
+                } else {
+                    withoutSC++;
+                }
+
+                // Count price availability
+                if (item.current_price && Number.isFinite(Number(item.current_price)) && Number(item.current_price) > 0) {
+                    withPrice++;
+                }
+
+                // Count WD/Depo status
+                if (item.withdraw === '1' || item.withdraw === 1 || item.withdraw === true) {
+                    openWD++;
+                }
+                if (item.deposit === '1' || item.deposit === 1 || item.deposit === true) {
+                    openDepo++;
+                }
+            });
+
+            return `
+                <div class="db-table-summary">
+                    <span class="summary-item">
+                        <strong>${table.count}</strong> koin
+                    </span>
+                    <span class="summary-item">
+                        <strong>${cexSet.size}</strong> CEX
+                    </span>
+                    <span class="summary-item">
+                        SC: <strong>${withSC}</strong> ada / <strong>${withoutSC}</strong> kosong
+                    </span>
+                    <span class="summary-item">
+                        Price: <strong>${withPrice}</strong> / ${table.count}
+                    </span>
+                    <span class="summary-item" title="Withdraw Open">
+                        WD: <strong style="color:#28a745">${openWD}</strong>
+                    </span>
+                    <span class="summary-item" title="Deposit Open">
+                        Depo: <strong style="color:#28a745">${openDepo}</strong>
+                    </span>
+                </div>
+            `;
+        } else if (table.type === 'koin') {
+            // Koin statistics - include DEX
             const data = table.data;
             const cexSet = new Set();
             const dexSet = new Set();
@@ -594,14 +655,109 @@
      * Render table data as HTML table
      */
     function renderTableData(table) {
-        if (table.type === 'koin' || table.type === 'snapshot' || table.type === 'settings') {
+        if (table.type === 'snapshot') {
+            return renderSnapshotTable(table.data);
+        } else if (table.type === 'koin' || table.type === 'settings') {
             return renderKoinTable(table.data);
         } else if (table.type === 'filter') {
             return renderFilterData(table.data);
-        } else if (table.type === 'settings') {
-            return renderSettingsData(table.data);
         }
         return '<p class="uk-text-muted">No data renderer available</p>';
+    }
+
+    /**
+     * Render snapshot data as table
+     * Format khusus untuk data snapshot CEX: No, Koin, SC, DES, CEX, WD, Depo, Price
+     */
+    function renderSnapshotTable(data) {
+        if (!Array.isArray(data) || data.length === 0) {
+            return '<p class="uk-text-muted uk-text-center">Tidak ada data snapshot</p>';
+        }
+
+        let html = `
+            <div class="uk-overflow-auto">
+                <table class="uk-table uk-table-divider uk-table-hover uk-table-small db-data-table">
+                    <thead>
+                        <tr>
+                            <th style="width:40px">No</th>
+                            <th>Koin</th>
+                            <th>SC</th>
+                            <th style="width:60px">DES</th>
+                            <th style="width:80px">CEX</th>
+                            <th style="width:50px" class="uk-text-center">WD</th>
+                            <th style="width:50px" class="uk-text-center">Depo</th>
+                            <th style="width:120px" class="uk-text-right">Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        data.forEach((item, idx) => {
+            // Extract data dari snapshot format
+            const koin = item.symbol_in || item.token_name || '-';
+            const sc = item.sc_in || '-';
+            const des = item.des_in ?? item.decimals ?? '-';
+            const cex = (item.cex || '').toUpperCase() || '-';
+
+            // Parse withdraw dan deposit status
+            // Format bisa '0'/'1' string atau boolean
+            const withdrawEnabled = (item.withdraw === '1' || item.withdraw === 1 || item.withdraw === true);
+            const depositEnabled = (item.deposit === '1' || item.deposit === 1 || item.deposit === true);
+
+            // Status icons
+            const wdIcon = withdrawEnabled
+                ? '<span style="color:#28a745;font-size:14px" title="Withdraw OPEN">✓</span>'
+                : '<span style="color:#dc3545;font-size:14px" title="Withdraw CLOSED">✗</span>';
+
+            const depoIcon = depositEnabled
+                ? '<span style="color:#28a745;font-size:14px" title="Deposit OPEN">✓</span>'
+                : '<span style="color:#dc3545;font-size:14px" title="Deposit CLOSED">✗</span>';
+
+            // Price formatting
+            let priceDisplay = '-';
+            if (item.current_price && Number.isFinite(Number(item.current_price))) {
+                const price = Number(item.current_price);
+                const currency = item.price_currency || 'USDT';
+
+                // Format price dengan precision yang sesuai
+                let formattedPrice;
+                if (price >= 1) {
+                    formattedPrice = price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                } else if (price >= 0.01) {
+                    formattedPrice = price.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+                } else {
+                    formattedPrice = price.toLocaleString('en-US', { minimumFractionDigits: 8, maximumFractionDigits: 8 });
+                }
+
+                priceDisplay = `<span class="uk-text-small">${formattedPrice}</span> <span class="uk-text-muted uk-text-small">${currency}</span>`;
+            }
+
+            // Shorten SC address
+            const shortenSc = (sc) => (!sc || sc === '-' || sc.length < 12) ? sc : `${sc.substring(0, 6)}...${sc.substring(sc.length - 4)}`;
+
+            html += `
+                <tr>
+                    <td class="uk-text-muted">${idx + 1}</td>
+                    <td><strong>${koin}</strong></td>
+                    <td class="uk-text-truncate" title="${sc}">
+                        <code class="uk-text-small">${shortenSc(sc)}</code>
+                    </td>
+                    <td class="uk-text-center">${des}</td>
+                    <td class="uk-text-small uk-text-bold" style="color:#667eea">${cex}</td>
+                    <td class="uk-text-center">${wdIcon}</td>
+                    <td class="uk-text-center">${depoIcon}</td>
+                    <td class="uk-text-right">${priceDisplay}</td>
+                </tr>
+            `;
+        });
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        return html;
     }
 
     /**

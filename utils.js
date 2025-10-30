@@ -1115,7 +1115,7 @@ function generateDexLink(dex, chainName, codeChain, NameToken, sc_input, NamePai
     if (!dex) return null;
 
     const lowerDex = dex.toLowerCase();
-
+    
     // Find the correct DEX configuration key by checking if the input 'dex' string includes it.
     // This handles cases like "kyber" and "kyber via LIFI".
     let dexKey = Object.keys(CONFIG_DEXS).find(key => lowerDex.includes(key));
@@ -1131,7 +1131,7 @@ function generateDexLink(dex, chainName, codeChain, NameToken, sc_input, NamePai
     if (dexKey && CONFIG_DEXS[dexKey] && typeof CONFIG_DEXS[dexKey].builder === 'function') {
         const builder = CONFIG_DEXS[dexKey].builder;
         return builder({
-            chainName: chainName,
+            chainName: chainName.toLowerCase(),
             // Provide both to satisfy different builder signatures
             codeChain: codeChain,    // some builders expect codeChain
             chainCode: codeChain,    // others used chainCode

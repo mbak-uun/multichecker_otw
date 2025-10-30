@@ -558,7 +558,7 @@
               const isPairtoToken = String(action || '').toLowerCase() === 'pairtotoken';
               const tokenAddr = isPairtoToken ? sc_output_in : sc_input_in;
               const pairAddr = isPairtoToken ? sc_input_in : sc_output_in;
-              const linkDEX = generateDexLink(dexType, chainName, codeChain, NameToken, tokenAddr, NamePair, pairAddr);
+              const linkDEX = generateDexLink(dexType, chainName.toLowerCase(), codeChain, NameToken, tokenAddr, NamePair, pairAddr);
               rej({ statusCode: status, pesanDEX: `${String(sKey||'').toUpperCase()}: ${label} ${coreMsg}` , DEX: String(sKey||'').toUpperCase(), dexURL: linkDEX, textStatus });
             },
           });

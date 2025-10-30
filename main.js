@@ -3233,17 +3233,24 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
             await snapshotModule.processSnapshotForCex(
                 activeSingleChainKey,
                 selectedCexs,
-                (token) => {
+                (tokenOrArray) => {
                     try {
-                        if (!token) return;
-                        const cex = String(token.cex || token.cex_source || '').toUpperCase();
-                        const symbol = String(token.symbol_in || token.symbol || '').toUpperCase();
-                        const scKey = String(token.sc_in || token.contract_in || '').toLowerCase() || 'NOSC';
-                        const rowKey = `${cex || 'UNKNOWN'}__${symbol || 'UNKNOWN'}__${scKey}`;
-                        if (!incrementalMap.has(rowKey)) {
-                            incrementalOrder.push(rowKey);
-                        }
-                        incrementalMap.set(rowKey, { ...token });
+                        // OPTIMIZED: Handle both array (batch mode) and individual token (backward compat)
+                        const tokens = Array.isArray(tokenOrArray) ? tokenOrArray : [tokenOrArray];
+
+                        tokens.forEach(token => {
+                            if (!token) return;
+                            const cex = String(token.cex || token.cex_source || '').toUpperCase();
+                            const symbol = String(token.symbol_in || token.symbol || '').toUpperCase();
+                            const scKey = String(token.sc_in || token.contract_in || '').toLowerCase() || 'NOSC';
+                            const rowKey = `${cex || 'UNKNOWN'}__${symbol || 'UNKNOWN'}__${scKey}`;
+                            if (!incrementalMap.has(rowKey)) {
+                                incrementalOrder.push(rowKey);
+                            }
+                            incrementalMap.set(rowKey, { ...token });
+                        });
+
+                        // Render SEKALI setelah semua tokens di-process (batch rendering)
                         renderIncrementalRows();
                     } catch(rowErr) {
                         // console.error('Failed to render incremental token row:', rowErr);
