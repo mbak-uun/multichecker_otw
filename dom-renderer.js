@@ -272,7 +272,9 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
 
         rowHtml += `
             <td id="${idPrefix}${rowId}" class="uk-text-center uk-background td-detail" style="text-align: center; border:1px solid black; padding:10px;">
-                <span class="detail-line">[${index + 1}] 
+             <span style="color: ${warnaCex}; font-weight:bolder;">[${index + 1}] ${data.cex} </span> on <span style="color: ${warnaChain}; font-weight:bolder;">${chainShort} </span>
+    
+            <span class="detail-line">
                 <span style="color: ${warnaChain}; font-weight:bolder; font-size:medium;"  >${linkToken} </span> ⇄ <span style="color: ${warnaChain}; font-weight:bolder; font-size:medium;">${linkPair} </span>
                 <span id="${idPrefix}EditMulti-${data.id}" data-id="${data.id}"
                 data-chain="${String(data.chain).toLowerCase()}"
@@ -293,8 +295,7 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
                       style="cursor:pointer;">
                 </span>
                 </span>
-                               <span style="color: ${warnaCex}; font-weight:bolder;">${data.cex} </span> on <span style="color: ${warnaChain}; font-weight:bolder;">${chainShort} </span>
-
+                              
                 <span class="detail-line uk-text-bolder">${WD_TOKEN}~ ${DP_TOKEN} | ${WD_PAIR}~ ${DP_PAIR}</span>
                 <span class="detail-line"><span class="uk-text-primary uk-text-bolder">${(data.symbol_in||'').toUpperCase()}</span> ${linkSCtoken} : ${linkStokToken}</span>
                 <span class="detail-line"><span class="uk-text-primary uk-text-bolder">${(data.symbol_out||'').toUpperCase()}</span> ${linkSCpair} : ${linkStokPair}</span>
@@ -974,10 +975,10 @@ function DisplayPNL(data) {
   const modeNowHL = (typeof getAppMode === 'function') ? getAppMode() : { type: 'multi' };
   const isMultiModeHL = String(modeNowHL.type).toLowerCase() !== 'single';
   // Multichain: gunakan hijau muda agar konsisten
-  const multiLightGreen = '#bafaba';
+  const multiLightGreen = 'rgba(188, 233, 97, 1)';
   const hlBg = isMultiModeHL
     ? multiLightGreen
-    : (isDarkMode() ? '#d8ff41' : '#bafaba');
+    : (isDarkMode() ? '#87db0bff' : '#050701');
   // Tambahkan kelas agar CSS bisa override tambahan saat dark-mode
   if (shouldHighlight) { try { $mainCell.addClass('dex-cell-highlight'); } catch(_) {}
   } else { try { $mainCell.removeClass('dex-cell-highlight'); } catch(_) {} }
@@ -990,7 +991,7 @@ function DisplayPNL(data) {
   const lineSell  = `<a class="monitor-line uk-text-danger  dex-price-link" href="${sellLink}" target="_blank" rel="noopener" title="${tipSell}">⬇ ${fmtUSD(sellPrice)}</a>`;
   const feeBlock1 = `<span class="monitor-line">${feeLine}</span>`;
   const feeBlock2 = `<span class="monitor-line">${swapLine}</span>`; // ← baris terpisah
-  const lineBrut  = `<span class="monitor-line uk-text-muted" title="BRUTO ~ TOTAL FEE">${bracket}</span>`;
+  const lineBrut  = `<span class="monitor-line uk-text-danger" title="BRUTO ~ TOTAL FEE">${bracket}</span>`;
   const linePNL   = `<span class="monitor-line ${netClass}" title="PROFIT / LOSS">💰 PNL: ${pnl.toFixed(2)}</span>`;
 
   const resultHtml = [lineBuy, lineSell, feeBlock1, '', feeBlock2, lineBrut, linePNL].join(' ');
@@ -1081,11 +1082,11 @@ function InfoSinyal(DEXPLUS, TokenPair, PNL, totalFee, cex, NameToken, NamePair,
   const baseId = domIdOverride ? String(domIdOverride) : baseIdComputed;
   const modeNowSig = (typeof getAppMode === 'function') ? getAppMode() : { type: 'multi' };
   const isMultiSig = String(modeNowSig.type).toLowerCase() !== 'single';
-  const multiLightGreen = '#bafaba';
+  const multiLightGreen = '#a6f039ff';
   // Multichain: pakai hijau muda; per‑chain: gunakan tema normal (kuning terang untuk dark, rgba warna chain untuk light)
   const signalBg = isMultiSig
     ? multiLightGreen
-    : (isDarkMode() ? '#d8ff41' :'#bafaba');
+    : (isDarkMode() ? '#a6f039ff' :'#050701');
   const highlightStyle = (Number(PNL) > filterPNLValue)
     ? `background-color:${signalBg}; font-weight:bolder;`
     : "";
@@ -1098,11 +1099,11 @@ function InfoSinyal(DEXPLUS, TokenPair, PNL, totalFee, cex, NameToken, NamePair,
   const sLink = `
     <div class="signal-item uk-flex uk-flex-middle uk-flex-nowrap uk-text-small uk-padding-remove-vertical" >
       <a href="#${idPrefix}${baseId}" class="uk-link-reset " style="text-decoration:none; font-size:12px; margin-top:2px; margin-left:4px;">
-        <span class="${Number(PNL) > filterPNLValue ? 'signal-highlight' : ''}" style="color:${warnaCEX}; ${highlightStyle}; display:inline-block;">
+        <span class="${Number(PNL) > filterPNLValue ? 'signal-highlight' : ''}" style="color:${warnaCEX}; ${highlightStyle}; display:inline-block; font-weight:bolder;">
           🔸 ${String(cex).slice(0,3).toUpperCase()}X
-          <span class="uk-text-dark">:${modal}</span>
+          <span class="uk-text-muted">:${modal}</span>
           <span class="${warnaTeksArah}"> ${NameToken}->${NamePair}</span>${chainPart}:
-          <span class="uk-text-dark">${Number(PNL).toFixed(2)}$</span>
+          <span class="uk-text-muted">${Number(PNL).toFixed(2)}$</span>
         </span>
       </a>
     </div>`;

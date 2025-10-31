@@ -677,33 +677,65 @@
                         String(t.chain || '').toLowerCase().trim() === detectedChain
                     );
 
+                    // ✅ FIX: Izinkan mixed chains untuk mode MULTICHAIN
                     if (!allSameChain) {
-                        throw new Error(`CSV contains mixed chains. Please use separate CSV files for each chain.`);
-                    }
+                        // Deteksi apakah ini CSV multichain (export dari mode multichain)
+                        const uniqueChains = [...new Set(tokenData.map(t => String(t.chain || '').toLowerCase().trim()).filter(Boolean))];
 
-                    // Validasi: pastikan chain ada di CONFIG_CHAINS
-                    const chainExists = (typeof CONFIG_CHAINS !== 'undefined' && CONFIG_CHAINS[detectedChain]);
-
-                    if (!chainExists) {
-                        throw new Error(`Chain "${detectedChain}" not found in CONFIG_CHAINS. Available chains: ${Object.keys(CONFIG_CHAINS || {}).join(', ')}`);
-                    }
-
-                    // Set target storage key
-                    targetKey = `TOKEN_${detectedChain.toUpperCase()}`;
-                    chainLabel = detectedChain.toUpperCase();
-
-                    // Konfirmasi dengan user
-                    const confirmMsg = `📦 Deteksi Chain: ${chainLabel}\n\n` +
-                                      `File CSV berisi ${tokenData.length} token untuk chain ${chainLabel}.\n\n` +
-                                      `Data akan disimpan ke: ${targetKey}\n\n` +
-                                      `Lanjutkan import?`;
-
-                    const confirmed = confirm(confirmMsg);
-                    if (!confirmed) {
-                        if (typeof toast !== 'undefined' && toast.info) {
-                            toast.info('Import dibatalkan oleh user');
+                        // Validasi: pastikan semua chain ada di CONFIG_CHAINS
+                        const invalidChains = uniqueChains.filter(ch => !CONFIG_CHAINS || !CONFIG_CHAINS[ch]);
+                        if (invalidChains.length > 0) {
+                            throw new Error(`Chain tidak valid: ${invalidChains.join(', ')}. Available chains: ${Object.keys(CONFIG_CHAINS || {}).join(', ')}`);
                         }
-                        return; // Cancel import
+
+                        // Set target ke MULTICHAIN
+                        targetKey = 'TOKEN_MULTICHAIN';
+                        chainLabel = 'MULTICHAIN';
+
+                        // Konfirmasi dengan user untuk import multichain
+                        const chainCounts = uniqueChains.map(ch => {
+                            const count = tokenData.filter(t => String(t.chain || '').toLowerCase().trim() === ch).length;
+                            return `  - ${ch.toUpperCase()}: ${count} token`;
+                        }).join('\n');
+
+                        const confirmMsg = `📦 Deteksi CSV MULTICHAIN\n\n` +
+                                          `File CSV berisi ${tokenData.length} token dari ${uniqueChains.length} chain:\n${chainCounts}\n\n` +
+                                          `Data akan disimpan ke: TOKEN_MULTICHAIN\n\n` +
+                                          `Lanjutkan import?`;
+
+                        const confirmed = confirm(confirmMsg);
+                        if (!confirmed) {
+                            if (typeof toast !== 'undefined' && toast.info) {
+                                toast.info('Import dibatalkan oleh user');
+                            }
+                            return; // Cancel import
+                        }
+                    } else {
+                        // Single chain CSV
+                        // Validasi: pastikan chain ada di CONFIG_CHAINS
+                        const chainExists = (typeof CONFIG_CHAINS !== 'undefined' && CONFIG_CHAINS[detectedChain]);
+
+                        if (!chainExists) {
+                            throw new Error(`Chain "${detectedChain}" not found in CONFIG_CHAINS. Available chains: ${Object.keys(CONFIG_CHAINS || {}).join(', ')}`);
+                        }
+
+                        // Set target storage key
+                        targetKey = `TOKEN_${detectedChain.toUpperCase()}`;
+                        chainLabel = detectedChain.toUpperCase();
+
+                        // Konfirmasi dengan user
+                        const confirmMsg = `📦 Deteksi Chain: ${chainLabel}\n\n` +
+                                          `File CSV berisi ${tokenData.length} token untuk chain ${chainLabel}.\n\n` +
+                                          `Data akan disimpan ke: ${targetKey}\n\n` +
+                                          `Lanjutkan import?`;
+
+                        const confirmed = confirm(confirmMsg);
+                        if (!confirmed) {
+                            if (typeof toast !== 'undefined' && toast.info) {
+                                toast.info('Import dibatalkan oleh user');
+                            }
+                            return; // Cancel import
+                        }
                     }
                 } else {
                     // Fallback: gunakan chain dari URL parameter (backward compatibility)
@@ -735,7 +767,10 @@
                 try { setLastAction(`IMPORT DATA KOIN`, 'success', { count: jumlahToken, chain: chainLabel }); } catch(_) {}
 
                 // Redirect ke halaman chain yang sesuai setelah import
-                const redirectUrl = detectedChain ? `?chain=${detectedChain}` : window.location.search;
+                // ✅ FIX: Untuk multichain, redirect ke ?chain=all
+                const redirectUrl = (targetKey === 'TOKEN_MULTICHAIN')
+                    ? '?chain=all'
+                    : (detectedChain ? `?chain=${detectedChain}` : window.location.search);
                 const successMsg = `✅ BERHASIL IMPORT ${jumlahToken} TOKEN ke ${chainLabel} 📦`;
 
                 try {
