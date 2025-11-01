@@ -2,8 +2,9 @@
 const CONFIG_APP = {
     APP: {
         NAME: "MULTICHECKER-DEV",
-        VERSION: "4.0",        
-        SCAN_LIMIT:false,
+        VERSION: "5.0",
+        SCAN_LIMIT: false,
+        AUTORUN: false,  // Set false untuk menyembunyikan & menonaktifkan fitur autorun
     }
 };
 
@@ -169,7 +170,6 @@ const CONFIG_CHAINS = {
         PAIRDEXS: {
             "BNB": { symbolPair: "BNB", scAddressPair: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c", desPair: "18" },
             "USDT": { symbolPair: "USDT", scAddressPair: "0x55d398326f99059fF775485246999027B3197955", desPair: "18" },
-            "ETH": { symbolPair: "ETH", scAddressPair: "0x2170ed0880ac9a755fd29b2688956bd959f933f8", desPair: "18" },
             "NON": { symbolPair: "NON", scAddressPair: "0x", desPair: "18" }
         }        
     },   

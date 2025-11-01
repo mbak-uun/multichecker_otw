@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portfolio Asset Tracker - CEX & Wallet Monitor</title>
+    <title>MANAJEMEN ASSET</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.6.22/dist/css/uikit.min.css" />
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.0/dist/ethers.umd.min.js"></script>
@@ -812,7 +812,7 @@ img:hover {
         <!-- Main Header with Description -->
         <div class="main-header uk-text-center">
             <h3 class="uk-margin-remove-bottom modal-title">
-                <span>PORTFOLIO ASSET TRACKER</span>
+                <span>MANAJEMEN ASSET</span>
             </h3>
             <p class="header-description">
                 Track aset crypto secara berkala di exchange & wallet dengan PNL monitoring
@@ -844,7 +844,7 @@ img:hover {
             <div class="summary-card">
                 <div class="card-title uk-text-primary"><span uk-icon="icon: credit-card"></span> Modal Awal (USDT)</div>
                 <div class="card-value-input-group">
-                    <input type="number" class="uk-input" id="MODALAWAL" placeholder="Modal Awal" value="1" required />
+                    <input type="number" class="uk-input" id="MODALAWAL" placeholder="Modal Awal" value="1.00" step="0.01" required />
                     <button class="uk-button uk-button-small uk-button-primary" id="SaveModal" title="Simpan Modal"><span uk-icon="icon: check"></span> SIMPAN</button>
                 </div>
                 <div class="card-value-idr uk-text-bold uk-text-primary" id="RPMODAL" >Rp 0</div>
@@ -2434,7 +2434,7 @@ img:hover {
             const passphrase = $("#passphraseBITGET").val();
             if (!apiKey || !apiSecret || !passphrase) return;
 
-            const apiUrl = "https://cors-anywhere.herokuapp.com/https://api.bitget.com/api/v2/spot/account/assets";
+            const apiUrl = "https://cors-anywhere.com/https://api.bitget.com/api/v2/spot/account/assets";
             const timestamp = Date.now().toString();
             const preSignature = timestamp + "GET" + "/api/v2/spot/account/assets";
             const signature = CryptoJS.HmacSHA256(preSignature, apiSecret).toString(CryptoJS.enc.Base64);
@@ -2824,12 +2824,14 @@ img:hover {
 
        // Fungsi Save Modal
         $('#SaveModal').on('click', function () {
-            var inmodal_awal = $("#MODALAWAL").val();
+            const rawModalAwal = parseFloat($("#MODALAWAL").val());
+            const normalizedModalAwal = isNaN(rawModalAwal) ? 0 : Number(rawModalAwal.toFixed(2));
+            $("#MODALAWAL").val(normalizedModalAwal.toFixed(2));
             var formattedTime = getFormattedTime();
 
             // Simpan waktu terakhir diperbarui ke localStorage
             localStorage.setItem('MULTI_lastUpdatePNL', formattedTime);
-            localStorage.setItem('MULTI_MODALAWAL', inmodal_awal);
+            localStorage.setItem('MULTI_MODALAWAL', normalizedModalAwal.toFixed(2));
             if (typeof toast !== 'undefined' && toast.success) toast.success("SIMPAN MODAL AWAL BERHASIL [ " + formattedTime + " ] ");
 
             // Ambil data untuk pengisian history
@@ -2837,7 +2839,7 @@ img:hover {
             const assetDataChain = JSON.parse(localStorage.getItem('MULTI_TotalSaldoChain'));
             const saldoAkhir = Number(saldoExchanger) + Number(assetDataChain);
 
-            addTableHistory(formattedTime,Number(inmodal_awal) ,Number(saldoAkhir),0,"start");
+            addTableHistory(formattedTime, normalizedModalAwal, Number(saldoAkhir), 0, "start");
             
            // location.reload();
             LoadTableHistory()
@@ -2862,7 +2864,7 @@ img:hover {
             const saldoAkhir = Number(saldoExchanger) + Number(assetDataChain);
 
             // Set modal awal ke saldo total saat ini (reset)
-            localStorage.setItem('MULTI_MODALAWAL', saldoAkhir);
+            localStorage.setItem('MULTI_MODALAWAL', saldoAkhir.toFixed(2));
 
             // Update input field modal awal dengan nilai total saat ini
             $("#MODALAWAL").val(saldoAkhir.toFixed(2));
@@ -3120,7 +3122,7 @@ img:hover {
             let modalAwal = parseFloat(localStorage.getItem('MULTI_MODALAWAL'));
             if (isNaN(modalAwal)) {
                 modalAwal = 0;
-                localStorage.setItem('MULTI_MODALAWAL', modalAwal); // Set nilai default jika tidak ditemukan
+                localStorage.setItem('MULTI_MODALAWAL', modalAwal.toFixed(2)); // Set nilai default jika tidak ditemukan
             }
 
             // Memuat saldo exchanger, jika tidak ada maka set default 0
@@ -3136,7 +3138,7 @@ img:hover {
                 assetDataChain = 0;
                 localStorage.setItem('MULTI_TotalSaldoChain', assetDataChain); // Set nilai default jika tidak ditemukan
             }
-            $("#MODALAWAL").val(modalAwal);
+            $("#MODALAWAL").val(Number(modalAwal).toFixed(2));
             // Mengonversi nilai USDT ke IDR dan menampilkannya
             USDTIDR(modalAwal).then((idrusdt) => {
                 $("#RPMODAL").text("RP. " + parseFloat(idrusdt).toLocaleString("id-ID")); // Format ke format IDR

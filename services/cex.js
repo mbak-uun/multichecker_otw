@@ -343,7 +343,7 @@
 
           case 'GATE': {
               if (!hasKeys) throw new Error(`${cex} API Key/Secret not configured in CONFIG_CEX.`);
-              const host = "https://cors-anywhere.herokuapp.com/https://api.gateio.ws";
+              const host = "https://cors-anywhere.com/https://api.gateio.ws";
               const prefix = "/api/v4";
               const ts = Math.floor(Date.now() / 1000);
 

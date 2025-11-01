@@ -1463,8 +1463,12 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
         } catch(_) {}
 
         // Jika auto-run aktif, mulai countdown untuk scan berikutnya.
+        // GUARD: Check if autorun feature is enabled in config
         try {
-            if (window.AUTORUN_ENABLED === true) {
+            const autorunFeatureEnabled = (window.CONFIG_APP?.APP?.AUTORUN !== false);
+            const autorunUserEnabled = (window.AUTORUN_ENABLED === true);
+
+            if (autorunFeatureEnabled && autorunUserEnabled) {
                 const total = 10; // seconds
                 let remain = total;
                 const $cd = $('#autoRunCountdown');
@@ -1473,7 +1477,9 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                 $('#stopSCAN').show().prop('disabled', false);
                 if (typeof setScanUIGating === 'function') setScanUIGating(true);
                 const tick = () => {
-                    if (!window.AUTORUN_ENABLED) { clearInterval(window.__autoRunInterval); window.__autoRunInterval=null; return; }
+                    // Double-check feature + user flags on each tick
+                    const stillEnabled = (window.CONFIG_APP?.APP?.AUTORUN !== false) && window.AUTORUN_ENABLED;
+                    if (!stillEnabled) { clearInterval(window.__autoRunInterval); window.__autoRunInterval=null; return; }
                     $cd.text(`AutoRun ${remain}s`).css({ color: '#e53935', fontWeight: 'bold' }); // REFACTORED
                     remain -= 1;
                     if (remain < 0) {

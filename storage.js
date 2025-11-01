@@ -465,6 +465,75 @@
     }
 
     // ============================
+    // MERGE TOKENS HELPER
+    // ============================
+    /**
+     * Merge imported tokens with existing tokens
+     * - Match based on: symbol_in, symbol_out, chain, cex (all must match)
+     * - If match found: UPDATE existing token with new data
+     * - If no match: ADD as new token
+     * @param {Array} existingTokens - Current tokens in storage
+     * @param {Array} newTokens - Tokens from CSV import
+     * @returns {Object} { merged: Array, stats: { updated: number, added: number, unchanged: number } }
+     */
+    function mergeTokens(existingTokens, newTokens) {
+        const existing = Array.isArray(existingTokens) ? existingTokens : [];
+        const imported = Array.isArray(newTokens) ? newTokens : [];
+
+        let updated = 0;
+        let added = 0;
+        let unchanged = 0;
+
+        // Create map of existing tokens for quick lookup
+        const existingMap = new Map();
+        existing.forEach((token, index) => {
+            // Key: symbol_in|symbol_out|chain|cex (case-insensitive)
+            const key = [
+                String(token.symbol_in || '').toUpperCase(),
+                String(token.symbol_out || '').toUpperCase(),
+                String(token.chain || '').toLowerCase(),
+                String(token.cex || '').toUpperCase()
+            ].join('|');
+            existingMap.set(key, { token, index });
+        });
+
+        // Start with copy of existing tokens
+        const merged = [...existing];
+
+        // Process each imported token
+        imported.forEach(importedToken => {
+            const key = [
+                String(importedToken.symbol_in || '').toUpperCase(),
+                String(importedToken.symbol_out || '').toUpperCase(),
+                String(importedToken.chain || '').toLowerCase(),
+                String(importedToken.cex || '').toUpperCase()
+            ].join('|');
+
+            const existingEntry = existingMap.get(key);
+
+            if (existingEntry) {
+                // MATCH FOUND → UPDATE existing token
+                // Preserve original ID, update all other fields
+                const updatedToken = {
+                    ...importedToken,
+                    id: existingEntry.token.id  // Keep original ID
+                };
+                merged[existingEntry.index] = updatedToken;
+                updated++;
+            } else {
+                // NO MATCH → ADD as new token
+                merged.push(importedToken);
+                added++;
+            }
+        });
+
+        return {
+            merged,
+            stats: { updated, added, unchanged: existing.length - updated, total: merged.length }
+        };
+    }
+
+    // ============================
     // UPLOAD CSV
     // ============================
     function uploadTokenScannerCSV(event) {
@@ -757,38 +826,36 @@
                     }
                 }
 
-                // Simpan ke storage dengan target key yang sudah ditentukan
-                saveToLocalStorage(targetKey, tokenData);
+                // ========== PILIHAN MODE IMPORT (REPLACE / MERGE) ==========
+                // Simpan data sementara untuk diproses setelah user pilih mode
+                window._importTempData = {
+                    tokenData,
+                    targetKey,
+                    chainLabel,
+                    detectedChain,
+                    fileName: file.name
+                };
 
-                // Hitung jumlah token yang diimport
-                let jumlahToken = Array.isArray(tokenData) ? tokenData.length : 0;
-
-                // Notifikasi sukses + tetap tampil setelah reload
-                try { setLastAction(`IMPORT DATA KOIN`, 'success', { count: jumlahToken, chain: chainLabel }); } catch(_) {}
-
-                // Redirect ke halaman chain yang sesuai setelah import
-                // ✅ FIX: Untuk multichain, redirect ke ?chain=all
-                const redirectUrl = (targetKey === 'TOKEN_MULTICHAIN')
-                    ? '?chain=all'
-                    : (detectedChain ? `?chain=${detectedChain}` : window.location.search);
-                const successMsg = `✅ BERHASIL IMPORT ${jumlahToken} TOKEN ke ${chainLabel} 📦`;
-
+                // Update UI modal dengan info file
                 try {
-                    if (typeof reloadWithNotify === 'function') {
-                        reloadWithNotify('success', successMsg);
-                    } else if (typeof notifyAfterReload === 'function') {
-                        notify('success', successMsg, null, { persist: true });
-                        window.location.href = redirectUrl;
-                    } else if (typeof toast !== 'undefined' && toast.success) {
-                        toast.success(successMsg);
-                        setTimeout(() => { window.location.href = redirectUrl; }, 1000);
-                    } else {
-                        alert(successMsg);
-                        window.location.href = redirectUrl;
-                    }
-                } catch(_) {
-                    try { window.location.href = redirectUrl; } catch(_){}
+                    const existingData = getFromLocalStorage(targetKey, []);
+                    const existingCount = Array.isArray(existingData) ? existingData.length : 0;
+
+                    $('#import-csv-filename').text(file.name);
+                    $('#import-csv-info').text(`${tokenData.length} token untuk ${chainLabel}`);
+                    $('#import-existing-count').text(`Data lama: ${existingCount} token`);
+                } catch(_) {}
+
+                // Show modal pilihan mode
+                if (typeof UIkit !== 'undefined' && UIkit.modal) {
+                    UIkit.modal('#import-mode-modal').show();
+                } else {
+                    // Fallback jika UIkit tidak tersedia
+                    alert('Error: UIkit modal tidak tersedia');
                 }
+
+                // Stop processing here - akan dilanjutkan di event handler button
+                return;
 
             } catch (error) {
                 // console.error("Error parsing CSV:", error);
@@ -801,4 +868,197 @@
             }
         };
         reader.readAsText(file);
+    }
+
+    // ============================
+    // MODAL IMPORT HANDLERS
+    // ============================
+
+    /**
+     * Handle REPLACE button click
+     */
+    $(document).on('click', '#btn-import-replace', function() {
+        if (!window._importTempData) return;
+
+        const { tokenData, targetKey, chainLabel, detectedChain } = window._importTempData;
+        const existingData = getFromLocalStorage(targetKey, []);
+        const existingCount = Array.isArray(existingData) ? existingData.length : 0;
+
+        // Store mode and close first modal
+        window._importTempData.mode = 'REPLACE';
+        window._importTempData.existingCount = existingCount;
+
+        // Close mode selection modal
+        if (typeof UIkit !== 'undefined' && UIkit.modal) {
+            UIkit.modal('#import-mode-modal').hide();
+        }
+
+        // Show confirmation modal
+        if (existingCount > 0) {
+            $('#import-confirm-title').html('<span uk-icon="icon: warning; ratio: 1.2"></span> Konfirmasi Replace');
+            $('#import-confirm-message').html(
+                `<strong>⚠️ PERHATIAN!</strong><br>` +
+                `Data lama akan <strong class="uk-text-danger">DIHAPUS SEMUA</strong>!<br><br>` +
+                `Data lama: <strong>${existingCount} token</strong><br>` +
+                `Data baru: <strong>${tokenData.length} token</strong><br><br>` +
+                `Yakin ingin melanjutkan?`
+            );
+            $('#import-merge-preview').hide();
+
+            if (typeof UIkit !== 'undefined' && UIkit.modal) {
+                UIkit.modal('#import-confirm-modal').show();
+            }
+        } else {
+            // Tidak ada data lama, langsung proses
+            processImport();
+        }
+    });
+
+    /**
+     * Handle MERGE button click
+     */
+    $(document).on('click', '#btn-import-merge', function() {
+        if (!window._importTempData) return;
+
+        const { tokenData, targetKey, chainLabel } = window._importTempData;
+        const existingData = getFromLocalStorage(targetKey, []);
+
+        // Proses merge untuk preview
+        const mergeResult = mergeTokens(existingData, tokenData);
+
+        // Store mode and merge result
+        window._importTempData.mode = 'MERGE';
+        window._importTempData.mergeResult = mergeResult;
+
+        // Close mode selection modal
+        if (typeof UIkit !== 'undefined' && UIkit.modal) {
+            UIkit.modal('#import-mode-modal').hide();
+        }
+
+        // Show confirmation modal dengan preview merge
+        $('#import-confirm-title').html('<span uk-icon="icon: check; ratio: 1.2"></span> Preview Merge');
+        $('#import-confirm-message').html(
+            `Data lama: <strong>${existingData.length} token</strong><br>` +
+            `Data CSV: <strong>${tokenData.length} token</strong>`
+        );
+
+        // Update preview stats
+        $('#merge-updated-count').text(mergeResult.stats.updated);
+        $('#merge-added-count').text(mergeResult.stats.added);
+        $('#merge-unchanged-count').text(mergeResult.stats.unchanged);
+        $('#merge-total-count').text(mergeResult.stats.total);
+        $('#import-merge-preview').show();
+
+        if (typeof UIkit !== 'undefined' && UIkit.modal) {
+            UIkit.modal('#import-confirm-modal').show();
+        }
+    });
+
+    /**
+     * Handle konfirmasi import
+     */
+    $(document).on('click', '#btn-import-confirm', function() {
+        processImport();
+    });
+
+    /**
+     * Handle cancel import
+     */
+    $(document).on('click', '#btn-import-cancel', function() {
+        // Close modal
+        if (typeof UIkit !== 'undefined' && UIkit.modal) {
+            UIkit.modal('#import-confirm-modal').hide();
+        }
+
+        // Clear temp data
+        window._importTempData = null;
+
+        // Show cancel message
+        if (typeof toast !== 'undefined' && toast.info) {
+            toast.info('Import dibatalkan');
+        }
+    });
+
+    /**
+     * Process final import based on selected mode
+     */
+    function processImport() {
+        if (!window._importTempData) return;
+
+        const { tokenData, targetKey, chainLabel, detectedChain, mode, mergeResult, existingCount } = window._importTempData;
+
+        let finalTokenData;
+        let importStats;
+
+        if (mode === 'REPLACE') {
+            finalTokenData = tokenData;
+            importStats = {
+                mode: 'REPLACE',
+                total: tokenData.length,
+                oldCount: existingCount || 0
+            };
+        } else if (mode === 'MERGE') {
+            finalTokenData = mergeResult.merged;
+            importStats = {
+                mode: 'MERGE',
+                ...mergeResult.stats
+            };
+        } else {
+            if (typeof toast !== 'undefined' && toast.error) {
+                toast.error('Mode import tidak valid');
+            }
+            return;
+        }
+
+        // Close modal
+        if (typeof UIkit !== 'undefined' && UIkit.modal) {
+            UIkit.modal('#import-confirm-modal').hide();
+        }
+
+        // Simpan ke storage
+        saveToLocalStorage(targetKey, finalTokenData);
+
+        // Clear temp data
+        window._importTempData = null;
+
+        // Log action
+        const jumlahToken = Array.isArray(finalTokenData) ? finalTokenData.length : 0;
+        const actionMeta = {
+            count: jumlahToken,
+            chain: chainLabel,
+            mode: importStats.mode,
+            stats: importStats
+        };
+        try { setLastAction(`IMPORT DATA KOIN`, 'success', actionMeta); } catch(_) {}
+
+        // Redirect URL
+        const redirectUrl = (targetKey === 'TOKEN_MULTICHAIN')
+            ? '?chain=all'
+            : (detectedChain ? `?chain=${detectedChain}` : window.location.search);
+
+        // Success message
+        let successMsg;
+        if (importStats.mode === 'MERGE') {
+            successMsg = `✅ MERGE BERHASIL! Update: ${importStats.updated}, Tambah: ${importStats.added}, Total: ${importStats.total} token`;
+        } else {
+            successMsg = `✅ REPLACE BERHASIL! ${jumlahToken} token baru menggantikan ${importStats.oldCount} token lama`;
+        }
+
+        // Reload dengan notifikasi
+        try {
+            if (typeof reloadWithNotify === 'function') {
+                reloadWithNotify('success', successMsg);
+            } else if (typeof notifyAfterReload === 'function') {
+                notify('success', successMsg, null, { persist: true });
+                window.location.href = redirectUrl;
+            } else if (typeof toast !== 'undefined' && toast.success) {
+                toast.success(successMsg);
+                setTimeout(() => { window.location.href = redirectUrl; }, 1000);
+            } else {
+                alert(successMsg);
+                window.location.href = redirectUrl;
+            }
+        } catch(_) {
+            try { window.location.href = redirectUrl; } catch(_){}
+        }
     }

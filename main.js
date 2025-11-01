@@ -1362,27 +1362,44 @@ $("#reload").click(function () {
         if (window.App?.Scanner?.stopScanner) window.App.Scanner.stopScanner();
     });
 
-    // Autorun toggle
+    // Autorun toggle - controlled by CONFIG_APP.APP.AUTORUN
     try {
-        window.AUTORUN_ENABLED = false;
-        $(document).on('change', '#autoRunToggle', function(){
-            window.AUTORUN_ENABLED = $(this).is(':checked');
-            if (!window.AUTORUN_ENABLED) {
-                // cancel any pending autorun countdown
-                try { clearInterval(window.__autoRunInterval); } catch(_) {}
-                window.__autoRunInterval = null;
-                // clear countdown label
-                $('#autoRunCountdown').text('');
-                // restore UI to idle state if not scanning
-                try {
-                    $('#stopSCAN').hide().prop('disabled', true);
-                    $('#startSCAN').prop('disabled', false).removeClass('uk-button-disabled').text('START');
-                    $("#LoadDataBtn, #SettingModal, #MasterData,#UpdateWalletCEX,#chain-links-container,.sort-toggle, .edit-token-button").css("pointer-events", "auto").css("opacity", "1");
-                    if (typeof setScanUIGating === 'function') setScanUIGating(false);
-                    $('.header-card a, .header-card .icon').css({ pointerEvents: 'auto', opacity: 1 });
-                } catch(_) {}
-            }
-        });
+        // Check if autorun feature is enabled in config
+        const autorunEnabled = (window.CONFIG_APP?.APP?.AUTORUN !== false);
+
+        if (!autorunEnabled) {
+            // Hide autorun UI elements when disabled in config
+            $('#autoRunToggle').closest('label').hide();
+            $('#autoRunCountdown').hide();
+            window.AUTORUN_ENABLED = false;
+            window.AUTORUN_FEATURE_DISABLED = true;
+        } else {
+            // Show autorun UI elements when enabled
+            $('#autoRunToggle').closest('label').show();
+            $('#autoRunCountdown').show();
+            window.AUTORUN_ENABLED = false;
+            window.AUTORUN_FEATURE_DISABLED = false;
+
+            // Register change handler only if feature is enabled
+            $(document).on('change', '#autoRunToggle', function(){
+                window.AUTORUN_ENABLED = $(this).is(':checked');
+                if (!window.AUTORUN_ENABLED) {
+                    // cancel any pending autorun countdown
+                    try { clearInterval(window.__autoRunInterval); } catch(_) {}
+                    window.__autoRunInterval = null;
+                    // clear countdown label
+                    $('#autoRunCountdown').text('');
+                    // restore UI to idle state if not scanning
+                    try {
+                        $('#stopSCAN').hide().prop('disabled', true);
+                        $('#startSCAN').prop('disabled', false).removeClass('uk-button-disabled').text('START');
+                        $("#LoadDataBtn, #SettingModal, #MasterData,#UpdateWalletCEX,#chain-links-container,.sort-toggle, .edit-token-button").css("pointer-events", "auto").css("opacity", "1");
+                        if (typeof setScanUIGating === 'function') setScanUIGating(false);
+                        $('.header-card a, .header-card .icon').css({ pointerEvents: 'auto', opacity: 1 });
+                    } catch(_) {}
+                }
+            });
+        }
     } catch(_) {}
 
     // Cancel button in inline settings: restore without broadcasting to other tabs

@@ -777,6 +777,134 @@
   </div>
 
 <!-- Modal: Backup & Restore Database -->
+<!-- Modal: Import CSV Mode Selection -->
+<div id="import-mode-modal" uk-modal>
+  <div class="uk-modal-dialog uk-modal-body">
+    <button class="uk-modal-close-default" type="button" uk-close></button>
+
+    <h3 class="uk-modal-title uk-text-center">
+      <span uk-icon="icon: upload; ratio: 1.2"></span> Pilih Mode Import
+    </h3>
+
+    <div class="uk-margin">
+      <div class="uk-alert uk-alert-primary uk-text-small" uk-alert>
+        <p class="uk-margin-remove"><strong id="import-csv-filename"></strong></p>
+        <p class="uk-margin-remove uk-text-meta" id="import-csv-info"></p>
+      </div>
+    </div>
+
+    <div class="uk-grid-small uk-child-width-1-2@s" uk-grid>
+      <!-- Replace Mode -->
+      <div>
+        <div class="uk-card uk-card-default uk-card-hover uk-card-body uk-padding-small">
+          <div class="uk-text-center">
+            <span uk-icon="icon: trash; ratio: 2" class="uk-text-danger"></span>
+            <h4 class="uk-card-title uk-margin-small-top">REPLACE</h4>
+          </div>
+          <p class="uk-text-small uk-text-muted">
+            Hapus semua data lama dan ganti dengan data baru dari CSV.
+          </p>
+          <ul class="uk-list uk-list-divider uk-text-small">
+            <li><span uk-icon="icon: close; ratio: 0.8" class="uk-text-danger"></span> Data lama <strong>dihapus</strong></li>
+            <li><span uk-icon="icon: check; ratio: 0.8" class="uk-text-success"></span> Data baru <strong>ditambahkan</strong></li>
+          </ul>
+          <div class="uk-alert uk-alert-warning uk-text-small uk-padding-small" uk-alert>
+            <p class="uk-margin-remove" id="import-existing-count">Data lama: - token</p>
+          </div>
+          <button class="uk-button uk-button-danger uk-button-small uk-width-1-1" id="btn-import-replace">
+            <span uk-icon="trash"></span> Replace
+          </button>
+        </div>
+      </div>
+
+      <!-- Merge Mode -->
+      <div>
+        <div class="uk-card uk-card-default uk-card-hover uk-card-body uk-padding-small">
+          <div class="uk-text-center">
+            <span uk-icon="icon: git-branch; ratio: 2" class="uk-text-success"></span>
+            <h4 class="uk-card-title uk-margin-small-top">MERGE</h4>
+          </div>
+          <p class="uk-text-small uk-text-muted">
+            Gabungkan data lama dengan data baru dari CSV.
+          </p>
+          <ul class="uk-list uk-list-divider uk-text-small">
+            <li><span uk-icon="icon: check; ratio: 0.8" class="uk-text-success"></span> Data lama <strong>tetap ada</strong></li>
+            <li><span uk-icon="icon: refresh; ratio: 0.8" class="uk-text-warning"></span> Jika sama → <strong>update</strong></li>
+            <li><span uk-icon="icon: plus; ratio: 0.8" class="uk-text-primary"></span> Jika beda → <strong>tambah</strong></li>
+          </ul>
+          <div class="uk-text-small uk-text-muted uk-padding-small" style="background: #f8f8f8; border-radius: 4px;">
+            <strong>Patokan merge:</strong><br>
+            Token + Pair + Chain + CEX
+          </div>
+          <button class="uk-button uk-button-primary uk-button-small uk-width-1-1 uk-margin-small-top" id="btn-import-merge">
+            <span uk-icon="git-branch"></span> Merge
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="uk-margin-top uk-text-center">
+      <button class="uk-button uk-button-default uk-button-small uk-modal-close" type="button">
+        <span uk-icon="close"></span> Batal
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Import Confirmation -->
+<div id="import-confirm-modal" uk-modal>
+  <div class="uk-modal-dialog uk-modal-body">
+    <button class="uk-modal-close-default" type="button" uk-close></button>
+
+    <h3 class="uk-modal-title uk-text-center" id="import-confirm-title">
+      <span uk-icon="icon: warning; ratio: 1.2"></span> Konfirmasi
+    </h3>
+
+    <div class="uk-alert uk-alert-warning" uk-alert id="import-confirm-alert">
+      <p id="import-confirm-message"></p>
+    </div>
+
+    <div id="import-merge-preview" class="uk-margin" style="display:none;">
+      <h4 class="uk-heading-line"><span>Preview Merge</span></h4>
+      <div class="uk-grid-small uk-child-width-1-2@s" uk-grid>
+        <div>
+          <div class="uk-card uk-card-default uk-card-body uk-padding-small">
+            <span class="uk-text-meta">Token di-UPDATE</span>
+            <h3 class="uk-text-warning uk-margin-remove" id="merge-updated-count">-</h3>
+          </div>
+        </div>
+        <div>
+          <div class="uk-card uk-card-default uk-card-body uk-padding-small">
+            <span class="uk-text-meta">Token DITAMBAH</span>
+            <h3 class="uk-text-primary uk-margin-remove" id="merge-added-count">-</h3>
+          </div>
+        </div>
+        <div>
+          <div class="uk-card uk-card-default uk-card-body uk-padding-small">
+            <span class="uk-text-meta">Token TIDAK BERUBAH</span>
+            <h3 class="uk-text-muted uk-margin-remove" id="merge-unchanged-count">-</h3>
+          </div>
+        </div>
+        <div>
+          <div class="uk-card uk-card-default uk-card-body uk-padding-small">
+            <span class="uk-text-meta">TOTAL Setelah Merge</span>
+            <h3 class="uk-text-success uk-margin-remove" id="merge-total-count">-</h3>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="uk-margin-top uk-text-center">
+      <button class="uk-button uk-button-default uk-button-small uk-margin-small-right" type="button" id="btn-import-cancel">
+        <span uk-icon="close"></span> Batal
+      </button>
+      <button class="uk-button uk-button-primary uk-button-small" id="btn-import-confirm">
+        <span uk-icon="check"></span> Ya, Lanjutkan
+      </button>
+    </div>
+  </div>
+</div>
+
 <div id="backup-modal" uk-modal>
   <div class="uk-modal-dialog">
     <div class="uk-modal-header uk-padding-small">
@@ -795,7 +923,7 @@
       <button class="uk-button uk-button-default uk-modal-close uk-button-small" type="button">Close</button>
     </div>
   </div>
-  
+
 </div>
 
 

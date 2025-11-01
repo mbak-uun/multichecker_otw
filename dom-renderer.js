@@ -265,14 +265,14 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
         const linkOKDEX = createHoverLink(`https://www.okx.com/web3/dex-swap?inputChain=${chainConfig.Kode_Chain}&inputCurrency=${data.sc_in}&outputChain=${chainConfig.Kode_Chain}&outputCurrency=${data.sc_out}`, '#OKX', 'uk-text-primary');
         const linkUNIDEX = createHoverLink(`https://app.unidex.exchange/?chain=${chainConfig.Nama_Chain}&from=${data.sc_in}&to=${data.sc_out}`, '#UNX', 'uk-text-success');
         const linkDEFIL = createHoverLink(`https://swap.defillama.com/?chain=${chainConfig.Nama_Chain}&from=${data.sc_in}&to=${data.sc_out}`, '#DFL', 'uk-text-danger');
-        const linkDZAP = createHoverLink(`https://app.dzap.io/trade?fromChain=${chainConfig.Kode_Chain}&fromToken=${data.sc_in}&toChain=${chainConfig.Kode_Chain}&toToken=${data.sc_out}`, '#DZP', 'uk-text-dark');
+        const linkDZAP = createHoverLink(`https://app.dzap.io/trade?referral=d0d7E9b4&fromChain=${chainConfig.Kode_Chain}&fromToken=${data.sc_in}&toChain=${chainConfig.Kode_Chain}&toToken=${data.sc_out}`, '#DZP', 'uk-text-dark');
 
         const rowId = `DETAIL_${String(data.cex).toUpperCase()}_${String(data.symbol_in).toUpperCase()}_${String(data.symbol_out).toUpperCase()}_${String(data.chain).toUpperCase()}`.replace(/[^A-Z0-9_]/g,'');
         const chainShort = (data.chain || '').substring(0,3).toUpperCase();
 
         rowHtml += `
             <td id="${idPrefix}${rowId}" class="uk-text-center uk-background td-detail" style="text-align: center; border:1px solid black; padding:10px;">
-             <span style="color: ${warnaCex}; font-weight:bolder;">[${index + 1}] ${data.cex} </span> on <span style="color: ${warnaChain}; font-weight:bolder;">${chainShort} </span>
+             [${index + 1}]<span style="color: ${warnaCex}; font-weight:bolder;"> ${data.cex} </span> on <span style="color: ${warnaChain}; font-weight:bolder;">${chainShort} </span>
     
             <span class="detail-line">
                 <span style="color: ${warnaChain}; font-weight:bolder; font-size:medium;"  >${linkToken} </span> ⇄ <span style="color: ${warnaChain}; font-weight:bolder; font-size:medium;">${linkPair} </span>
@@ -962,7 +962,7 @@ function DisplayPNL(data) {
   const dpCls  = (dpFlag === false) ? 'uk-text-danger' : 'uk-text-primary';
   const wdLine   = `<a class="${wdCls}" href="${wdUrl}" target="_blank" rel="noopener" title="FEE WITHDRAW">${wdText}: ${n(FeeWD).toFixed(4)}$</a>`;
   const dpLine   = `<a class="${dpCls}" href="${dpUrlToken}" target="_blank" rel="noopener">${dpText}</a>`;
-  const swapLine = `<span class="monitor-line uk-text-danger" title="FEE SWAP">💸 SW: ${n(FeeSwap).toFixed(4)}$</span>`;
+  const swapLine = `<span class="monitor-line uk-text-dark" title="FEE SWAP">💸 SW: ${n(FeeSwap).toFixed(4)}$</span>`;
 
   const feeLine  = (direction === 'tokentopair') ? wdLine : dpLine;
 
@@ -978,7 +978,7 @@ function DisplayPNL(data) {
   const multiLightGreen = 'rgba(188, 233, 97, 1)';
   const hlBg = isMultiModeHL
     ? multiLightGreen
-    : (isDarkMode() ? '#87db0bff' : '#050701');
+    : (isDarkMode() ? '#87db0bff' : '#ddf0b7ff');
   // Tambahkan kelas agar CSS bisa override tambahan saat dark-mode
   if (shouldHighlight) { try { $mainCell.addClass('dex-cell-highlight'); } catch(_) {}
   } else { try { $mainCell.removeClass('dex-cell-highlight'); } catch(_) {} }
@@ -1082,11 +1082,11 @@ function InfoSinyal(DEXPLUS, TokenPair, PNL, totalFee, cex, NameToken, NamePair,
   const baseId = domIdOverride ? String(domIdOverride) : baseIdComputed;
   const modeNowSig = (typeof getAppMode === 'function') ? getAppMode() : { type: 'multi' };
   const isMultiSig = String(modeNowSig.type).toLowerCase() !== 'single';
-  const multiLightGreen = '#a6f039ff';
+  const multiLightGreen = '#a9fcac';
   // Multichain: pakai hijau muda; per‑chain: gunakan tema normal (kuning terang untuk dark, rgba warna chain untuk light)
   const signalBg = isMultiSig
     ? multiLightGreen
-    : (isDarkMode() ? '#a6f039ff' :'#050701');
+    : (isDarkMode() ? '#a9fcac' :'#ddf0b7ff');
   const highlightStyle = (Number(PNL) > filterPNLValue)
     ? `background-color:${signalBg}; font-weight:bolder;`
     : "";
