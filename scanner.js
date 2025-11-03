@@ -194,6 +194,17 @@ function appendCellTitleById(id, line){
     if (!cell) return;
     appendCellTitleByEl(cell, line);
 }
+
+/**
+ * Placeholder function untuk kompatibilitas.
+ * Form edit TETAP AKTIF saat scanning untuk memungkinkan user mengubah data.
+ * Fungsi simpan akan di-modifikasi agar tidak refresh tabel saat scanning.
+ */
+function setEditFormState(isScanning) {
+    // Intentionally empty - form tetap aktif saat scanning
+    // Perubahan akan ditangani oleh fungsi simpan yang sudah di-modifikasi
+}
+
 /**
  * Start the scanning process for a flattened list of tokens.
  * - Batches tokens per group (scanPerKoin)
@@ -619,7 +630,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                 setDexErrorBackground(cell);
                                 const span = ensureDexStatusSpan(cell);
                                 span.className = 'dex-status uk-text-danger';
-                                span.innerHTML = `<span class=\"uk-label uk-label-danger\">ERROR5</span>`;
+                                span.innerHTML = `<span class=\"uk-label uk-label-danger\">ERROR</span>`;
                                 appendCellTitleByEl(cell, '[CEX] INVALID PRICES');
                                 try { if (cell.dataset) cell.dataset.final = '1'; } catch(_) {}
                             });
@@ -1255,12 +1266,58 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                 }, getJedaDex(dex));
                             };
                             // Jalankan untuk kedua arah: CEX->DEX dan DEX->CEX.
-                            callDex('TokentoPair');
-                            (function(){
-                                const gap = getJedaDex(dex) || 0;
-                                if (gap > 0) setTimeout(() => { try { callDex('PairtoToken'); } catch(_) {} }, gap);
-                                else callDex('PairtoToken');
-                            })();
+                            // OPTIMASI: Skip fetch jika checkbox Wallet CEX aktif dan status WD/DP off
+                            const isWalletCEXChecked = (typeof $ === 'function') ? $('#checkWalletCEX').is(':checked') : false;
+
+                            // CEX→DEX (TokentoPair): Perlu withdrawToken ON untuk bisa WD dari CEX
+                            const shouldSkipTokenToPair = isWalletCEXChecked && token.withdrawToken === false;
+                            if (!shouldSkipTokenToPair) {
+                                callDex('TokentoPair');
+                            } else {
+                                // Set status SKIP untuk sel yang di-skip (WD OFF)
+                                const sym1 = String(token.symbol_in||'').toUpperCase();
+                                const sym2 = String(token.symbol_out||'').toUpperCase();
+                                const tokenId = String(token.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+                                const baseIdRaw = `${String(token.cex).toUpperCase()}_${String(dex).toUpperCase()}_${sym1}_${sym2}_${String(token.chain).toUpperCase()}_${tokenId}`;
+                                const baseId = baseIdRaw.replace(/[^A-Z0-9_]/g,'');
+                                const idCELL = tableBodyId + '_' + baseId;
+                                const cell = document.getElementById(idCELL);
+                                if (cell) {
+                                    try { cell.classList.add('dex-skip'); } catch(_) {}
+                                    const span = ensureDexStatusSpan(cell);
+                                    span.className = 'dex-status uk-text-muted';
+                                    span.innerHTML = `<span class=\"uk-label uk-label-warning\">SKIP WX</span>`;
+                                    span.title = 'Withdraw Token OFF - Fetch di-skip untuk optimasi';
+                                    try { if (cell.dataset) cell.dataset.final = '1'; } catch(_) {}
+                                }
+                            }
+
+                            // DEX→CEX (PairtoToken): Perlu depositToken ON untuk bisa DP ke CEX
+                            const shouldSkipPairToToken = isWalletCEXChecked && token.depositToken === false;
+                            if (!shouldSkipPairToToken) {
+                                (function(){
+                                    const gap = getJedaDex(dex) || 0;
+                                    if (gap > 0) setTimeout(() => { try { callDex('PairtoToken'); } catch(_) {} }, gap);
+                                    else callDex('PairtoToken');
+                                })();
+                            } else {
+                                // Set status SKIP untuk sel yang di-skip (DP OFF)
+                                const sym1 = String(token.symbol_out||'').toUpperCase();
+                                const sym2 = String(token.symbol_in||'').toUpperCase();
+                                const tokenId = String(token.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+                                const baseIdRaw = `${String(token.cex).toUpperCase()}_${String(dex).toUpperCase()}_${sym1}_${sym2}_${String(token.chain).toUpperCase()}_${tokenId}`;
+                                const baseId = baseIdRaw.replace(/[^A-Z0-9_]/g,'');
+                                const idCELL = tableBodyId + '_' + baseId;
+                                const cell = document.getElementById(idCELL);
+                                if (cell) {
+                                    try { cell.classList.add('dex-skip'); } catch(_) {}
+                                    const span = ensureDexStatusSpan(cell);
+                                    span.className = 'dex-status uk-text-muted';
+                                    span.innerHTML = `<span class=\"uk-label uk-label-warning\">SKIP DX</span>`;
+                                    span.title = 'Deposit Token OFF - Fetch di-skip untuk optimasi';
+                                    try { if (cell.dataset) cell.dataset.final = '1'; } catch(_) {}
+                                }
+                            }
                         });
                     }
             // Beri jeda antar token dalam satu grup.
@@ -1273,6 +1330,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
     async function processTokens(tokensToProcess, tableBodyId) {
         // Set flag bahwa scan sedang berjalan dan mulai loop update UI.
         isScanRunning = true;
+        setEditFormState(true); // Disable form edit saat scanning
         animationFrameId = requestAnimationFrame(processUiUpdates);
 
         const startTime = Date.now();
@@ -1417,6 +1475,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
 
         // Set flag dan hentikan loop UI.
         isScanRunning = false;
+        setEditFormState(false); // Placeholder (form tetap aktif saat scanning)
         cancelAnimationFrame(animationFrameId);
         setPageTitleForRun(false);
 
@@ -1650,11 +1709,14 @@ if (typeof window !== 'undefined' && window.App && typeof window.App.register ==
         // Return per-tab scanning state (not global)
         isScanRunning: () => isThisTabScanning(),
         // Expose helper untuk external access
-        isThisTabScanning: isThisTabScanning
+        isThisTabScanning: isThisTabScanning,
+        // Fungsi untuk disable/enable form edit saat scanning
+        setEditFormState: setEditFormState
     });
 }
 
 // Expose untuk backward compatibility
 if (typeof window !== 'undefined') {
     window.isThisTabScanning = isThisTabScanning;
+    window.setEditFormState = setEditFormState;
 }

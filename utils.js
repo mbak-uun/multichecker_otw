@@ -1251,30 +1251,20 @@ function setScanUIGating(isRunning) {
             // Keep Auto Scroll checkbox enabled and clickable during scanning
             $('#autoScrollCheckbox').prop('disabled', false).css({ pointerEvents: 'auto', opacity: 1 });
             // Some extra clickable items in page (keep chain links enabled)
-            if (isSingle) {
-                // Per-chain: keep edit icon active so user can edit during scan
-                $('.sort-toggle').css({ pointerEvents: 'none', opacity: 0.4 });
-                $('.edit-token-button').css({ pointerEvents: 'auto', opacity: 1 });
-            } else {
-                $('.sort-toggle, .edit-token-button').css({ pointerEvents: 'none', opacity: 0.4 });
-            }
-            // Keep delete buttons active during scanning as requested
+            // UBAH: Icon edit & delete TETAP AKTIF untuk semua mode saat scanning
+            $('.sort-toggle').css({ pointerEvents: 'none', opacity: 0.4 });
+            $('.edit-token-button').css({ pointerEvents: 'auto', opacity: 1 });
             $('.delete-token-button').css({ pointerEvents: 'auto', opacity: 1 });
             // Lock token management during scan; Edit modal behavior depends on mode
             $('#token-management').find('input, select, button, textarea').prop('disabled', true).css({ pointerEvents: 'none', opacity: 0.6 });
-            if (isSingle) {
-                // Per-chain: keep all inputs active in Edit modal, and show only Import + Cancel buttons
-                const $modal = $('#FormEditKoinModal');
-                $modal.find('input, select, button, textarea').prop('disabled', false).css({ pointerEvents: 'auto', opacity: '' });
-                // Buttons: only Import (CopyToMultiBtn) and Cancel (BatalEditkoin)
-                $('#HapusEditkoin').hide().prop('disabled', true);
-                $('#SaveEditkoin').hide().prop('disabled', true);
-                $('#CopyToMultiBtn').show().prop('disabled', false);
-                $('#BatalEditkoin').show().prop('disabled', false);
-            } else {
-                // Multi-chain: disable edit modal
-                $('#FormEditKoinModal').find('input, select, button, textarea').prop('disabled', true).css({ pointerEvents: 'none', opacity: 0.6 });
-            }
+            // UBAH: Form edit TETAP AKTIF untuk semua mode (single & multi-chain)
+            const $modal = $('#FormEditKoinModal');
+            $modal.find('input, select, button, textarea').prop('disabled', false).css({ pointerEvents: 'auto', opacity: '' });
+            // Tombol Simpan & Hapus TETAP AKTIF saat scanning
+            $('#HapusEditkoin').show().prop('disabled', false);
+            $('#SaveEditkoin').show().prop('disabled', false);
+            $('#CopyToMultiBtn').show().prop('disabled', false);
+            $('#BatalEditkoin').show().prop('disabled', false);
             // Keep STOP button usable during running
             $('#stopSCAN').prop('disabled', false).show();
             // Keep RELOAD usable (already via toolbar allow-list), disable START explicitly

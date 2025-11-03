@@ -44,6 +44,24 @@ body {
     }
 }
 
+.filter-date-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.filter-date-row .date-field {
+    min-width: 200px;
+    flex: 1 1 200px;
+}
+
+.filter-date-row .button-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .modal-title span {
     font-weight: 700;
     letter-spacing: 0.05em;
@@ -1241,38 +1259,38 @@ img:hover {
                             <div class="uk-modal-dialog uk-modal-body uk-width-large">
                                 <button class="uk-modal-close-default" type="button" uk-close></button>
 
-                                <h3 class="uk-heading-divider uk-align-center uk-text-primary uk-margin-small-bottom">
+                                <h3 class="uk-heading-divider uk-align-center uk-text-primary uk-text-center uk-margin-small-bottom">
                                     <span uk-icon="icon: search"></span> REKAP PNL BERDASARKAN TANGGAL
                                 </h3>
-                                <p class="uk-text-center uk-text-small uk-text-primary uk-margin-remove-top">
-                                    <span uk-icon="icon: calendar"></span> Pilih Rentang Tanggal untuk Melihat Rekap PNL Harian
-                                </p>
+                               
 
                                 <!-- Filter Form (sejajar) -->
-                                <div class="uk-grid-small uk-flex-middle uk-child-width-auto uk-margin-small-top" uk-grid>
-                                    <div>
+                                <div class="filter-date-row uk-margin-small-top">
+                                     
+                                    <div class="date-field">
                                         <label class="uk-form-label uk-text-bold" for="startDate">Tanggal Mulai</label>
                                         <input class="uk-input" type="date" id="startDate" placeholder="Pilih tanggal mulai">
                                     </div>
-                                    <div>
+                                    <div class="date-field">
                                         <label class="uk-form-label uk-text-bold" for="endDate">Tanggal Akhir</label>
                                         <input class="uk-input" type="date" id="endDate" placeholder="Pilih tanggal akhir">
                                     </div>
-                                    <div>
+                                    <div class="button-group">
                                         <button class="uk-button uk-button-primary" id="applyFilterPNL">
                                             <span uk-icon="icon: check"></span> Tampilkan
                                         </button>
-                                    </div>
-                                    <div>
                                         <button class="uk-button uk-button-secondary" id="resetFilterPNL">
                                             <span uk-icon="icon: refresh"></span> Reset
                                         </button>
                                     </div>
+                                    <span class="uk-text-center uk-text-small uk-text-muted uk-margin-remove">
+                                        <span uk-icon="icon: calendar"></span> Pilih Rentang Tanggal untuk Melihat Rekap PNL Harian
+                                    </span>
                                 </div>
 
                                 <!-- Hasil Rekap -->
                                 <div id="rekapPNLContainer" class="uk-margin-top" style="display: none;">
-                                    <hr class="uk-divider-icon">
+                                  
                                 
                                     <!-- Ringkasan card dihilangkan sesuai permintaan -->
 
@@ -1293,15 +1311,6 @@ img:hover {
                                                     <td colspan="5">Belum ada data</td>
                                                 </tr>
                                             </tbody>
-                                            <tfoot>
-                                                <tr class="table-total-row">
-                                                    <th>TOTAL</th>
-                                                    <th id="footerModalAwal">$0.00</th>
-                                                    <th id="footerModalAkhir">$0.00</th>
-                                                    <th id="footerPNL">$0.00</th>
-                                                    <th id="footerPercentage">0%</th>
-                                                </tr>
-                                            </tfoot>
                                         </table>
                                     </div>
                                 </div>
@@ -3626,9 +3635,6 @@ img:hover {
 
                 // Calculate daily summary for every date in the selected range (show all dates)
                 const dailySummary = [];
-                let totalModalAwal = 0;
-                let totalModalAkhir = 0;
-                let totalPNL = 0;
 
                 const monthId = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
                 const iter = new Date(startTimestamp);
@@ -3661,9 +3667,6 @@ img:hover {
                         modalAkhir = parseFloat(lastEntry.saldoAkhir) || 0;
                         pnl = modalAkhir - modalAwal;
                         percentChange = modalAwal > 0 ? ((pnl / modalAwal) * 100) : 0;
-                        totalModalAwal += modalAwal;
-                        totalModalAkhir += modalAkhir;
-                        totalPNL += pnl;
                     }
                     dailySummary.push({
                         date: dateKey,
@@ -3672,7 +3675,7 @@ img:hover {
                     iter.setDate(iter.getDate() + 1);
                 }
 
-                // Ringkasan card dihilangkan; hanya table + footer
+                // Ringkasan card dihilangkan; hanya table harian
 
                 // Render table
                 let tableHTML = '';
@@ -3692,18 +3695,6 @@ img:hover {
                 });
 
                 $('[id=rekapPNLTableBody]').html(tableHTML);
-
-                // Update footer
-                const avgModalAwal = dailySummary.length > 0 ? totalModalAwal / dailySummary.length : 0;
-                const avgModalAkhir = dailySummary.length > 0 ? totalModalAkhir / dailySummary.length : 0;
-                const totalPercentChange = avgModalAwal > 0 ? ((totalPNL / avgModalAwal) * 100) : 0;
-                const footerPNLClass = totalPNL >= 0 ? 'uk-text-success' : 'uk-text-danger';
-                const footerPercentClass = totalPercentChange >= 0 ? 'uk-text-success' : 'uk-text-danger';
-
-                $('[id=footerModalAwal]').text('$' + formatUsdtValue(avgModalAwal));
-                $('[id=footerModalAkhir]').text('$' + formatUsdtValue(avgModalAkhir));
-                $('[id=footerPNL]').html(`<span class="${footerPNLClass}">$${formatUsdtValue(totalPNL)}</span>`);
-                $('[id=footerPercentage]').html(`<span class="${footerPercentClass}">${totalPercentChange.toFixed(2)}%</span>`);
 
                 // Show results
                 $('[id=rekapPNLContainer]').slideDown();

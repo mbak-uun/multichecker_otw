@@ -477,12 +477,13 @@ function openEditModalById(id) {
         UIkit.modal('#FormEditKoinModal').show();
     }
 
-    // Ensure requested button visibility while scanning per-chain
+    // UBAH: Tombol Simpan & Hapus TETAP AKTIF saat scanning
     try {
         const m2 = (typeof getAppMode === 'function') ? getAppMode() : { type: 'multi' };
         const running = $('#stopSCAN').is(':visible');
         if (String(m2.type).toLowerCase() === 'single' && running) {
-            $('#HapusEditkoin, #SaveEditkoin').hide().prop('disabled', true);
+            // Semua tombol tetap visible dan enabled
+            $('#HapusEditkoin, #SaveEditkoin').show().prop('disabled', false);
             $('#CopyToMultiBtn, #BatalEditkoin').show().prop('disabled', false);
         }
     } catch(_) {}
@@ -595,6 +596,10 @@ function form_off() {
     try {
         // refactor: dark mode toggle juga ikut nonaktif saat scan
         $('#stopSCAN, #reload, #autoScrollCheckbox, #toggleScanLog').prop('disabled', false);
+
+        // UBAH: Whitelist semua elemen di modal edit form agar tetap aktif saat scanning
+        $('#FormEditKoinModal').find('input, select, textarea, button').prop('disabled', false);
+        $('#SaveEditkoin, #HapusEditkoin, #CopyToMultiBtn, #BatalEditkoin').prop('disabled', false);
 
         // Explicitly disable management buttons during scan
         $('#ManajemenKoin, #UpdateWalletCEX').css({

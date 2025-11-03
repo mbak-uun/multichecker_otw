@@ -265,6 +265,9 @@ $(document).off('click.globalDelete').on('click.globalDelete', '.delete-token-bu
         const ok = confirm(`🗑️ Hapus Koin Ini?\n\n${detail}\n\n⚠️ Tindakan ini tidak dapat dibatalkan. Lanjutkan?`);
         if (!ok) return;
 
+        // Cek apakah scanning sedang berjalan
+        const isScanning = (typeof window.isThisTabScanning === 'function' && window.isThisTabScanning()) || false;
+
         const mode = getAppMode();
         if (mode.type === 'single') {
             let list = getTokensChain(mode.chain);
@@ -1794,24 +1797,32 @@ $("#startSCAN").click(function () {
 
         if (m.type === 'single') setTokensChain(m.chain, tokens); else setTokensMulti(tokens);
 
-        // ========== OPTIMIZED DEBOUNCED REFRESH ==========
-        // Use setTimeout to allow UI to update smoothly
-        // Batch all refresh operations together to avoid multiple reflows
+        // ========== OPTIMIZED: Skip Refresh Saat Scanning ==========
+        // Cek apakah scanning sedang berjalan
+        const isScanning = (typeof window.isThisTabScanning === 'function' && window.isThisTabScanning()) || false;
+
         setTimeout(() => {
             try {
                 if (typeof toast !== 'undefined' && toast.success) {
-                    toast.success(idx !== -1 ? 'Perubahan token berhasil disimpan' : 'Token baru berhasil ditambahkan');
+                    const msg = idx !== -1 ? 'Perubahan token berhasil disimpan' : 'Token baru berhasil ditambahkan';
+                    const extraMsg = isScanning ? ' (refresh tabel setelah scan selesai)' : '';
+                    toast.success(msg + extraMsg);
                 }
 
                 // Batch DOM updates using requestAnimationFrame for better performance
+                // SKIP refresh tabel jika scanning sedang berjalan untuk menghindari gangguan
                 requestAnimationFrame(() => {
                     try {
-                        if (m.type === 'single') {
-                            loadAndDisplaySingleChainTokens();
-                        } else {
-                            refreshTokensTable();
+                        if (!isScanning) {
+                            // Refresh tabel hanya jika TIDAK scanning
+                            if (m.type === 'single') {
+                                loadAndDisplaySingleChainTokens();
+                            } else {
+                                refreshTokensTable();
+                            }
+                            if (typeof renderFilterCard === 'function') renderFilterCard();
                         }
-                        if (typeof renderFilterCard === 'function') renderFilterCard();
+                        // Token management list tetap di-refresh (tidak mengganggu scan)
                         renderTokenManagementList();
                     } catch(e) {
                         console.error('[Update Token] Refresh error:', e);

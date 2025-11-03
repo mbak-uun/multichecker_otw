@@ -275,6 +275,11 @@ a:hover, .uk-link:hover {
     backdrop-filter: blur(8px);
 }
 
+.dex-skip {
+    background-color: rgba(255, 243, 205, 0.5) !important;
+    backdrop-filter: blur(8px);
+}
+
 .row-hidden { display: none !important; }
 
 /* ==========================================================================
@@ -840,6 +845,11 @@ body.dark-mode {
 
 .dark-mode .dex-error {
     background-color: rgba(127, 29, 29, 0.7) !important;
+    backdrop-filter: blur(8px);
+}
+
+.dark-mode .dex-skip {
+    background-color: rgba(120, 113, 60, 0.5) !important;
     backdrop-filter: blur(8px);
 }
 
