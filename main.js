@@ -1797,45 +1797,28 @@ $("#startSCAN").click(function () {
 
         if (m.type === 'single') setTokensChain(m.chain, tokens); else setTokensMulti(tokens);
 
-        // ========== OPTIMIZED: Skip Refresh Saat Scanning ==========
-        // Cek apakah scanning sedang berjalan
-        const isScanning = (typeof window.isThisTabScanning === 'function' && window.isThisTabScanning()) || false;
-
+        // ========== TIDAK Auto-Refresh Setelah Simpan ==========
         setTimeout(() => {
             try {
                 if (typeof toast !== 'undefined' && toast.success) {
                     const msg = idx !== -1 ? 'Perubahan token berhasil disimpan' : 'Token baru berhasil ditambahkan';
-                    const extraMsg = isScanning ? ' (refresh tabel setelah scan selesai)' : '';
-                    toast.success(msg + extraMsg);
+                    toast.success(msg);
                 }
 
-                // Batch DOM updates using requestAnimationFrame for better performance
-                // SKIP refresh tabel jika scanning sedang berjalan untuk menghindari gangguan
-                requestAnimationFrame(() => {
-                    try {
-                        if (!isScanning) {
-                            // Refresh tabel hanya jika TIDAK scanning
-                            if (m.type === 'single') {
-                                loadAndDisplaySingleChainTokens();
-                            } else {
-                                refreshTokensTable();
-                            }
-                            if (typeof renderFilterCard === 'function') renderFilterCard();
-                        }
-                        // Token management list tetap di-refresh (tidak mengganggu scan)
-                        renderTokenManagementList();
-                    } catch(e) {
-                        console.error('[Update Token] Refresh error:', e);
-                    } finally {
-                        // Restore button state
-                        $saveBtn.prop('disabled', false).html(originalBtnHtml);
+                // Restore button state
+                $saveBtn.prop('disabled', false).html(originalBtnHtml);
 
-                        // Hide overlay
-                        if (overlayId && window.AppOverlay) {
-                            window.AppOverlay.hide(overlayId);
-                        }
-                    }
-                });
+                // Hide overlay
+                if (overlayId && window.AppOverlay) {
+                    window.AppOverlay.hide(overlayId);
+                }
+
+                // Token management list tetap di-refresh (tidak mengganggu)
+                try {
+                    renderTokenManagementList();
+                } catch(e) {
+                    console.error('[Update Token] Management list refresh error:', e);
+                }
 
                 try {
                     const action = (idx !== -1) ? 'UBAH KOIN' : 'TAMBAH KOIN';
@@ -4170,6 +4153,16 @@ $(document).ready(function() {
                 if (dep === true && wd === true) return 2;
                 if (dep === false || wd === false) return 0;
                 return 1; // unknown
+            }
+            case 'wallet': {
+                // Sorting berdasarkan status WD (Withdraw) dan DP (Deposit)
+                const dep = parseSnapshotStatus(token.deposit || token.depositEnable);
+                const wd = parseSnapshotStatus(token.withdraw || token.withdrawEnable);
+                // Priority: WD=ON & DP=ON (3) > WD=ON atau DP=ON (2) > Unknown (1) > WD=OFF & DP=OFF (0)
+                if (wd === true && dep === true) return 3;  // Both ON - highest priority
+                if (wd === true || dep === true) return 2;   // One ON - medium priority
+                if (wd === false && dep === false) return 0; // Both OFF - lowest priority
+                return 1; // Unknown status
             }
             case 'price': {
                 const priceVal = Number(token.current_price ?? token.price ?? token.last_price ?? NaN);

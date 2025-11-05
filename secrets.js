@@ -24,6 +24,11 @@ const CEX_SECRETS = {
         ApiKey: "H2e7P3xu7zzjmRllrl",
         ApiSecret: "4xBB4NchMTxPBT68Ej86Y2UtC1sFfrcBZG1d",
     },
+    BITGET: {
+        ApiKey: "bg_7648ff0f3f7083aad770524c41c656c1",
+        ApiSecret: "4xBB4NchMTxPBT68Ej86Y2UtC1sFfrcBZG1d",
+        Passphrase: "Macpro2025",
+    },
 };
 
 // Telegram bot credentials (moved from config.js)
