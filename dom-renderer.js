@@ -346,6 +346,123 @@ function prepareMonitoringSkeleton(tokens, tableBodyId = 'dataTableBody') {
 }
 try { if (typeof window !== 'undefined') { window.prepareMonitoringSkeleton = prepareMonitoringSkeleton; } } catch(_) {}
 
+/**
+ * Update HANYA stats summary di header manajemen tanpa re-render tabel.
+ * Digunakan saat hapus koin selama scanning untuk menghindari refresh tabel.
+ */
+function updateTokenStatsOnly() {
+    const m = (typeof getAppMode === 'function') ? getAppMode() : { type: 'multi' };
+    let allTokens = (m.type === 'single')
+        ? (getFromLocalStorage(`TOKEN_${String(m.chain).toUpperCase()}`, []) || [])
+        : (getFromLocalStorage('TOKEN_MULTICHAIN', []) || []);
+    if (!Array.isArray(allTokens)) allTokens = [];
+
+    // Apply active filters (Chain, CEX, Pair, DEX) to determine the base list for stats
+    let filteredForStats = [...allTokens];
+
+    if (m.type === 'single') {
+        const chainKey = m.chain;
+        const filters = getFilterChain(chainKey) || { cex: [], pair: [], dex: [] };
+        const hasCex = Array.isArray(filters.cex) && filters.cex.length > 0;
+        const hasPair = Array.isArray(filters.pair) && filters.pair.length > 0;
+        const hasDex = Array.isArray(filters.dex) && filters.dex.length > 0;
+        if (hasCex && hasPair && hasDex) {
+            const upperCexFilters = filters.cex.map(c => String(c).toUpperCase());
+            const pairDefs = (CONFIG_CHAINS?.[chainKey] || {}).PAIRDEXS || {};
+            filteredForStats = filteredForStats
+                .filter(t => (t.selectedCexs || []).some(c => upperCexFilters.includes(String(c).toUpperCase())))
+                .filter(t => {
+                    const p = String(t.symbol_out || '').toUpperCase();
+                    const key = pairDefs[p] ? p : 'NON';
+                    return filters.pair.includes(key);
+                })
+                .filter(t => (t.selectedDexs || []).some(d => filters.dex.includes(String(d).toLowerCase())));
+        } else {
+            filteredForStats = [];
+        }
+    } else { // multi-chain mode
+        const saved = getFromLocalStorage('FILTER_MULTICHAIN', null);
+        const filters = getFilterMulti() || { chains: [], cex: [], dex: [] };
+        const hasChains = Array.isArray(filters.chains) && filters.chains.length > 0;
+        const hasCex = Array.isArray(filters.cex) && filters.cex.length > 0;
+        const hasDex = Array.isArray(filters.dex) && filters.dex.length > 0;
+        if (!saved) {
+            // no saved filter → keep all
+        } else if (!(hasChains && hasCex && hasDex)) {
+            filteredForStats = [];
+        } else {
+            const lowerChainFilters = filters.chains.map(c => String(c).toLowerCase());
+            const upperCexFilters = filters.cex.map(c => String(c).toUpperCase());
+            filteredForStats = filteredForStats
+                .filter(t => lowerChainFilters.includes(String(t.chain || '').toLowerCase()))
+                .filter(t => (t.selectedCexs || []).some(c => upperCexFilters.includes(String(c).toUpperCase())))
+                .filter(t => (t.selectedDexs || []).some(d => filters.dex.includes(String(d).toLowerCase())));
+        }
+    }
+
+    // Calculate stats based on this filtered list (and token status)
+    const activeTokensForStats = filteredForStats.filter(t => t.status);
+    let statsHtml = `-`;
+
+    if (m.type === 'single') {
+        const chainKey = m.chain;
+        const pairDefs = (CONFIG_CHAINS?.[chainKey] || {}).PAIRDEXS || {};
+        const countByCex = activeTokensForStats.reduce((acc, t) => {
+            (t.selectedCexs || []).forEach(cx => { const u = String(cx).toUpperCase(); acc[u] = (acc[u] || 0) + 1; }); return acc;
+        }, {});
+        const countByPair = activeTokensForStats.reduce((acc, t) => {
+            const p = String(t.symbol_out || '').toUpperCase(); const key = pairDefs[p] ? p : 'NON'; acc[key] = (acc[key] || 0) + 1; return acc;
+        }, {});
+
+        // FIX: Tampilkan angka total per CEX dan Pair
+        const cexStatsHtml = Object.entries(countByCex).map(([cex, count]) => {
+            const col = CONFIG_CEX?.[cex]?.WARNA || '#444';
+            return `<span style="color:${col}; margin:2px; font-weight:bolder;">${cex}</span> <span class="uk-text-dark uk-text-bolder">[${count}]</span>`;
+        }).join(' ') || '-';
+        const pairStatsHtml = Object.entries(countByPair).map(([pair, count]) => (
+            `<span class="uk-text-bolder" style="margin:2px;">${pair}</span> <span class="uk-text-dark uk-text-bolder">[${count}]</span>`
+        )).join(' ') || '-';
+
+        const totalActive = activeTokensForStats.length;
+        statsHtml = `
+            <div style="display:flex; flex-direction:column; gap:4px;">
+                <b class="uk-text-primary uk-text-bolder">MANAJEMEN KOIN CHAIN ${chainKey.toUpperCase()} (Total: ${totalActive})</b>
+                <div class="uk-text-small"><b>CEX:</b> ${cexStatsHtml}</div>
+                <div class="uk-text-small"><b>PAIR:</b> ${pairStatsHtml}</div>
+            </div>
+        `;
+    } else { // multi-chain mode
+        const countByChain = activeTokensForStats.reduce((acc, t) => { const k = String(t.chain || '').toLowerCase(); acc[k] = (acc[k] || 0) + 1; return acc; }, {});
+        const countByCex = activeTokensForStats.reduce((acc, t) => { (t.selectedCexs || []).forEach(cx => { const u = String(cx).toUpperCase(); acc[u] = (acc[u] || 0) + 1; }); return acc; }, {});
+
+        // FIX: Tampilkan angka total per Chain dan CEX
+        const chainStatsHtml = Object.entries(countByChain).map(([chain, count]) => {
+            const cfg = CONFIG_CHAINS?.[chain] || {}; const color = cfg.WARNA || '#666';
+            const label = (cfg.Nama_Pendek || cfg.SHORT_NAME || chain).toUpperCase();
+            return `<span style="color:${color}; margin:2px; font-weight:bolder;">${label}</span> <span class="uk-text-dark uk-text-bolder">[${count}]</span>`;
+        }).join(' ') || '-';
+        const cexStatsHtml = Object.entries(countByCex).map(([cex, count]) => {
+            const col = CONFIG_CEX?.[cex]?.WARNA || '#444';
+            return `<span style="color:${col}; margin:2px; font-weight:bolder;">${cex}</span> <span class="uk-text-dark uk-text-bolder">[${count}]</span>`;
+        }).join(' ') || '-';
+
+        const totalActive = activeTokensForStats.length;
+        statsHtml = `
+            <div style="display:flex; flex-direction:column; gap:4px;">
+                <b class="uk-text-primary uk-text-bolder">MANAJEMEN KOIN (MULTICHAIN) (Total: ${totalActive})</b>
+                <div class="uk-text-small"><b>CHAIN:</b> ${chainStatsHtml}</div>
+                <div class="uk-text-small"><b>CEX:</b> ${cexStatsHtml}</div>
+            </div>
+        `;
+    }
+
+    // Update HANYA stats summary, TIDAK render tabel
+    const $summary = $('#mgrStatsSummary');
+    if ($summary.length) {
+        $summary.html(statsHtml);
+    }
+}
+
 function renderTokenManagementList() {
     const m = (typeof getAppMode === 'function') ? getAppMode() : { type: 'multi' };
     let allTokens = (m.type === 'single')
@@ -410,29 +527,48 @@ function renderTokenManagementList() {
         const countByPair = activeTokensForStats.reduce((acc, t) => {
             const p = String(t.symbol_out || '').toUpperCase(); const key = pairDefs[p] ? p : 'NON'; acc[key] = (acc[key] || 0) + 1; return acc;
         }, {});
+
+        // FIX: Tampilkan angka total per CEX dan Pair
         const cexStatsHtml = Object.entries(countByCex).map(([cex, count]) => {
             const col = CONFIG_CEX?.[cex]?.WARNA || '#444';
-            return `<span style="color:${col}; margin:2px; font-weight:bolder;">${cex}</span> <span class="uk-text-dark uk-text-bolder"> [${count}]</span> `;
+            return `<span style="color:${col}; margin:2px; font-weight:bolder;">${cex}</span> <span class="uk-text-dark uk-text-bolder">[${count}]</span>`;
         }).join(' ') || '-';
         const pairStatsHtml = Object.entries(countByPair).map(([pair, count]) => (
-            `<span class="uk-text-bolder" style="margin:2px;">${pair}</span> <span class="uk-text-dark uk-text-bolder"> [${count}]</span> `
+            `<span class="uk-text-bolder" style="margin:2px;">${pair}</span> <span class="uk-text-dark uk-text-bolder">[${count}]</span>`
         )).join(' ') || '-';
-       
-        statsHtml = `<b class="uk-text-primary uk-text-bolder">MANAJEMEN KOIN CHAIN ${chainKey.toUpperCase()}</b>`;
+
+        const totalActive = activeTokensForStats.length;
+        statsHtml = `
+            <div style="display:flex; flex-direction:column; gap:4px;">
+                <b class="uk-text-primary uk-text-bolder">MANAJEMEN KOIN CHAIN ${chainKey.toUpperCase()} (Total: ${totalActive})</b>
+                <div class="uk-text-small"><b>CEX:</b> ${cexStatsHtml}</div>
+                <div class="uk-text-small"><b>PAIR:</b> ${pairStatsHtml}</div>
+            </div>
+        `;
     } else { // multi-chain mode
         const countByChain = activeTokensForStats.reduce((acc, t) => { const k = String(t.chain || '').toLowerCase(); acc[k] = (acc[k] || 0) + 1; return acc; }, {});
         const countByCex = activeTokensForStats.reduce((acc, t) => { (t.selectedCexs || []).forEach(cx => { const u = String(cx).toUpperCase(); acc[u] = (acc[u] || 0) + 1; }); return acc; }, {});
+
+        // FIX: Tampilkan angka total per Chain dan CEX
         const chainStatsHtml = Object.entries(countByChain).map(([chain, count]) => {
             const cfg = CONFIG_CHAINS?.[chain] || {}; const color = cfg.WARNA || '#666';
             const label = (cfg.Nama_Pendek || cfg.SHORT_NAME || chain).toUpperCase();
-            return `<span style="color:${color}; margin:2px; font-weight:bolder;">${label}</span> <span class="uk-text-dark uk-text-bolder"> [${count}]</span> `;
+            return `<span style="color:${color}; margin:2px; font-weight:bolder;">${label}</span> <span class="uk-text-dark uk-text-bolder">[${count}]</span>`;
         }).join(' ') || '-';
         const cexStatsHtml = Object.entries(countByCex).map(([cex, count]) => {
             const col = CONFIG_CEX?.[cex]?.WARNA || '#444';
-            return `<span style="color:${col}; margin:2px; font-weight:bolder;">${cex}</span> <span class="uk-text-dark uk-text-bolder"> [${count}]</span> `;
+            return `<span style="color:${col}; margin:2px; font-weight:bolder;">${cex}</span> <span class="uk-text-dark uk-text-bolder">[${count}]</span>`;
         }).join(' ') || '-';
-        statsHtml = `<b class="uk-text-primary uk-text-bolder">MANAJEMEN KOIN (MULTICHAIN)</b>`;
-       
+
+        const totalActive = activeTokensForStats.length;
+        statsHtml = `
+            <div style="display:flex; flex-direction:column; gap:4px;">
+                <b class="uk-text-primary uk-text-bolder">MANAJEMEN KOIN (MULTICHAIN) (Total: ${totalActive})</b>
+                <div class="uk-text-small"><b>CHAIN:</b> ${chainStatsHtml}</div>
+                <div class="uk-text-small"><b>CEX:</b> ${cexStatsHtml}</div>
+            </div>
+        `;
+
     }
 
     // Use searchInput from filter card for filtering (no need for separate mgrSearchInput)
@@ -1269,7 +1405,13 @@ if (typeof window !== 'undefined' && window.App && typeof window.App.register ==
     window.App.register('DOM', {
         loadKointoTable,
         renderTokenManagementList,
+        updateTokenStatsOnly,
         InfoSinyal,
         calculateResult
     });
+}
+
+// Expose updateTokenStatsOnly globally for access from event handlers
+if (typeof window !== 'undefined') {
+    window.updateTokenStatsOnly = updateTokenStatsOnly;
 }

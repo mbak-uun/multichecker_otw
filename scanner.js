@@ -1286,7 +1286,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                     try { cell.classList.add('dex-skip'); } catch(_) {}
                                     const span = ensureDexStatusSpan(cell);
                                     span.className = 'dex-status uk-text-muted';
-                                    span.innerHTML = `<span class=\"uk-label uk-label-warning\">SKIP WX</span>`;
+                                    span.innerHTML = `<span class=\"uk-label uk-label-warning\"><< SKIP >></span>`;
                                     span.title = 'Withdraw Token OFF - Fetch di-skip untuk optimasi';
                                     try { if (cell.dataset) cell.dataset.final = '1'; } catch(_) {}
                                 }
@@ -1313,7 +1313,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                     try { cell.classList.add('dex-skip'); } catch(_) {}
                                     const span = ensureDexStatusSpan(cell);
                                     span.className = 'dex-status uk-text-muted';
-                                    span.innerHTML = `<span class=\"uk-label uk-label-warning\">SKIP DX</span>`;
+                                    span.innerHTML = `<span class=\"uk-label uk-label-warning\"><< SKIP >> </span>`;
                                     span.title = 'Deposit Token OFF - Fetch di-skip untuk optimasi';
                                     try { if (cell.dataset) cell.dataset.final = '1'; } catch(_) {}
                                 }

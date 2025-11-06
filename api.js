@@ -319,7 +319,7 @@ async function MultisendMessage(
   lines.push(`<b>IP:</b> ${ipAddress}\n<b>WALLET:</b> ${walletMeta}`);
   lines.push(`#USERNAME : #${String(nickname||'').trim()||'-'}`);
   lines.push('---------------------------------------------------');
-  lines.push(`<b>PROSES :</b> ${procLeft} => ${procRight}`);
+  lines.push(`<b>PROSES :</b> <b>${procLeft}</b>[ #${String(fromSymbol).toUpperCase()} ] => <b>${procRight}</b>[ #${String(toSymbol).toUpperCase()} ]`);
   lines.push(`<b>TRANSAKSI :</b> <a href="${linkScFrom}">${String(fromSymbol).toUpperCase()}</a> => <a href="${linkScTo}">${String(toSymbol).toUpperCase()}</a>`);
   lines.push(`<b>MODAL & STOK :</b> ${Number(modal||0).toFixed(2)}$ | <a href="${stockLink}">STOK</a>`);
 

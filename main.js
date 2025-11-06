@@ -277,6 +277,18 @@ $(document).off('click.globalDelete').on('click.globalDelete', '.delete-token-bu
             if (list.length < before) {
                 try { setLastAction('HAPUS KOIN'); } catch(_) {}
                 if (typeof toast !== 'undefined' && toast.info) toast.info(`PROSES HAPUS KOIN ${symIn} VS ${symOut} BERHASIL`);
+
+                // FIX: Jika sedang scanning, HANYA update total koin tanpa refresh tabel
+                if (isScanning) {
+                    // Update HANYA angka total koin di header manajemen (tanpa re-render tabel)
+                    try { if (typeof updateTokenStatsOnly === 'function') updateTokenStatsOnly(); } catch(_) {}
+                    // Update HANYA angka "TOTAL KOIN" di filter card (tanpa re-render filter)
+                    try { if (typeof updateTotalKoinOnly === 'function') updateTotalKoinOnly(); } catch(_) {}
+                } else {
+                    // Jika TIDAK scanning, update total + refresh tabel
+                    try { if (typeof renderTokenManagementList === 'function') renderTokenManagementList(); } catch(_) {}
+                    try { if (typeof loadAndDisplaySingleChainTokens === 'function') loadAndDisplaySingleChainTokens(); } catch(_) {}
+                }
             }
             try { $el.closest('tr').addClass('row-hidden'); } catch(_) {}
         } else {
@@ -287,6 +299,18 @@ $(document).off('click.globalDelete').on('click.globalDelete', '.delete-token-bu
             if (list.length < before) {
                 try { setLastAction('HAPUS KOIN'); } catch(_) {}
                 if (typeof toast !== 'undefined' && toast.info) toast.info(`PROSES HAPUS KOIN ${symIn} VS ${symOut} BERHASIL`);
+
+                // FIX: Jika sedang scanning, HANYA update total koin tanpa refresh tabel
+                if (isScanning) {
+                    // Update HANYA angka total koin di header manajemen (tanpa re-render tabel)
+                    try { if (typeof updateTokenStatsOnly === 'function') updateTokenStatsOnly(); } catch(_) {}
+                    // Update HANYA angka "TOTAL KOIN" di filter card (tanpa re-render filter)
+                    try { if (typeof updateTotalKoinOnly === 'function') updateTotalKoinOnly(); } catch(_) {}
+                } else {
+                    // Jika TIDAK scanning, update total + refresh tabel
+                    try { if (typeof renderTokenManagementList === 'function') renderTokenManagementList(); } catch(_) {}
+                    try { if (typeof refreshTokensTable === 'function') refreshTokensTable(); } catch(_) {}
+                }
             }
             try { $el.closest('tr').addClass('row-hidden'); } catch(_) {}
         }
@@ -771,6 +795,67 @@ async function deferredInit() {
         </label>`;
     }
 
+    /**
+     * Update HANYA angka "TOTAL KOIN" di badge tanpa re-render seluruh filter card.
+     * Digunakan saat delete koin selama scanning untuk menghindari refresh filter.
+     */
+    function updateTotalKoinOnly() {
+        const $badge = $('#total-koin-badge');
+        if (!$badge.length) return; // Badge belum ada
+
+        const m = getMode();
+        let total = 0;
+
+        if (m.mode === 'multi') {
+            const fmNow = getFilterMulti();
+            const chainsSel = fmNow.chains || [];
+            const cexSel = fmNow.cex || [];
+            const dexSel = (fmNow.dex || []).map(x => String(x).toLowerCase());
+            const flat = flattenDataKoin(getTokensMulti()) || [];
+            const saved = getFromLocalStorage('FILTER_MULTICHAIN', null);
+
+            if (!saved) {
+                total = flat.length;
+            } else if (chainsSel.length > 0 && cexSel.length > 0 && dexSel.length > 0) {
+                total = flat.filter(t => chainsSel.includes(String(t.chain || '').toLowerCase()))
+                            .filter(t => cexSel.includes(String(t.cex || '').toUpperCase()))
+                            .filter(t => (t.dexs || []).some(d => dexSel.includes(String(d.dex || '').toLowerCase())))
+                            .length;
+            } else {
+                total = 0;
+            }
+        } else {
+            const chain = m.chain;
+            const saved = getFilterChain(chain);
+            const cexSel = saved.cex || [];
+            const pairSel = saved.pair || [];
+            const dexSel = (saved.dex || []).map(x => String(x).toLowerCase());
+            const flat = flattenDataKoin(getTokensChain(chain)) || [];
+            const pairDefs = (CONFIG_CHAINS[chain] || {}).PAIRDEXS || {};
+
+            if (cexSel.length && pairSel.length && dexSel.length) {
+                total = flat.filter(t => cexSel.includes(String(t.cex || '').toUpperCase()))
+                            .filter(t => {
+                                const p = String(t.symbol_out || '').toUpperCase();
+                                const key = pairDefs[p] ? p : 'NON';
+                                return pairSel.includes(key);
+                            })
+                            .filter(t => (t.dexs || []).some(d => dexSel.includes(String(d.dex || '').toLowerCase())))
+                            .length;
+            } else {
+                total = 0;
+            }
+        }
+
+        // Update HANYA text badge, tidak render ulang filter
+        $badge.text(`TOTAL KOIN: ${total}`);
+    }
+
+    // Expose to window for access from event handlers
+    if (typeof window !== 'undefined') {
+        window.updateTotalKoinOnly = updateTotalKoinOnly;
+    }
+
     function renderFilterCard() {
         const $wrap = $('#filter-groups'); if(!$wrap.length) return; $wrap.empty();
         const m = getMode();
@@ -798,7 +883,7 @@ async function deferredInit() {
             accentColor = cfg?.WARNA || '#333';
         }
         
-        let $sum = $(`<span  class="uk-text-small" style="font-weight:bolder; color: white; background-color: ${accentColor}; padding: 2px 8px; border-radius: 4px;">TOTAL KOIN: 0</span>`);
+        let $sum = $(`<span id="total-koin-badge" class="uk-text-small" style="font-weight:bolder; color: white; background-color: ${accentColor}; padding: 2px 8px; border-radius: 4px;">TOTAL KOIN: 0</span>`);
         if (m.mode === 'multi') {
             const fmNow = getFilterMulti();
             // FIX: Don't default to all chains, respect the user's saved empty selection.
