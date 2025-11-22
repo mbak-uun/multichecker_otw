@@ -2984,41 +2984,50 @@ function normalizeSnapshotRecord(rec, chainKey) {
 async function loadSnapshotRecords(chainKey) {
     try {
         const snapshotMap = await (window.snapshotDbGet ? window.snapshotDbGet(SNAPSHOT_DB_CONFIG.snapshotKey) : Promise.resolve(null));
-        // console.log('loadSnapshotRecords - snapshotMap:', snapshotMap);
+        console.log('[SYNC DEBUG] loadSnapshotRecords - snapshotMap keys:', snapshotMap ? Object.keys(snapshotMap) : 'null');
 
         if (!snapshotMap || typeof snapshotMap !== 'object') {
-            // console.warn('loadSnapshotRecords - No snapshot map found');
+            console.warn('[SYNC DEBUG] loadSnapshotRecords - No snapshot map found');
             return [];
         }
 
         const keyLower = String(chainKey || '').toLowerCase();
         const fallbackKey = String(chainKey || '').toUpperCase();
 
-        // console.log('loadSnapshotRecords - Looking for keys:', { keyLower, fallbackKey });
-        // console.log('loadSnapshotRecords - Available keys:', Object.keys(snapshotMap));
+        console.log('[SYNC DEBUG] loadSnapshotRecords - Looking for keys:', { keyLower, fallbackKey, availableKeys: Object.keys(snapshotMap) });
 
         const arr = Array.isArray(snapshotMap[keyLower]) ? snapshotMap[keyLower]
                   : Array.isArray(snapshotMap[fallbackKey]) ? snapshotMap[fallbackKey]
                   : [];
 
-        // console.log('loadSnapshotRecords - Found array length:', arr.length);
+        console.log('[SYNC DEBUG] loadSnapshotRecords - Found array length:', arr.length);
 
         if (!Array.isArray(arr) || !arr.length) {
-            // console.warn('loadSnapshotRecords - Empty array');
+            console.warn('[SYNC DEBUG] loadSnapshotRecords - Empty array for chain:', chainKey);
             return [];
         }
 
         const seen = new Set();
         const out = [];
-        arr.forEach((rec) => {
+        let skippedNorm = 0;
+        let skippedDedup = 0;
+        arr.forEach((rec, i) => {
             const norm = normalizeSnapshotRecord(rec, keyLower);
-            if (!norm) return;
+            if (!norm) {
+                skippedNorm++;
+                if (i < 3) console.log('[SYNC DEBUG] Skipped record (null norm):', rec);
+                return;
+            }
             const dedupKey = `${norm.cex}__${norm.symbol_in}__${String(norm.sc_in || '').toLowerCase()}`;
-            if (seen.has(dedupKey)) return;
+            if (seen.has(dedupKey)) {
+                skippedDedup++;
+                return;
+            }
             seen.add(dedupKey);
             norm._idx = out.length;
             out.push(norm);
         });
+        console.log('[SYNC DEBUG] Normalization stats:', { total: arr.length, valid: out.length, skippedNorm, skippedDedup });
 
         // console.log('loadSnapshotRecords - Returning:', out.length, 'tokens');
         return out;
@@ -3051,7 +3060,7 @@ async function fetchTokensFromServer(chainKey) {
         };
 
         clone.cex = String(clone.cex || clone.exchange || '').toUpperCase();
-        const symbolRaw = clone.symbol || clone.ticker || clone.token || clone.nama_token || clone.name || '';
+        const symbolRaw = clone.symbol_in || clone.symbol || clone.ticker || clone.token || clone.nama_token || clone.name || '';
         const pairRaw = clone.symbol_out || clone.pair || clone.quote || '';
         const scRaw = clone.sc_in || clone.sc || clone.contract || clone.address || '';
         const decimalsRaw = clone.des_in ?? clone.decimals ?? clone.decimal ?? 0;
@@ -3084,13 +3093,18 @@ async function fetchTokensFromServer(chainKey) {
 
 async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
     const key = String(chainKey || '').toLowerCase();
+    console.log('[SYNC DEBUG] loadSyncTokensFromSnapshot called for:', key);
     const raw = await loadSnapshotRecords(key);
+    console.log('[SYNC DEBUG] loadSyncTokensFromSnapshot - raw.length:', raw.length);
     if (!raw.length) {
+        console.warn('[SYNC DEBUG] loadSyncTokensFromSnapshot - Empty raw, returning false');
         if (!silent) throw new Error('Snapshot kosong untuk chain ini.');
         return false; // Return false instead of throwing when silent
     }
     const savedTokens = getTokensChain(chainKey);
+    console.log('[SYNC DEBUG] loadSyncTokensFromSnapshot - calling setSyncModalData');
     setSyncModalData(chainKey, raw, savedTokens, 'Snapshot');
+    console.log('[SYNC DEBUG] loadSyncTokensFromSnapshot - returning true');
     if (!silent) {
         try { if (typeof toast !== 'undefined' && toast.success) toast.success(`Berhasil memuat ${raw.length} koin dari snapshot lokal`); } catch(_) {}
     }
@@ -3154,13 +3168,13 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
             }
 
             // Save to IndexedDB
-            // console.log('Saving to snapshot...');
-            await window.SnapshotModule.saveToSnapshot(activeSingleChainKey, rawTokens);
-            // console.log('Saved to snapshot successfully');
+            console.log('[SYNC DEBUG] Saving to snapshot...', { chain: activeSingleChainKey, tokenCount: rawTokens.length });
+            const saveResult = await window.SnapshotModule.saveToSnapshot(activeSingleChainKey, rawTokens);
+            console.log('[SYNC DEBUG] Save result:', saveResult);
 
             // Load to modal
             const loaded = await loadSyncTokensFromSnapshot(activeSingleChainKey, true);
-            // console.log('Load result:', loaded);
+            console.log('[SYNC DEBUG] Load result:', loaded);
 
             if (loaded) {
                 $('#sync-snapshot-status').text(`Data dimuat: ${rawTokens.length} koin`);
@@ -3168,7 +3182,7 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
                     toast.success(`Berhasil memuat ${rawTokens.length} koin dari server`);
                 }
             } else {
-                // console.error('Failed to load after save');
+                console.error('[SYNC DEBUG] Failed to load after save - saveResult was:', saveResult);
                 $('#sync-modal-tbody').html('<tr><td colspan="7">Gagal memuat data setelah save</td></tr>');
             }
         } catch(error) {

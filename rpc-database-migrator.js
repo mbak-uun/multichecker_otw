@@ -19,7 +19,8 @@
         polygon: 'https://polygon-pokt.nodies.app',
         ethereum: 'https://eth.llamarpc.com',
         arbitrum: 'https://arbitrum-one-rpc.publicnode.com',
-        base: 'https://base.llamarpc.com'
+        base: 'https://base.llamarpc.com',
+        solana: 'https://api.mainnet-beta.solana.com'
     };
 
     /**

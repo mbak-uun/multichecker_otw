@@ -517,6 +517,8 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                         try { clearDexTickerById(cell.id); } catch(_) {}
                         // Paksa finalisasi ke status TIMEOUT.
                         try { cell.classList.add('dex-error'); } catch(_) {}
+
+                        // Standard cell timeout handling (multi-aggregator now uses the same UI)
                         const span = ensureDexStatusSpan(cell);
                         try {
                             span.classList.remove('uk-text-muted', 'uk-text-warning');
@@ -524,6 +526,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                             span.innerHTML = `<span class=\"uk-label uk-label-warning\">TIMEOUT</span>`;
                             span.title = `${dexName}: Request Timeout`;
                         } catch(_) {}
+
                         try { cell.dataset.final = '1'; delete cell.dataset.checking; delete cell.dataset.deadline; } catch(_) {}
                     }
                 } catch(_) {}
@@ -712,6 +715,8 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                         return;
                                     }
                                 } catch(_) {}
+
+                                    // Standard single-DEX cell handling
                                     // Presentation only: spinner for checking, badge for error
                                     try { cell.classList.remove('dex-error'); } catch(_) {}
                                     let statusSpan = ensureDexStatusSpan(cell);
@@ -850,6 +855,9 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                         dex, token.chain, CONFIG_CHAINS[token.chain.toLowerCase()].Kode_Chain,
                                         direction, 0, finalDexRes
                                     );
+
+                                    // Note: Multi-DEX handling (DZAP, LIFI) is now done in DisplayPNL
+                                    // The subResults are passed via calculateResult -> update -> DisplayPNL
                                     // Buat log ringkasan untuk console jika diaktifkan.
                                     // Console log summary for this successful check (cleaned)
                                     try {

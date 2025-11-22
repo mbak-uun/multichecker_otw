@@ -1582,3 +1582,119 @@ body.dark-mode .db-table-title {
 body.dark-mode .db-table-title .uk-badge {
     background-color: var(--card-accent-color, #1e87f0);
 }
+
+/* ==========================================================================
+   DZAP Multi-DEX Styling
+   ========================================================================== */
+
+/* DZAP badge color */
+.bg-dzap {
+    background-color: #ff6b35 !important;
+    color: white !important;
+}
+
+/* LIFI badge color */
+.bg-lifi {
+    background-color: #bf0cff !important;
+    color: white !important;
+}
+
+/* Jupiter badge color (Solana DEX) */
+.bg-jupiter {
+    background-color: #c7f284 !important;
+    color: #1a1a1a !important;
+}
+
+/* Solana chain badge color */
+.bg-solana {
+    background-color: #d483f4 !important;
+    color: #1a1a1a !important;
+}
+
+/* DZAP cell dengan sub-kolom horizontal */
+.td-dex-multi {
+    min-width: 260px !important;
+    width: 260px !important;
+    padding: 4px !important;
+}
+
+.dzap-header {
+    font-weight: bold;
+    font-size: 0.85em;
+    margin-bottom: 4px;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 2px;
+    text-align: center;
+}
+
+.dzap-subcols {
+    display: flex;
+    justify-content: space-around;
+    gap: 4px;
+    align-items: stretch;
+}
+
+.dzap-sub {
+    flex: 1;
+    min-width: 70px;
+    padding: 3px;
+    text-align: center;
+    font-size: 0.8em;
+    border-right: 1px solid #eee;
+    transition: background-color 0.2s ease;
+}
+
+.dzap-sub:last-child {
+    border-right: none;
+}
+
+.dzap-sub:hover {
+    background-color: rgba(255, 107, 53, 0.1);
+}
+
+.sub-dex-name {
+    font-size: 0.75em;
+    font-weight: bold;
+    margin-bottom: 2px;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sub-dex-status {
+    font-size: 0.85em;
+    line-height: 1.2;
+}
+
+/* Dark mode support for DZAP */
+body.dark-mode .dzap-header {
+    border-bottom-color: #444;
+    color: #eee;
+}
+
+body.dark-mode .dzap-sub {
+    border-right-color: #444;
+}
+
+body.dark-mode .dzap-sub:hover {
+    background-color: rgba(255, 107, 53, 0.2);
+}
+
+body.dark-mode .sub-dex-name {
+    color: #ddd;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1400px) {
+    .td-dex-multi {
+        min-width: 220px !important;
+        width: 220px !important;
+    }
+    
+    .dzap-sub {
+        min-width: 60px;
+        font-size: 0.75em;
+    }
+}
+

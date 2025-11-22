@@ -396,7 +396,7 @@
       buildRequest: ({ amount_in_big, codeChain, sc_input_in, sc_output_in }) => {
         const selectedApiKey = getRandomApiKeyOKX(apiKeysOKXDEX);
         const timestamp = new Date().toISOString();
-        const path = "/api/v5/dex/aggregator/quote";
+        const path = "/api/v6/dex/aggregator/quote";
         const queryParams = `amount=${amount_in_big}&chainIndex=${codeChain}&fromTokenAddress=${sc_input_in}&toTokenAddress=${sc_output_in}`;
         const dataToSign = timestamp + "GET" + path + "?" + queryParams;
         const signature = calculateSignature("OKX", selectedApiKey.secretKeyOKX, dataToSign);
@@ -407,10 +407,43 @@
         };
       },
       parseResponse: (response, { des_output, chainName }) => {
+        // Validate response structure
         if (!response?.data?.[0]?.toTokenAmount) throw new Error("Invalid OKX response structure");
+
+        const data = response.data[0];
+        const amount_out = parseFloat(data.toTokenAmount) / Math.pow(10, des_output);
+
+        // Parse gas fee dari estimateGasFee (dalam wei) dan konversi ke USD
+        let FeeSwap = getFeeSwap(chainName);
+        try {
+          const gasWei = parseFloat(data.estimateGasFee || 0);
+          if (gasWei > 0) {
+            // Get native token price from gas data
+            const allGasData = (typeof getFromLocalStorage === 'function')
+              ? getFromLocalStorage("ALL_GAS_FEES")
+              : null;
+
+            if (allGasData) {
+              const gasInfo = allGasData.find(g =>
+                String(g.chain || '').toLowerCase() === String(chainName || '').toLowerCase()
+              );
+
+              if (gasInfo && gasInfo.nativeTokenPrice) {
+                // Convert wei to native token units (divide by 1e18) then multiply by token price
+                const gasUSD = (gasWei / 1e18) * gasInfo.nativeTokenPrice;
+                if (Number.isFinite(gasUSD) && gasUSD > 0) {
+                  FeeSwap = gasUSD;
+                }
+              }
+            }
+          }
+        } catch(e) {
+          // Fallback to default gas fee if calculation fails
+        }
+
         return {
-          amount_out: response.data[0].toTokenAmount / Math.pow(10, des_output),
-          FeeSwap: getFeeSwap(chainName),
+          amount_out,
+          FeeSwap,
           dexTitle: 'OKX'
         };
       }
@@ -453,6 +486,315 @@
   dexStrategies.odos2 = createOdosStrategy('v2');
   dexStrategies.odos3 = createOdosStrategy('v3');
   dexStrategies.odos = dexStrategies.odos3;
+
+  // =============================
+  // DZAP Strategy - Multi-DEX Aggregator
+  // =============================
+  dexStrategies.dzap = {
+    buildRequest: ({ codeChain, sc_input, sc_output, sc_input_in, sc_output_in, amount_in_big, des_input, des_output, chainName }) => {
+      // Check for special DZAP chain ID (e.g., Solana uses different ID)
+      const chainConfig = (root.CONFIG_CHAINS || {})[String(chainName || '').toLowerCase()];
+      const dzapChainId = chainConfig?.DZAP_CHAIN_ID || Number(codeChain);
+      const isSolana = String(chainName || '').toLowerCase() === 'solana';
+
+      // Use original addresses for Solana (base58 is case-sensitive), lowercase for EVM
+      const srcToken = isSolana ? sc_input_in : sc_input.toLowerCase();
+      const destToken = isSolana ? sc_output_in : sc_output.toLowerCase();
+
+      const body = {
+        fromChain: dzapChainId,
+        data: [{
+          amount: amount_in_big.toString(),
+          destDecimals: Number(des_output),
+          destToken: destToken,
+          slippage: 0.3,
+          srcDecimals: Number(des_input),
+          srcToken: srcToken,
+          toChain: dzapChainId
+        }],
+        gasless: false
+      };
+      return {
+        url: 'https://api.dzap.io/v1/quotes',
+        method: 'POST',
+        data: JSON.stringify(body)
+      };
+    },
+    parseResponse: (response, { des_output, chainName }) => {
+      // Parse DZAP response - return top 3 providers (multi-dex format)
+      // Support both formats:
+      // NEW: { quotes: [{ quoteRates: {...} }] }
+      // OLD: { [key]: { quoteRates: {...} } }
+
+      let quoteRates;
+
+      // Try NEW format first (quotes array)
+      if (response?.quotes && Array.isArray(response.quotes) && response.quotes.length > 0) {
+        quoteRates = response.quotes[0]?.quoteRates;
+      }
+      // Fallback to OLD format (object with dynamic key)
+      else {
+        const responseKey = Object.keys(response || {})[0];
+        const quoteData = response?.[responseKey];
+        quoteRates = quoteData?.quoteRates;
+      }
+
+      if (!quoteRates || Object.keys(quoteRates).length === 0) {
+        throw new Error("DZAP quote rates not found in response");
+      }
+
+      // Parse semua DEX dari quoteRates menjadi array
+      const subResults = [];
+      for (const [dexId, quoteInfo] of Object.entries(quoteRates)) {
+        try {
+          if (!quoteInfo || !quoteInfo.destAmount) continue;
+
+          const amount_out = parseFloat(quoteInfo.destAmount) / Math.pow(10, des_output);
+          const feeUsd = parseFloat(quoteInfo.fee?.gasFee?.[0]?.amountUSD || 0);
+          const FeeSwap = (Number.isFinite(feeUsd) && feeUsd > 0) ? feeUsd : getFeeSwap(chainName);
+          const dexName = quoteInfo.providerDetails?.name || dexId;
+
+          subResults.push({
+            dexId: dexId,
+            dexName: dexName,
+            provider: dexName,
+            amount_out: amount_out,
+            amountOut: amount_out,
+            FeeSwap: FeeSwap,
+            fee: FeeSwap,
+            priceImpact: parseFloat(quoteInfo.priceImpactPercent || 0)
+          });
+        } catch(e) {
+          // Skip DEX yang gagal di-parse
+          continue;
+        }
+      }
+
+      if (subResults.length === 0) {
+        throw new Error("No valid DZAP quotes found");
+      }
+
+      // Sort by amount_out (descending) dan ambil top 3
+      subResults.sort((a, b) => b.amount_out - a.amount_out);
+      const top3 = subResults.slice(0, 3);
+
+      // Return format multi-DEX dengan top 3 providers
+      return {
+        amount_out: top3[0].amount_out,
+        FeeSwap: top3[0].FeeSwap,
+        dexTitle: 'DZAP',
+        subResults: top3,
+        isMultiDex: true
+      };
+    }
+  };
+
+  // =============================
+  // LIFI Strategy - Multi-Route Aggregator (Top 3 Routes)
+  // =============================
+  dexStrategies.lifi = {
+    buildRequest: ({ codeChain, sc_input, sc_output, sc_input_in, sc_output_in, amount_in_big, SavedSettingData, chainName }) => {
+      const apiKey = (typeof getRandomApiKeyLIFI === 'function') ? getRandomApiKeyLIFI() : '';
+
+      // Check for special LIFI chain ID (e.g., Solana uses different ID)
+      const chainConfig = (root.CONFIG_CHAINS || {})[String(chainName || '').toLowerCase()];
+      const lifiChainId = chainConfig?.LIFI_CHAIN_ID || Number(codeChain);
+      const isSolana = String(chainName || '').toLowerCase() === 'solana';
+
+      // Use original addresses for Solana (base58 is case-sensitive), lowercase for EVM
+      const fromToken = isSolana ? sc_input_in : sc_input.toLowerCase();
+      const toToken = isSolana ? sc_output_in : sc_output.toLowerCase();
+
+      // For Solana, use Solana wallet address; for EVM use EVM wallet
+      const defaultEvmAddr = '0x0000000000000000000000000000000000000000';
+      const defaultSolAddr = 'So11111111111111111111111111111111111111112'; // Wrapped SOL as placeholder
+      const userAddr = isSolana
+        ? (SavedSettingData?.walletSolana || defaultSolAddr)
+        : (SavedSettingData?.walletMeta || defaultEvmAddr);
+
+      const body = {
+        fromChainId: lifiChainId,
+        toChainId: lifiChainId,
+        fromTokenAddress: fromToken,
+        toTokenAddress: toToken,
+        fromAmount: amount_in_big.toString(),
+        fromAddress: userAddr,
+        toAddress: userAddr,
+        options: {
+          slippage: 0.03,
+          order: 'RECOMMENDED',
+          allowSwitchChain: false
+        }
+      };
+
+      return {
+        url: 'https://li.quest/v1/advanced/routes',
+        method: 'POST',
+        data: JSON.stringify(body),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-lifi-api-key': apiKey
+        }
+      };
+    },
+    parseResponse: (response, { des_output, chainName }) => {
+      // Parse LIFI response - mengandung multiple routes
+      const routes = response?.routes;
+
+      if (!routes || !Array.isArray(routes) || routes.length === 0) {
+        throw new Error("LIFI routes not found in response");
+      }
+
+      console.log('[LIFI parseResponse] Found', routes.length, 'routes');
+
+      // Parse semua routes menjadi array
+      const subResults = [];
+      for (const route of routes) {
+        try {
+          if (!route || !route.toAmount) continue;
+
+          const amount_out = parseFloat(route.toAmount) / Math.pow(10, des_output);
+          const gasCostUsd = parseFloat(route.gasCostUSD || 0);
+          const FeeSwap = (Number.isFinite(gasCostUsd) && gasCostUsd > 0) ? gasCostUsd : getFeeSwap(chainName);
+
+          // Get provider name from first step's tool
+          let providerName = 'LIFI';
+          try {
+            if (route.steps && route.steps.length > 0) {
+              const firstStep = route.steps[0];
+              providerName = firstStep.toolDetails?.name || firstStep.tool || 'LIFI';
+            }
+          } catch(_) {}
+
+          subResults.push({
+            dexId: route.id || providerName,
+            dexName: providerName,
+            provider: providerName,
+            amount_out: amount_out,
+            amountOut: amount_out,
+            FeeSwap: FeeSwap,
+            fee: FeeSwap,
+            priceImpact: 0
+          });
+        } catch(e) {
+          // Skip route yang gagal di-parse
+          continue;
+        }
+      }
+
+      if (subResults.length === 0) {
+        throw new Error("No valid LIFI routes found");
+      }
+
+      // Sort by amount_out (descending) dan ambil top 3
+      subResults.sort((a, b) => b.amount_out - a.amount_out);
+      const top3 = subResults.slice(0, 3);
+
+      console.log('[LIFI parseResponse] Top 3 routes:', top3.map(r => `${r.dexName}: ${r.amount_out}`));
+
+      // Return format multi-DEX dengan top 3 routes
+      return {
+        amount_out: top3[0].amount_out,
+        FeeSwap: top3[0].FeeSwap,
+        dexTitle: 'LIFI',
+        subResults: top3,
+        isMultiDex: true
+      };
+    }
+  };
+
+  // =============================
+  // JUPITER Strategy - Solana DEX Aggregator
+  // =============================
+  dexStrategies.jupiter = {
+    buildRequest: ({ sc_input_in, sc_output_in, amount_in_big }) => {
+      // Jupiter API V6 Quote endpoint
+      // Use original addresses (base58 is case-sensitive for Solana)
+      const params = new URLSearchParams({
+        inputMint: sc_input_in,
+        outputMint: sc_output_in,
+        amount: amount_in_big.toString(),
+        slippageBps: '50', // 0.5% slippage
+        onlyDirectRoutes: 'false',
+        asLegacyTransaction: 'false'
+      });
+      return {
+        url: `https://quote-api.jup.ag/v6/quote?${params.toString()}`,
+        method: 'GET'
+      };
+    },
+    parseResponse: (response, { des_output, chainName }) => {
+      // Parse Jupiter response
+      if (!response?.outAmount) {
+        throw new Error("Invalid Jupiter response structure");
+      }
+
+      const amount_out = parseFloat(response.outAmount) / Math.pow(10, des_output);
+
+      // Parse fee from priorityFeeUsd or compute from priceImpact
+      let FeeSwap = 0;
+      try {
+        // Jupiter returns fee in lamports or USD
+        const feeUsd = parseFloat(response.priorityFeeUsd || response.platformFee?.feeBps || 0);
+        if (Number.isFinite(feeUsd) && feeUsd > 0) {
+          FeeSwap = feeUsd;
+        } else {
+          // Estimate fee for Solana (typically ~0.000005 SOL = ~0.001 USD)
+          FeeSwap = 0.001;
+        }
+      } catch(e) {
+        FeeSwap = 0.001;
+      }
+
+      // Get route info for multi-dex display
+      const subResults = [];
+      if (response.routePlan && Array.isArray(response.routePlan)) {
+        for (const step of response.routePlan) {
+          try {
+            const swapInfo = step.swapInfo || {};
+            const provider = swapInfo.label || step.ammKey || 'Jupiter';
+            subResults.push({
+              dexId: provider,
+              dexName: provider,
+              provider: provider,
+              amount_out: amount_out,
+              amountOut: amount_out,
+              FeeSwap: FeeSwap,
+              fee: FeeSwap,
+              priceImpact: parseFloat(response.priceImpactPct || 0)
+            });
+          } catch(e) {
+            continue;
+          }
+        }
+      }
+
+      // If no route details, use main result
+      if (subResults.length === 0) {
+        subResults.push({
+          dexId: 'Jupiter',
+          dexName: 'Jupiter',
+          provider: 'Jupiter',
+          amount_out: amount_out,
+          amountOut: amount_out,
+          FeeSwap: FeeSwap,
+          fee: FeeSwap,
+          priceImpact: parseFloat(response.priceImpactPct || 0)
+        });
+      }
+
+      // Return format for multi-DEX display
+      return {
+        amount_out: amount_out,
+        FeeSwap: FeeSwap,
+        dexTitle: 'JUPITER',
+        subResults: subResults.slice(0, 3),
+        isMultiDex: true,
+        priceImpact: parseFloat(response.priceImpactPct || 0)
+      };
+    }
+  };
+
   // Back-compat alias: support legacy 'kyberswap' key
   dexStrategies.kyberswap = dexStrategies.kyber;
   dexStrategies.paraswap5 = dexStrategies.paraswap;
@@ -491,7 +833,10 @@
       const runStrategy = (strategyName) => new Promise((res, rej) => {
         try {
           const sname = String(strategyName || '').toLowerCase();
-          if (sname === 'swoop' || sname === 'dzap') {
+          // Hanya arahkan ke fallbackDZAP saat DZAP dipakai sebagai fallback DEX lain.
+          // Jika DEX utamanya memang DZAP, jalankan strategi asli agar top 3 provider terambil.
+          const isPrimaryDzap = (sname === 'dzap') && (String(dexType || '').toLowerCase() === 'dzap');
+          if (sname === 'swoop' || (sname === 'dzap' && !isPrimaryDzap)) {
             const force = sname; // paksa jenis fallback khusus
             getPriceAltDEX(sc_input, des_input, sc_output, des_output, amount_in, PriceRate, dexType, NameToken, NamePair, cex, chainName, codeChain, action, { force })
               .then(res)
@@ -526,8 +871,13 @@
             contentType: data ? 'application/json' : undefined,
             success: function (response) {
               try {
-                const { amount_out, FeeSwap, dexTitle } = strategy.parseResponse(response, requestParams);
-                res({ dexTitle, sc_input, des_input, sc_output, des_output, FeeSwap, amount_out, apiUrl: url, tableBodyId });
+                const parsed = strategy.parseResponse(response, requestParams);
+                const { amount_out, FeeSwap, dexTitle, subResults, isMultiDex } = parsed;
+                res({
+                  dexTitle, sc_input, des_input, sc_output, des_output, FeeSwap, amount_out, apiUrl: url, tableBodyId,
+                  subResults: subResults || null, // Pass subResults untuk DZAP
+                  isMultiDex: isMultiDex || false  // Pass flag isMultiDex
+                });
               } catch (error) {
                 rej({ statusCode: 500, pesanDEX: `Parse Error: ${error.message}`, DEX: sKey.toUpperCase() });
               }

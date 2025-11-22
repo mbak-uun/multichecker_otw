@@ -2,9 +2,9 @@
 const CONFIG_APP = {
     APP: {
         NAME: "MULTICHECKER-DEV",
-        VERSION: "5.5",
+        VERSION: "6.0",
         SCAN_LIMIT: false,
-        AUTORUN: false,  // Set false untuk menyembunyikan & menonaktifkan fitur autorun
+        AUTORUN: true,  // Set false untuk menyembunyikan & menonaktifkan fitur autorun
     }
 };
 
@@ -157,14 +157,14 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://bscscan.com/tx/${hash}`
             }
         },
-        DEXS: [ "1inch", "paraswap", "odos", "kyber", "0x", "okx"],
+        DEXS: ["odos", "paraswap", "0x", "kyber", "dzap", "lifi"],
         WALLET_CEX: {
             GATE: { address : '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX : 'BSC' },
             BINANCE: { address : '0x8894E0a0c962CB723c1976a4421c95949bE2D4E3', address2 : '0xe2fc31F816A9b94326492132018C3aEcC4a93aE1', chainCEX : 'BSC' },
             MEXC: { address : '0x4982085C9e2F89F2eCb8131Eca71aFAD896e89CB', chainCEX : 'BSC' }, 
             INDODAX: { address : '0xaBa3002AB1597433bA79aBc48eeAd54DC10A45F2', address2 : '0x3C02290922a3618A4646E3BbCa65853eA45FE7C6', chainCEX : 'BSC' },
             KUCOIN: { address : '0x58edF78281334335EfFa23101bBe3371b6a36A51', address2 : '0xD6216fC19DB775Df9774a6E33526131dA7D19a2c', chainCEX : 'BEP20' },
-            BITGET: { address : '0x0639556F03714A74a5fEEaF5736a4A64fF70D206', address2 : '0xBDf5bAfEE1291EEc45Ae3aadAc89BE8152D4E673', address3 : '0x51971c86b04516062c1e708CDC048CB04fbe959f', chainCEX : 'BEP20' },
+            BITGET: { address : '0x0639556F03714A74a5fEEaF5736a4A64fF70D206', address2 : '0xBDf5bAfEE1291EEc45Ae3aadAc89BE8152D4E673', address3 : '0x1AB4973a48dc892Cd9971ECE8e01DcC7688f8F23', chainCEX : 'BEP20' },
             BYBIT: { address : '0xf89d7b9c864f589bbf53a82105107622b35eaa40', chainCEX : 'BSC' },
         },
         PAIRDEXS: {
@@ -183,7 +183,7 @@ const CONFIG_CHAINS = {
         DATAJSON: 'https://monitoring-koin.vercel.app/JSON_KOIN/POLYGON.json',
         BaseFEEDEX : "MATICUSDT", // Corrected from POLUSDT
         GASLIMIT: 80000,
-        DEXS: [ "1inch", "paraswap", "odos", "kyber", "0x", "okx"],
+        DEXS: ["odos", "paraswap", "0x", "kyber", "dzap", "lifi"],
         LINKS: {
             explorer: {
                 token: (address) => `https://polygonscan.com/token/${address}`,
@@ -216,7 +216,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://arbiscan.io/tx/${hash}`
             }
         },
-        DEXS: [ "1inch", "paraswap", "odos", "kyber", "0x", "okx"],
+        DEXS: ["odos", "paraswap", "0x", "kyber", "dzap", "lifi"],
         WALLET_CEX: {
             GATE: { address : '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX : 'ARBITRUM' },
             BINANCE: { address : '0x290275e3db66394C52272398959845170E4DCb88', address2 : '0xe7804c37c13166fF0b37F5aE0BB07A3aEbb6e245', chainCEX : 'ARBITRUM' },
@@ -240,7 +240,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://etherscan.io/tx/${hash}`
             }
         },
-        DEXS: [ "1inch", "paraswap", "odos", "kyber", "0x", "okx"],
+        DEXS: ["odos", "paraswap", "0x", "kyber", "dzap", "lifi"],
         WALLET_CEX: {
             GATE: { address : '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX : 'ETH' },
             BINANCE: { address : '0xDFd5293D8e347dFe59E90eFd55b2956a1343963d', address2 : '0x28C6c06298d514Db089934071355E5743bf21d60', address3 : '0x21a31Ee1afC51d94C2eFcCAa2092aD1028285549', chainCEX : 'ETH' },
@@ -267,21 +267,58 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://basescan.org/tx/${hash}`
             }
         },
-        DEXS: ["1inch", "paraswap", "odos", "kyber", "0x", "okx"],
+        DEXS: ["odos", "paraswap", "0x", "kyber", "dzap", "lifi"],
         WALLET_CEX: {
             GATE: { address: '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX: 'BASE' },
             BINANCE: { address: '0xDFd5293D8e347dFe59E90eFd55b2956a1343963d', address2: '0x28C6c06298d514Db089934071355E5743bf21d60', chainCEX: 'BASE' },
             MEXC: { address : '0x4e3ae00E8323558fA5Cac04b152238924AA31B60', chainCEX : 'BASE' },
-            INDODAX: { address : '0x3C02290922a3618A4646E3BbCa65853eA45FE7C6', address2 : '0x91Dca37856240E5e1906222ec79278b16420Dc92', chainCEX : 'POLYGON' },   
+            INDODAX: { address : '0x3C02290922a3618A4646E3BbCa65853eA45FE7C6', address2 : '0x91Dca37856240E5e1906222ec79278b16420Dc92', chainCEX : 'POLYGON' },
             KUCOIN: { address: '0x58edF78281334335EfFa23101bBe3371b6a36A51', address2: '0xD6216fC19DB775Df9774a6E33526131dA7D19a2c', chainCEX: 'Base' },
             BITGET: { address: '0x0639556F03714A74a5fEEaF5736a4A64fF70D206', address2: '0x51971c86b04516062c1e708CDC048CB04fbe959f', address3 : '0xBDf5bAfEE1291EEc45Ae3aadAc89BE8152D4E673', chainCEX: 'BASE' },
             BYBIT: { address: '0xf89d7b9c864f589bbF53a82105107622B35EaA40', address2: '0xf89d7b9c864f589bbF53a82105107622B35EaA40', chainCEX: 'Base Mainnet' },
-        },        
+        },
         PAIRDEXS: {
            "ETH": { symbolPair: 'ETH', scAddressPair: '0x4200000000000000000000000000000000000006', desPair: '18' },
            "USDC":{ symbolPair: 'USDC', scAddressPair: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', desPair: '6' },
            "NON": { symbolPair: "NON", scAddressPair: "0x", desPair: "18" }
-        }        
+        }
+    },
+    solana: {
+        Kode_Chain: 501,
+        LIFI_CHAIN_ID: 1151111081099710, // LIFI uses different chain ID for Solana
+        DZAP_CHAIN_ID: 7565164, // DZAP uses different chain ID for Solana
+        MATCHA_CHAIN_ID: 1399811149, // Matcha/0x uses different chain ID for Solana
+        Nama_Chain: "solana",
+        Nama_Pendek: "sol",
+        URL_Chain: "https://solscan.io/",
+        WARNA: "#d483f4",
+        ICON: "https://cdn.iconscout.com/icon/premium/png-256-thumb/solana-sol-7152167-5795323.png",
+        DATAJSON: 'https://monitoring-koin.vercel.app/JSON_KOIN/SOL.json',
+        BaseFEEDEX: "SOLUSDT",
+        GASLIMIT: 5000, // Solana uses compute units
+        LINKS: {
+            explorer: {
+                token: (address) => `https://solscan.io/token/${address}`,
+                address: (address) => `https://solscan.io/account/${address}`,
+                tx: (hash) => `https://solscan.io/tx/${hash}`
+            }
+        },
+        DEXS: ["lifi", "0x", "dzap"],
+        WALLET_CEX: {
+            GATE: { address: 'HiRpdAZifEsZGdzQ5Xo5wcnaH3D2Jj9SoNsUzcYNK78J', address2: 'u6PJ8DtQuPFnfmwHbGFULQ4u4EgjDiyYKjVEsynXq2w', chainCEX: 'SOL' },
+            BINANCE: { address: '28nYGHJyUVcVdxZtzKByBXEj127XnrUkrE3VaGuWj1ZU', address2: '2ojv9BAiHUrvsm9gxDe7fJSzbNZSJcxZvf8dqmWGHG8S', chainCEX: 'SOL' },
+            MEXC: { address: 'AC5RDfQFmDS1deWZos921JfqscXdByf8BKHs5ACWjtW2', address2: '42brAgAVNzMBP7aaktPvAmBSPEkehnFQejiZc53EpJFd', chainCEX: 'SOL' },
+            KUCOIN: { address: 'BmFdpraQhkiDQE6SnfG5omcA1VwzqfXrwtNYBwWTymy6', address2: 'EkUy8BB574iEVAQE9dywEiMhp9f2mFBuFu6TBKAkQxFY', chainCEX: 'SOL' },
+            BITGET: { address: 'A77HErqtfN1hLLpvZ9pCtu66FEtM8BveoaKbbMoZ4RiR', chainCEX: 'SOL' },
+            BYBIT: { address: 'AC5RDfQFmDS1deWZos921JfqscXdByf8BKHs5ACWjtW2', address2: '42brAgAVNzMBP7aaktPvAmBSPEkehnFQejiZc53EpJFd', chainCEX: 'SOL' },
+            OKX: { address: 'AC5RDfQFmDS1deWZos921JfqscXdByf8BKHs5ACWjtW2', address2: '42brAgAVNzMBP7aaktPvAmBSPEkehnFQejiZc53EpJFd', chainCEX: 'Solana' },
+            INDODAX: { address: 'AC5RDfQFmDS1deWZos921JfqscXdByf8BKHs5ACWjtW2', chainCEX: 'SOL' },
+        },
+        PAIRDEXS: {
+            "SOL": { symbolPair: 'SOL', scAddressPair: 'So11111111111111111111111111111111111111112', desPair: '9' },
+            "USDT": { symbolPair: 'USDT', scAddressPair: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', desPair: '6' },
+            "NON": { symbolPair: "NON", scAddressPair: "0x", desPair: "18" }
+        }
     }       
 };
 
@@ -293,19 +330,22 @@ const CONFIG_UI = {
         { key: 'INDODAX', label: 'INDODAX', short: 'INDX', badgeClass: 'bg-indodax' }
     ],
     DEXES: [
+        { key: 'odos', label: 'ODOS', badgeClass: 'bg-odos', fallbackSlug: 'odos', skipDelay: true },
+        { key: 'paraswap', label: 'ParaSwap', badgeClass: 'bg-paraswap', fallbackSlug: 'paraswap' },
         { key: '0x', label: 'Matcha', badgeClass: 'bg-matcha', fallbackSlug: '0x' },
         { key: 'kyber', label: 'KyberSwap', badgeClass: 'bg-kyberswap', fallbackSlug: 'kyberswap' },
-        { key: '1inch', label: '1inch', badgeClass: 'bg-1inch', fallbackSlug: '1inch' },
-        { key: 'paraswap', label: 'ParaSwap', badgeClass: 'bg-paraswap', fallbackSlug: 'paraswap' },
-        { key: 'odos', label: 'ODOS', badgeClass: 'bg-odos', fallbackSlug: 'odos', skipDelay: true },
-        { key: 'okx', label: 'OKXDEX', badgeClass: 'bg-okxdex', fallbackSlug: 'okx' }
+        { key: 'dzap', label: 'DZAP', badgeClass: 'bg-dzap', fallbackSlug: 'dzap' },
+        { key: 'lifi', label: 'LIFI', badgeClass: 'bg-lifi', fallbackSlug: 'lifi' },
+        { key: 'jupiter', label: 'Jupiter', badgeClass: 'bg-jupiter', fallbackSlug: 'jupiter' }
+        // DISABLED: 1inch, okx
     ],
     CHAINS: [
         { key: 'polygon', label: 'Polygon', short: 'POLY', badgeClass: 'bg-success text-light' },
         { key: 'arbitrum', label: 'Arbitrum', short: 'ARB', badgeClass: 'bg-info text-dark' },
         { key: 'ethereum', label: 'Ethereum', short: 'ETH', badgeClass: 'bg-primary text-light' },
         { key: 'bsc', label: 'BSC', short: 'BSC', badgeClass: 'bg-warning text-dark' },
-        { key: 'base', label: 'Base', short: 'BASE', badgeClass: 'bg-dark text-light' }
+        { key: 'base', label: 'Base', short: 'BASE', badgeClass: 'bg-dark text-light' },
+        { key: 'solana', label: 'Solana', short: 'SOL', badgeClass: 'bg-solana text-dark' }
     ]
 };
 
@@ -508,17 +548,17 @@ try {
  * KATEGORI 1: SAME PRIMARY + INTERNAL ALTERNATIVE (Kyber, ODOS, 1inch)
  * - Primary: Sama untuk kedua arah (kyber/odos2/odos3/hinkal-1inch)
  * - Alternative: Provider internal untuk kedua arah (zero-kyber/hinkal-odos/zero-1inch)
- * - Mengurangi beban ke SWOOP/DZAP dengan menggunakan provider internal yang reliable
+ * - Mengurangi beban ke SWOOP dengan menggunakan provider internal yang reliable
  * - Contoh: kyber (zero-kyber), odos (hinkal-odos), 1inch (hinkal ↔ zero)
  *
- * KATEGORI 2: SAME PRIMARY + SWOOP/DZAP ALTERNATIVE (0x, OKX)
+ * KATEGORI 2: SAME PRIMARY + SWOOP ALTERNATIVE (0x, OKX)
  * - Primary: Sama untuk kedua arah (0x/okx API langsung)
- * - Alternative: SWOOP untuk CEX→DEX (entry), DZAP untuk DEX→CEX (exit)
+ * - Alternative: SWOOP untuk kedua arah
  * - Contoh: 0x, okx
  *
- * KATEGORI 3: DIFFERENT PRIMARY + SWOOP/DZAP ALTERNATIVE (ParaSwap)
+ * KATEGORI 3: DIFFERENT PRIMARY + SWOOP ALTERNATIVE (ParaSwap)
  * - Primary: Berbeda per arah (v6 vs v5)
- * - Alternative: SWOOP untuk CEX→DEX (entry), DZAP untuk DEX→CEX (exit)
+ * - Alternative: SWOOP untuk kedua arah
  * - Contoh: paraswap (v6/v5)
  *
  * ========================================
@@ -536,7 +576,7 @@ const CONFIG_DEXS = {
         warna: "#0b7e18ff", // hijau tosca KyberSwap
         builder: ({ chainName, tokenAddress, pairAddress }) =>
             `https://kyberswap.com/swap/${chainName}/${tokenAddress}-to-${pairAddress}`,
-        // Strategi internal: Zero-Kyber sebagai alternative untuk mengurangi beban ke SWOOP/DZAP
+        // Strategi internal: Zero-Kyber sebagai alternative untuk mengurangi beban ke SWOOP
         fetchdex: {
             primary: {
                 tokentopair: 'kyber',       // CEX→DEX (Actionkiri): KyberSwap API langsung
@@ -548,15 +588,21 @@ const CONFIG_DEXS = {
             }
         },
         allowFallback: true,
-        // Note: Menggunakan Zero-Kyber untuk kedua arah agar tidak membebani SWOOP/DZAP
+        // Note: Menggunakan Zero-Kyber untuk kedua arah agar tidak membebani SWOOP
     },
     '0x': {
         label: 'Matcha',
         badgeClass: 'bg-matcha',
 
         warna: "#61ee73ff", // hitam abu-abu (Matcha/0x)
-        builder: ({ chainName, tokenAddress, pairAddress, chainCode }) =>
-            `https://matcha.xyz/tokens/${chainName}/${String(tokenAddress||'').toLowerCase()}?buyChain=${chainCode}&buyAddress=${String(pairAddress||'').toLowerCase()}`,
+        builder: ({ chainName, tokenAddress, pairAddress, chainCode }) => {
+            const isSolana = String(chainName || '').toLowerCase() === 'solana';
+            if (isSolana) {
+                const solChainId = 1399811149;
+                return `https://matcha.xyz/tokens/solana/${tokenAddress}?buyChain=${solChainId}&buyAddress=${pairAddress}&sellChain=${solChainId}&sellAddress=${tokenAddress}`;
+            }
+            return `https://matcha.xyz/tokens/${chainName}/${String(tokenAddress||'').toLowerCase()}?buyChain=${chainCode}&buyAddress=${String(pairAddress||'').toLowerCase()}`;
+        },
         fetchdex: {
             primary: {
                 tokentopair: '0x',      // CEX→DEX (Actionkiri): Matcha (0x) API langsung
@@ -564,7 +610,7 @@ const CONFIG_DEXS = {
             },
             alternative: {
                 tokentopair: 'swoop',   // Fallback CEX→DEX: SWOOP aggregator
-                pairtotoken: 'dzap'     // Fallback DEX→CEX: DZAP (multi-provider, exit focused)
+                pairtotoken: 'swoop'    // Fallback DEX→CEX: SWOOP aggregator
             }
         },
         allowFallback: true,
@@ -575,7 +621,7 @@ const CONFIG_DEXS = {
 
         warna: "#6e2006ff", // ungu-biru Odos
         builder: () => `https://app.odos.xyz`,
-        // Strategi internal: Hinkal-ODOS sebagai alternative untuk mengurangi beban ke SWOOP/DZAP
+        // Strategi internal: Hinkal-ODOS sebagai alternative untuk mengurangi beban ke SWOOP
         fetchdex: {
             primary: {
                 tokentopair: 'odos2',       // CEX→DEX (Actionkiri): ODOS API v2
@@ -587,59 +633,45 @@ const CONFIG_DEXS = {
             }
         },
         allowFallback: true,
-        // Note: Menggunakan Hinkal-ODOS untuk kedua arah agar tidak membebani SWOOP/DZAP
+        // Note: Menggunakan Hinkal-ODOS untuk kedua arah agar tidak membebani SWOOP
     },
+    // ============ DISABLED DEXes ============
     okx: {
         label: 'OKXDEX',
         badgeClass: 'bg-okxdex',
-
-        warna: "#000000", // hitam (brand OKX)
+        disabled: true, // DISABLED - tidak digunakan
+        warna: "#000000",
         builder: ({ chainCode, tokenAddress, pairAddress }) =>
             `https://www.okx.com/web3/dex-swap?inputChain=${chainCode}&inputCurrency=${tokenAddress}&outputChain=501&outputCurrency=${pairAddress}`,
         fetchdex: {
-            primary: {
-                tokentopair: 'okx',     // CEX→DEX (Actionkiri): OKX DEX API langsung
-                pairtotoken: 'okx'      // DEX→CEX (ActionKanan): OKX DEX API langsung
-            },
-            alternative: {
-                tokentopair: 'swoop',   // Fallback CEX→DEX: SWOOP aggregator
-                pairtotoken: 'dzap'     // Fallback DEX→CEX: DZAP (multi-provider, exit focused)
-            }
+            primary: { tokentopair: 'okx', pairtotoken: 'okx' },
+            alternative: { tokentopair: 'swoop', pairtotoken: 'swoop' }
         },
-        allowFallback: true,
+        allowFallback: false,
     },
     '1inch': {
         label: '1inch',
         badgeClass: 'bg-1inch',
-
-        warna: "#06109bff", // red 1inch branding
+        disabled: true, // DISABLED - tidak digunakan
+        warna: "#06109bff",
         builder: ({ chainCode, tokenAddress, pairAddress }) => `https://app.1inch.io/advanced/swap?network=${chainCode}&src=${tokenAddress}&dst=${pairAddress}`,
-
-        // Strategi khusus: Primary SELALU Hinkal, Alternative SELALU ZeroSwap (tidak bergantung arah)
         fetchdex: {
-            primary: {
-                tokentopair: 'hinkal-1inch',   // CEX→DEX: Hinkal proxy (privacy, 0.1 Gwei)
-                pairtotoken: 'hinkal-1inch'    // DEX→CEX: Hinkal proxy (privacy, 0.1 Gwei)
-            },
-            alternative: {
-                tokentopair: 'zero-1inch',     // Fallback CEX→DEX: ZeroSwap (jika Hinkal gagal)
-                pairtotoken: 'zero-1inch'      // Fallback DEX→CEX: ZeroSwap (jika Hinkal gagal)
-            }
+            primary: { tokentopair: 'hinkal-1inch', pairtotoken: 'hinkal-1inch' },
+            alternative: { tokentopair: 'zero-1inch', pairtotoken: 'zero-1inch' }
         },
-        allowFallback: true,
-        // Note: Hinkal diutamakan untuk privacy & gas rendah (0.1 Gwei) di semua arah
-        // ZeroSwap sebagai fallback yang lebih cepat jika Hinkal error/timeout
+        allowFallback: false,
     },
+    // ============ END DISABLED DEXes ============
     paraswap: {
         label: 'ParaSwap',
         badgeClass: 'bg-paraswap',
 
         warna: "#1c64f2ff",
-        builder: ({ chainCode, tokenAddress, pairAddress }) => {
-            const network = chainCode || '';
+        builder: ({ chainName, tokenAddress, pairAddress }) => {
+            const network = String(chainName || '').toLowerCase();
             const from = String(tokenAddress || '').toLowerCase();
             const to = String(pairAddress || '').toLowerCase();
-            return `https://app.paraswap.io/#/?network=${network}&from=${from}&to=${to}`;
+            return `https://app.velora.xyz/#/swap/${tokenAddress}-${pairAddress}/0/SELL?network=${network}&from=${from}&to=${to}&version=6.2`;
         },
         fetchdex: {
             primary: {
@@ -647,11 +679,61 @@ const CONFIG_DEXS = {
                 pairtotoken: 'paraswap5'    // DEX→CEX (ActionKanan): ParaSwap API v5 (lebih stabil)
             },
             alternative: {
-                tokentopair: 'swoop',   // Fallback CEX→DEX: SWOOP aggregator (entry focused)
-                pairtotoken: 'dzap'     // Fallback DEX→CEX: DZAP aggregator (exit focused)
+                tokentopair: 'swoop',   // Fallback CEX→DEX: SWOOP aggregator
+                pairtotoken: 'swoop'    // Fallback DEX→CEX: SWOOP aggregator
             }
         },
         allowFallback: true,
+    },
+
+    dzap: {
+        label: 'DZAP',
+        badgeClass: 'bg-dzap',
+        warna: "#ff6b35", // Orange for DZAP
+        builder: () => `https://dzap.io`,
+        fetchdex: {
+            primary: {
+                tokentopair: 'dzap',    // CEX→DEX: DZAP aggregator
+                pairtotoken: 'dzap'     // DEX→CEX: DZAP aggregator
+            }
+        },
+        allowFallback: false, // DZAP is already an aggregator, no fallback needed
+        isMultiDex: true // Tampilkan 3 provider teratas dengan format lengkap
+    },
+
+    lifi: {
+        label: 'LIFI',
+        badgeClass: 'bg-lifi',
+        warna: "#bf0cff", // Purple for LIFI
+        builder: ({ chainCode, chainName, tokenAddress, pairAddress }) => {
+            const isSolana = String(chainName || '').toLowerCase() === 'solana';
+            const lifiChainId = isSolana ? 1151111081099710 : chainCode;
+            return `https://jumper.exchange/?fromChain=${lifiChainId}&fromToken=${tokenAddress}&toChain=${lifiChainId}&toToken=${pairAddress}`;
+        },
+        fetchdex: {
+            primary: {
+                tokentopair: 'lifi',    // CEX→DEX: LIFI multi-aggregator
+                pairtotoken: 'lifi'     // DEX→CEX: LIFI multi-aggregator
+            }
+        },
+        allowFallback: false, // LIFI is already a multi-aggregator, no fallback needed
+        isMultiDex: true // Tampilkan 3 provider teratas dengan format lengkap
+    },
+
+    jupiter: {
+        label: 'Jupiter',
+        badgeClass: 'bg-jupiter',
+        warna: "#c7f284", // Jupiter green
+        builder: ({ tokenAddress, pairAddress }) =>
+            `https://jup.ag/swap/${tokenAddress}-${pairAddress}`,
+        fetchdex: {
+            primary: {
+                tokentopair: 'jupiter',    // CEX→DEX: Jupiter aggregator (Solana)
+                pairtotoken: 'jupiter'     // DEX→CEX: Jupiter aggregator (Solana)
+            }
+        },
+        allowFallback: false, // Jupiter is the main Solana DEX aggregator
+        isMultiDex: true // Tampilkan provider teratas
     }
 
     // fly: {
@@ -671,11 +753,22 @@ const CONFIG_DEXS = {
     //     },
     //     allowFallback: false,
     // },
-    
-     
+
+
 };
 
-try { if (typeof window !== 'undefined') { window.CONFIG_DEXS = window.CONFIG_DEXS || CONFIG_DEXS; } } catch(_){}
+try {
+    if (typeof window !== 'undefined') {
+        window.CONFIG_DEXS = CONFIG_DEXS;
+        // Debug: verify isMultiDex is set correctly
+        console.log('[CONFIG] CONFIG_DEXS loaded:', {
+            dzap_isMultiDex: CONFIG_DEXS?.dzap?.isMultiDex,
+            lifi_isMultiDex: CONFIG_DEXS?.lifi?.isMultiDex,
+            dzap_keys: CONFIG_DEXS?.dzap ? Object.keys(CONFIG_DEXS.dzap) : [],
+            lifi_keys: CONFIG_DEXS?.lifi ? Object.keys(CONFIG_DEXS.lifi) : []
+        });
+    }
+} catch(_){}
 
 // Centralized chain synonyms mapping used to normalize CEX network labels
 const CHAIN_SYNONYMS = {
@@ -683,7 +776,8 @@ const CHAIN_SYNONYMS = {
     bsc: ['BSC','BEP20','BINANCE SMART CHAIN','BNB SMART CHAIN','BEP-20'],
     polygon: ['POLYGON','MATIC','POLYGON POS','POLYGON (MATIC)','POL'],
     arbitrum: ['ARBITRUM','ARB','ARBITRUM ONE','ARBEVM','ARBITRUMONE','ARB-ETH'],
-    base: ['BASE','BASE MAINNET','BASEEVM']
+    base: ['BASE','BASE MAINNET','BASEEVM'],
+    solana: ['SOL','SOLANA','SPL','SOLANA MAINNET']
 };
 
 try { if (typeof window !== 'undefined') { window.CHAIN_SYNONYMS = window.CHAIN_SYNONYMS || CHAIN_SYNONYMS; } } catch(_){}
