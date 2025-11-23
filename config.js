@@ -303,7 +303,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://solscan.io/tx/${hash}`
             }
         },
-        DEXS: ["lifi", "0x", "dzap"],
+        DEXS: ["lifi", "0x", "dzap", "jupiter", "dflow"],
         WALLET_CEX: {
             GATE: { address: 'HiRpdAZifEsZGdzQ5Xo5wcnaH3D2Jj9SoNsUzcYNK78J', address2: 'u6PJ8DtQuPFnfmwHbGFULQ4u4EgjDiyYKjVEsynXq2w', chainCEX: 'SOL' },
             BINANCE: { address: '28nYGHJyUVcVdxZtzKByBXEj127XnrUkrE3VaGuWj1ZU', address2: '2ojv9BAiHUrvsm9gxDe7fJSzbNZSJcxZvf8dqmWGHG8S', chainCEX: 'SOL' },
@@ -689,6 +689,7 @@ const CONFIG_DEXS = {
     dzap: {
         label: 'DZAP',
         badgeClass: 'bg-dzap',
+        proxy: true, // Enable CORS proxy
         warna: "#ff6b35", // Orange for DZAP
         builder: () => `https://dzap.io`,
         fetchdex: {
@@ -725,15 +726,30 @@ const CONFIG_DEXS = {
         badgeClass: 'bg-jupiter',
         warna: "#c7f284", // Jupiter green
         builder: ({ tokenAddress, pairAddress }) =>
-            `https://jup.ag/swap/${tokenAddress}-${pairAddress}`,
+            `https://jup.ag/?sell=${tokenAddress}&buy=${pairAddress}`,
         fetchdex: {
             primary: {
                 tokentopair: 'jupiter',    // CEX→DEX: Jupiter aggregator (Solana)
                 pairtotoken: 'jupiter'     // DEX→CEX: Jupiter aggregator (Solana)
             }
         },
-        allowFallback: false, // Jupiter is the main Solana DEX aggregator
-        isMultiDex: true // Tampilkan provider teratas
+        allowFallback: false // Jupiter is the main Solana DEX aggregator
+    },
+
+    dflow: {
+        label: 'DFlow',
+        badgeClass: 'bg-dflow',
+        proxy: true, // Enable CORS proxy
+        warna: "#00d4aa", // DFlow teal/cyan
+        builder: ({ tokenAddress, pairAddress }) =>
+            `https://dflow.net/?sendToken=${tokenAddress}&receiveToken=${pairAddress}`,
+        fetchdex: {
+            primary: {
+                tokentopair: 'dflow',    // CEX→DEX: DFlow aggregator (Solana)
+                pairtotoken: 'dflow'     // DEX→CEX: DFlow aggregator (Solana)
+            }
+        },
+        allowFallback: false // DFlow is a Solana DEX aggregator
     }
 
     // fly: {

@@ -137,8 +137,11 @@
     }
 
     // Get cached web3 data for a contract
+    // Note: Solana uses case-sensitive base58 addresses, EVM uses lowercase hex
     function getWeb3CacheEntry(cache, contractAddress, chainKey) {
-        const key = `${chainKey}:${contractAddress.toLowerCase()}`;
+        const isSolana = chainKey.toLowerCase() === 'solana';
+        const addr = isSolana ? contractAddress : contractAddress.toLowerCase();
+        const key = `${chainKey}:${addr}`;
         const entry = cache[key];
         if (!entry) return null;
 
@@ -153,8 +156,11 @@
     }
 
     // Set cache entry for web3 data
+    // Note: Solana uses case-sensitive base58 addresses, EVM uses lowercase hex
     function setWeb3CacheEntry(cache, contractAddress, chainKey, data) {
-        const key = `${chainKey}:${contractAddress.toLowerCase()}`;
+        const isSolana = chainKey.toLowerCase() === 'solana';
+        const addr = isSolana ? contractAddress : contractAddress.toLowerCase();
+        const key = `${chainKey}:${addr}`;
         cache[key] = {
             data,
             timestamp: Date.now()
@@ -1053,13 +1059,18 @@
     }
 
     // Fetch token data from web3 (decimals, symbol, name)
+    // Supports both EVM chains (ERC20) and Solana (SPL Token)
     async function fetchWeb3TokenData(contractAddress, chainKey, web3Cache = null) {
         const chainConfig = CONFIG_CHAINS[chainKey];
         if (!chainConfig) {
             throw new Error(`No config for chain ${chainKey}`);
         }
 
-        const contract = String(contractAddress || '').toLowerCase().trim();
+        // Solana uses case-sensitive base58 addresses, EVM uses lowercase hex
+        const isSolana = chainKey.toLowerCase() === 'solana';
+        const contract = isSolana
+            ? String(contractAddress || '').trim() // Keep original case for Solana
+            : String(contractAddress || '').toLowerCase().trim();
 
         if (!contract || contract === '0x') {
             return null;
@@ -1097,88 +1108,128 @@
             // Create fetch promise and store it for deduplication
             const fetchPromise = (async () => {
                 try {
-                    // Log RPC source for debugging
-                    const rpcSource = (typeof getRPC === 'function' && getRPC(chainKey) !== chainConfig.RPC)
-                        ? 'SETTING_SCANNER (Custom RPC)'
-                        : 'CONFIG_CHAINS (Default RPC)';
-
-                  //  console.log(`[Web3] Fetching data for ${contract} on ${chainKey} via ${rpc} (${rpcSource})`);
-
-                    // ABI method signatures for ERC20
-                    const decimalsData = '0x313ce567'; // decimals()
-                    const symbolData = '0x95d89b41';   // symbol()
-                    const nameData = '0x06fdde03';     // name()
-
-                    // Batch RPC call with timeout and AbortController
                     const controller = new AbortController();
                     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
                     try {
-                        const batchResponse = await fetch(rpc, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify([
-                                { jsonrpc: '2.0', method: 'eth_call', params: [{ to: contract, data: decimalsData }, 'latest'], id: 1 },
-                                { jsonrpc: '2.0', method: 'eth_call', params: [{ to: contract, data: symbolData }, 'latest'], id: 2 },
-                                { jsonrpc: '2.0', method: 'eth_call', params: [{ to: contract, data: nameData }, 'latest'], id: 3 }
-                            ]),
-                            signal: controller.signal
-                        });
+                        let result;
 
-                        clearTimeout(timeoutId);
+                        // ========== SOLANA: Use getTokenSupply RPC method ==========
+                        if (isSolana) {
+                            const solanaResponse = await fetch(rpc, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    jsonrpc: '2.0',
+                                    id: 1,
+                                    method: 'getTokenSupply',
+                                    params: [contract]
+                                }),
+                                signal: controller.signal
+                            });
 
-                        if (!batchResponse.ok) {
-                            const errorText = await batchResponse.text().catch(() => 'Unknown error');
-                            throw new Error(`RPC batch request failed (${batchResponse.status}): ${errorText.substring(0, 200)}`);
-                        }
+                            clearTimeout(timeoutId);
 
-                        let results;
-                        try {
-                            results = await batchResponse.json();
-                        } catch(jsonErr) {
-                            throw new Error(`RPC response is not valid JSON: ${jsonErr.message}`);
-                        }
-
-                        if (!Array.isArray(results)) {
-                            // Log actual response untuk debugging
-                            console.error(`[RPC ERROR] Expected array, got:`, typeof results, results);
-
-                            // Check jika response adalah error object
-                            if (results && results.error) {
-                                throw new Error(`RPC Error: ${results.error.message || JSON.stringify(results.error)}`);
+                            if (!solanaResponse.ok) {
+                                const errorText = await solanaResponse.text().catch(() => 'Unknown error');
+                                throw new Error(`Solana RPC failed (${solanaResponse.status}): ${errorText.substring(0, 200)}`);
                             }
 
-                            throw new Error(`GAGAL MENDAPATKAN DESIMAL KOIN, SILAKAN COBA GANTI RPC`);
+                            const solanaResult = await solanaResponse.json();
+
+                            if (solanaResult.error) {
+                                throw new Error(`Solana RPC Error: ${solanaResult.error.message || JSON.stringify(solanaResult.error)}`);
+                            }
+
+                            // Extract decimals from getTokenSupply response
+                            // Response format: { result: { value: { amount, decimals, uiAmount } } }
+                            const decimals = solanaResult?.result?.value?.decimals;
+
+                            if (typeof decimals !== 'number' || decimals < 0) {
+                                throw new Error(`Invalid decimals from Solana RPC for ${contract}`);
+                            }
+
+                            result = {
+                                decimals,
+                                symbol: '', // Solana getTokenSupply doesn't return symbol
+                                name: ''    // Solana getTokenSupply doesn't return name
+                            };
+
+                            console.log(`[Solana] Got decimals for ${contract}: ${decimals}`);
                         }
+                        // ========== EVM: Use eth_call with ERC20 ABI ==========
+                        else {
+                            // ABI method signatures for ERC20
+                            const decimalsData = '0x313ce567'; // decimals()
+                            const symbolData = '0x95d89b41';   // symbol()
+                            const nameData = '0x06fdde03';     // name()
 
-                        const decimalsResult = results.find(r => r.id === 1)?.result;
-                        const symbolResult = results.find(r => r.id === 2)?.result;
-                        const nameResult = results.find(r => r.id === 3)?.result;
+                            const batchResponse = await fetch(rpc, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify([
+                                    { jsonrpc: '2.0', method: 'eth_call', params: [{ to: contract, data: decimalsData }, 'latest'], id: 1 },
+                                    { jsonrpc: '2.0', method: 'eth_call', params: [{ to: contract, data: symbolData }, 'latest'], id: 2 },
+                                    { jsonrpc: '2.0', method: 'eth_call', params: [{ to: contract, data: nameData }, 'latest'], id: 3 }
+                                ]),
+                                signal: controller.signal
+                            });
 
-                        // Fetch decimals
-                        let decimals = 18; // default
-                        if (decimalsResult && decimalsResult !== '0x' && !results.find(r => r.id === 1)?.error) {
-                            decimals = parseInt(decimalsResult, 16);
+                            clearTimeout(timeoutId);
+
+                            if (!batchResponse.ok) {
+                                const errorText = await batchResponse.text().catch(() => 'Unknown error');
+                                throw new Error(`RPC batch request failed (${batchResponse.status}): ${errorText.substring(0, 200)}`);
+                            }
+
+                            let results;
+                            try {
+                                results = await batchResponse.json();
+                            } catch(jsonErr) {
+                                throw new Error(`RPC response is not valid JSON: ${jsonErr.message}`);
+                            }
+
+                            if (!Array.isArray(results)) {
+                                // Log actual response untuk debugging
+                                console.error(`[RPC ERROR] Expected array, got:`, typeof results, results);
+
+                                // Check jika response adalah error object
+                                if (results && results.error) {
+                                    throw new Error(`RPC Error: ${results.error.message || JSON.stringify(results.error)}`);
+                                }
+
+                                throw new Error(`GAGAL MENDAPATKAN DESIMAL KOIN, SILAKAN COBA GANTI RPC`);
+                            }
+
+                            const decimalsResult = results.find(r => r.id === 1)?.result;
+                            const symbolResult = results.find(r => r.id === 2)?.result;
+                            const nameResult = results.find(r => r.id === 3)?.result;
+
+                            // Fetch decimals
+                            let decimals = 18; // default
+                            if (decimalsResult && decimalsResult !== '0x' && !results.find(r => r.id === 1)?.error) {
+                                decimals = parseInt(decimalsResult, 16);
+                            }
+
+                            // Fetch symbol
+                            let symbol = '';
+                            if (symbolResult && symbolResult !== '0x' && !results.find(r => r.id === 2)?.error) {
+                                symbol = decodeAbiString(symbolResult);
+                            }
+
+                            // Fetch name
+                            let name = '';
+                            if (nameResult && nameResult !== '0x' && !results.find(r => r.id === 3)?.error) {
+                                name = decodeAbiString(nameResult);
+                            }
+
+                            result = { decimals, symbol, name };
                         }
-
-                        // Fetch symbol
-                        let symbol = '';
-                        if (symbolResult && symbolResult !== '0x' && !results.find(r => r.id === 2)?.error) {
-                            symbol = decodeAbiString(symbolResult);
-                        }
-
-                        // Fetch name
-                        let name = '';
-                        if (nameResult && nameResult !== '0x' && !results.find(r => r.id === 3)?.error) {
-                            name = decodeAbiString(nameResult);
-                        }
-
-                        const result = { decimals, symbol, name };
 
                         // ========== SAVE TO CACHE ==========
-                        if (web3Cache) {
+                        if (web3Cache && result) {
                             setWeb3CacheEntry(web3Cache, contract, chainKey, result);
-                           // console.log(`[Web3 Cache] SAVED for ${contract} on ${chainKey}`);
+                            // console.log(`[Web3 Cache] SAVED for ${contract} on ${chainKey}`);
                         }
                         // ===================================
 

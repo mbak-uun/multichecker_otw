@@ -944,30 +944,48 @@ function DisplayPNL(data) {
         : (cexUrls?.tradePair || cexUrls?.tradeUrl || '#');
       const dexLink = linkDEX || '#';
 
-      // Build 3 sub-columns HTML dengan format lengkap seperti KYBER
+      // Build 3 sub-columns HTML dengan format SAMA seperti single-DEX (KYBER style)
+      // Ambil amount_in dari data (Modal / buyTokenCEX untuk tokentopair)
+      const amtIn = direction === 'tokentopair'
+        ? (buyTokenCEX > 0 ? baseModal / buyTokenCEX : 0)  // Jumlah token yang dibeli
+        : baseModal;  // Jumlah pair yang digunakan
+
       const subColsHtml = subResults.slice(0, 3).map((subRes, idx) => {
         const amtOut = n(subRes.amount_out || subRes.amountOut);
         const feeSwap = n(subRes.FeeSwap || subRes.fee);
 
-        // Calculate prices based on direction
-        let buyPrice, sellPrice, subTotalValue, buyLink, sellLink;
+        // Calculate DEX rate dan convert ke USDT/Token (sama seperti single-DEX)
+        let buyPrice, sellPrice, subTotalValue, buyLink, sellLink, dexUsdtPerToken;
+
         if (direction === 'tokentopair') {
           // CEX buy token -> DEX sell to pair
-          buyPrice = buyTokenCEX;
-          sellPrice = sellPairCEX > 0 ? (amtOut * sellPairCEX / baseModal) : amtOut;
-          subTotalValue = sellPairCEX > 0 ? (amtOut * sellPairCEX) : amtOut;
-          buyLink = cexTradeLink;  // Buy from CEX
-          sellLink = dexLink;      // Sell on DEX
+          // dexRate = pair out / token in
+          const dexRate = amtIn > 0 ? (amtOut / amtIn) : 0;
+          // Convert ke USDT/token: jika pair = USDT maka langsung, jika tidak maka * pairPrice
+          const isUsdtPair = upper(Name_out) === 'USDT';
+          dexUsdtPerToken = isUsdtPair ? dexRate : (dexRate * sellPairCEX);
+
+          buyPrice = buyTokenCEX;           // Harga beli token di CEX (USDT/token)
+          sellPrice = dexUsdtPerToken;      // Harga jual di DEX (USDT/token)
+          subTotalValue = isUsdtPair ? amtOut : (amtOut * sellPairCEX);
+          buyLink = cexTradeLink;
+          sellLink = dexLink;
         } else {
           // DEX buy token -> CEX sell token
-          buyPrice = buyPairCEX > 0 ? (baseModal / amtOut) : 0;
-          sellPrice = sellTokenCEX;
-          subTotalValue = sellTokenCEX > 0 ? (amtOut * sellTokenCEX) : amtOut;
-          buyLink = dexLink;       // Buy from DEX
-          sellLink = cexTradeLink; // Sell on CEX
+          // dexRate = pair in / token out (USDT or pair per token)
+          const dexRate = amtOut > 0 ? (baseModal / amtOut) : 0;
+          // Convert ke USDT/token
+          const isUsdtPair = upper(Name_in) === 'USDT';
+          dexUsdtPerToken = isUsdtPair ? dexRate : (dexRate * buyPairCEX);
+
+          buyPrice = dexUsdtPerToken;       // Harga beli di DEX (USDT/token)
+          sellPrice = sellTokenCEX;         // Harga jual token di CEX (USDT/token)
+          subTotalValue = amtOut * sellTokenCEX;
+          buyLink = dexLink;
+          sellLink = cexTradeLink;
         }
 
-        // Calculate PNL for this provider
+        // Calculate PNL for this provider (sama seperti single-DEX)
         const subTotalFee = feeSwap + baseFeeWD + baseFeeTrade;
         const subBruto = subTotalValue - baseModal;
         const subPnl = subBruto - subTotalFee;
@@ -977,28 +995,35 @@ function DisplayPNL(data) {
 
         // Colors & names
         const pnlColor = subPnl >= 0 ? '#28a745' : '#dc3545';
-        const providerName = String(subRes.dexName || subRes.provider || subRes.dexId || '').toUpperCase();
+        const providerName = String(subRes.dexTitle || subRes.dexName || subRes.provider || subRes.dexId || '').toUpperCase();
         const displayName = providerName.length > 10 ? providerName.substring(0, 10) : providerName;
         const borderRight = idx < 2 ? 'border-right: 1px solid #dee2e6;' : '';
 
-        // Tooltips
+        // Tooltips (format sama seperti single-DEX)
         const tipBuy = direction === 'tokentopair'
-          ? `Buy ${Name_in} di ${upper(cex)} | ${fmtUSD(buyPrice)}`
-          : `Buy ${Name_out} di ${dexLabel} | ${fmtUSD(buyPrice)}`;
+          ? `Buy ${Name_in} di ${upper(cex)} | ${fmtUSD(buyPrice)} USDT/${Name_in}`
+          : `Buy ${Name_out} di ${dexLabel} | ${fmtUSD(buyPrice)} USDT/${Name_out}`;
         const tipSell = direction === 'tokentopair'
-          ? `Sell ke ${Name_out} di ${dexLabel} | ${fmtUSD(sellPrice)}`
-          : `Sell ${Name_out} di ${upper(cex)} | ${fmtUSD(sellPrice)}`;
+          ? `Sell ${Name_in} ke ${Name_out} di ${dexLabel} | ${fmtUSD(sellPrice)} USDT/${Name_in}`
+          : `Sell ${Name_out} di ${upper(cex)} | ${fmtUSD(sellPrice)} USDT/${Name_out}`;
+
+        // Warna PNL sama seperti single-DEX
+        const pnlClass = subPnl >= 0 ? 'uk-text-success' : 'uk-text-danger';
+
+        // Highlight hanya sub-kolom yang profit (PNL > 0)
+        const isSubProfit = subPnl > 0;
+        const subBgStyle = isSubProfit ? 'background-color: rgba(188, 233, 97, 0.9); border-radius: 4px;' : '';
 
         return `
-          <div class="multi-sub" style="flex: 1; padding: 3px 4px; ${borderRight} text-align: center; line-height: 1.35;"
+          <div class="multi-sub" style="flex: 1; padding: 1px 2px; ${borderRight} text-align: center; line-height: 1.2; white-space: nowrap; ${subBgStyle}"
                title="${providerName}\nAmount Out: ${amtOut.toFixed(6)}\nFee SW: $${feeSwap.toFixed(4)}\nFee WD: $${baseFeeWD.toFixed(4)}\nBruto: $${subBruto.toFixed(2)}\nTotal Fee: $${subTotalFee.toFixed(2)}\nPNL: $${subPnl.toFixed(2)}">
-            <div style="font-size: 0.72em; font-weight: bold; color: ${dexColor}; margin-bottom: 2px; white-space: nowrap;">${displayName}</div>
-            <a href="${buyLink}" target="_blank" rel="noopener" title="${tipBuy}" style="font-size: 0.68em; color: #28a745; text-decoration: none; display: block;">⬆ ${fmtUSD(buyPrice)}</a>
-            <a href="${sellLink}" target="_blank" rel="noopener" title="${tipSell}" style="font-size: 0.68em; color: #dc3545; text-decoration: none; display: block;">⬇ ${fmtUSD(sellPrice)}</a>
-            <div style="font-size: 0.62em; color: #17a2b8;">🈳 WD: ${baseFeeWD.toFixed(2)}$</div>
-            <div style="font-size: 0.62em; color: #6c757d;">💸 SW: ${feeSwap.toFixed(2)}$</div>
-            <div style="font-size: 0.62em; color: #dc3545;">[${subBruto.toFixed(1)}~${subTotalFee.toFixed(1)}]</div>
-            <div style="font-size: 0.72em; font-weight: bold; color: ${pnlColor};">💰 ${subPnl.toFixed(2)}</div>
+            <div style="font-size: 1em; font-weight: bold; color: ${dexColor};">${displayName}</div>
+            <a class="uk-text-success" href="${buyLink}" target="_blank" rel="noopener" title="${tipBuy}" style="text-decoration: none; display: block;">⬆ ${fmtUSD(buyPrice)}</a>
+            <a class="uk-text-danger" href="${sellLink}" target="_blank" rel="noopener" title="${tipSell}" style="text-decoration: none; display: block;">⬇ ${fmtUSD(sellPrice)}</a>
+            <div class="uk-text-primary" style="font-size: 0.95em;">🈳WD:${baseFeeWD.toFixed(4)}$</div>
+            <div class="uk-text-muted" style="font-size: 0.95em;">💸SW:${feeSwap.toFixed(4)}$</div>
+            <div class="uk-text-danger" style="font-size: 0.95em;">[${subBruto.toFixed(2)}~${subTotalFee.toFixed(2)}]</div>
+            <div class="${pnlClass}" style="font-weight: bold;">💰PNL:${subPnl.toFixed(2)}</div>
           </div>
         `;
       }).join('');
@@ -1006,10 +1031,10 @@ function DisplayPNL(data) {
       // Build cell HTML dengan 3 sub-kolom format lengkap
       const cellHtml = `
         <div style="text-align: center; line-height: 1.2;">
-          <div style="font-size: 0.78em; font-weight: bold; color: ${dexColor}; border-bottom: 2px solid ${dexColor}; padding-bottom: 3px; margin-bottom: 4px;">
+          <div style="font-size: 1.05em; font-weight: bold; color: ${dexColor}; border-bottom: 2px solid ${dexColor}; padding-bottom: 2px; margin-bottom: 3px;">
             ${dexLabel} [$${baseModal.toFixed(0)}]
           </div>
-          <div style="display: flex; justify-content: space-between; gap: 2px;">
+          <div style="display: flex; justify-content: space-between; gap: 1px;">
             ${subColsHtml}
           </div>
         </div>
@@ -1028,11 +1053,12 @@ function DisplayPNL(data) {
         delete el.dataset.checking;
       } catch(_) {}
 
-      // Apply highlighting if best provider is profitable
+      // Multi-DEX: highlight per sub-kolom, BUKAN seluruh cell
+      // Cell hanya diberi border jika ada sinyal, tapi background tetap putih/default
       const shouldHighlight = bestPnl > 0;
-      const hlBg = 'rgba(188, 233, 97, 1)';
       if (shouldHighlight) {
-        el.style.cssText = `background-color:${hlBg}!important;font-weight:bolder!important;vertical-align:middle!important;text-align:center!important;border:1px solid black!important;`;
+        // Hanya border, tanpa background (background sudah di sub-kolom)
+        el.style.cssText = 'text-align:center;vertical-align:middle;border:2px solid #28a745!important;';
         el.classList.add('dex-cell-highlight');
       } else {
         el.style.cssText = 'text-align:center;vertical-align:middle;';

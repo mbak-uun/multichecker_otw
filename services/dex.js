@@ -521,7 +521,7 @@
       };
     },
     parseResponse: (response, { des_output, chainName }) => {
-      // Parse DZAP response - return top 3 providers (multi-dex format)
+      // Parse DZAP response - return top 3 providers with single-DEX style calculation
       // Support both formats:
       // NEW: { quotes: [{ quoteRates: {...} }] }
       // OLD: { [key]: { quoteRates: {...} } }
@@ -554,18 +554,13 @@
           const FeeSwap = (Number.isFinite(feeUsd) && feeUsd > 0) ? feeUsd : getFeeSwap(chainName);
           const dexName = quoteInfo.providerDetails?.name || dexId;
 
+          // Format sama seperti single DEX result
           subResults.push({
-            dexId: dexId,
-            dexName: dexName,
-            provider: dexName,
             amount_out: amount_out,
-            amountOut: amount_out,
             FeeSwap: FeeSwap,
-            fee: FeeSwap,
-            priceImpact: parseFloat(quoteInfo.priceImpactPercent || 0)
+            dexTitle: dexName.toUpperCase()
           });
         } catch(e) {
-          // Skip DEX yang gagal di-parse
           continue;
         }
       }
@@ -638,14 +633,12 @@
       };
     },
     parseResponse: (response, { des_output, chainName }) => {
-      // Parse LIFI response - mengandung multiple routes
+      // Parse LIFI response - return top 3 routes with single-DEX style calculation
       const routes = response?.routes;
 
       if (!routes || !Array.isArray(routes) || routes.length === 0) {
         throw new Error("LIFI routes not found in response");
       }
-
-      console.log('[LIFI parseResponse] Found', routes.length, 'routes');
 
       // Parse semua routes menjadi array
       const subResults = [];
@@ -666,18 +659,13 @@
             }
           } catch(_) {}
 
+          // Format sama seperti single DEX result
           subResults.push({
-            dexId: route.id || providerName,
-            dexName: providerName,
-            provider: providerName,
             amount_out: amount_out,
-            amountOut: amount_out,
             FeeSwap: FeeSwap,
-            fee: FeeSwap,
-            priceImpact: 0
+            dexTitle: providerName.toUpperCase()
           });
         } catch(e) {
-          // Skip route yang gagal di-parse
           continue;
         }
       }
@@ -689,8 +677,6 @@
       // Sort by amount_out (descending) dan ambil top 3
       subResults.sort((a, b) => b.amount_out - a.amount_out);
       const top3 = subResults.slice(0, 3);
-
-      console.log('[LIFI parseResponse] Top 3 routes:', top3.map(r => `${r.dexName}: ${r.amount_out}`));
 
       // Return format multi-DEX dengan top 3 routes
       return {
@@ -704,93 +690,166 @@
   };
 
   // =============================
-  // JUPITER Strategy - Solana DEX Aggregator
+  // JUPITER Ultra Strategy - Solana DEX Aggregator
   // =============================
+  // Jupiter Ultra API Keys (rotasi untuk rate limiting)
+  const apiKeysJupiter = [
+    'dcab1007-f0ee-41b4-9bc4-fbf595524614',
+    '5540a0e1-afa5-48a3-940b-38e18d0a6bfd'
+  ];
+  let jupiterKeyIndex = 0;
+  function getRandomApiKeyJupiter() {
+    const key = apiKeysJupiter[jupiterKeyIndex];
+    jupiterKeyIndex = (jupiterKeyIndex + 1) % apiKeysJupiter.length;
+    return key;
+  }
+
   dexStrategies.jupiter = {
-    buildRequest: ({ sc_input_in, sc_output_in, amount_in_big }) => {
-      // Jupiter API V6 Quote endpoint
+    buildRequest: ({ sc_input_in, sc_output_in, amount_in_big, SavedSettingData }) => {
+      // Jupiter Ultra API v1 Order endpoint
       // Use original addresses (base58 is case-sensitive for Solana)
       const params = new URLSearchParams({
         inputMint: sc_input_in,
         outputMint: sc_output_in,
-        amount: amount_in_big.toString(),
-        slippageBps: '50', // 0.5% slippage
-        onlyDirectRoutes: 'false',
-        asLegacyTransaction: 'false'
+        amount: amount_in_big.toString()
       });
+
+      // Optional: Add taker wallet for transaction generation
+      const walletSolana = SavedSettingData?.walletSolana;
+      if (walletSolana) {
+        params.append('taker', walletSolana);
+      }
+
+      const apiKey = getRandomApiKeyJupiter();
       return {
-        url: `https://quote-api.jup.ag/v6/quote?${params.toString()}`,
-        method: 'GET'
+        url: `https://api.jup.ag/ultra/v1/order?${params.toString()}`,
+        method: 'GET',
+        headers: {
+          'x-api-key': apiKey
+        }
       };
     },
-    parseResponse: (response, { des_output, chainName }) => {
-      // Parse Jupiter response
+    parseResponse: (response, { des_output }) => {
+      // Check for error response
+      if (response?.errorCode || response?.errorMessage) {
+        throw new Error(response.errorMessage || `Jupiter Error: ${response.errorCode}`);
+      }
+
+      // Parse Jupiter Ultra response
       if (!response?.outAmount) {
-        throw new Error("Invalid Jupiter response structure");
+        throw new Error("Invalid Jupiter Ultra response structure");
       }
 
       const amount_out = parseFloat(response.outAmount) / Math.pow(10, des_output);
 
-      // Parse fee from priorityFeeUsd or compute from priceImpact
+      // Parse fees from Ultra API response
       let FeeSwap = 0;
       try {
-        // Jupiter returns fee in lamports or USD
-        const feeUsd = parseFloat(response.priorityFeeUsd || response.platformFee?.feeBps || 0);
-        if (Number.isFinite(feeUsd) && feeUsd > 0) {
-          FeeSwap = feeUsd;
-        } else {
-          // Estimate fee for Solana (typically ~0.000005 SOL = ~0.001 USD)
-          FeeSwap = 0.001;
+        // Jupiter Ultra returns fees in lamports, convert to USD
+        const sigFeeLamports = parseFloat(response.signatureFeeLamports || 0);
+        const prioFeeLamports = parseFloat(response.prioritizationFeeLamports || 0);
+        const rentFeeLamports = parseFloat(response.rentFeeLamports || 0);
+        const totalFeeLamports = sigFeeLamports + prioFeeLamports + rentFeeLamports;
+
+        // Convert lamports to SOL (1 SOL = 1e9 lamports)
+        const feeInSol = totalFeeLamports / 1e9;
+
+        // Get SOL price from gas data
+        const allGasData = (typeof getFromLocalStorage === 'function')
+          ? getFromLocalStorage("ALL_GAS_FEES")
+          : null;
+
+        if (allGasData) {
+          const solGasInfo = allGasData.find(g =>
+            String(g.chain || '').toLowerCase() === 'solana'
+          );
+          if (solGasInfo && solGasInfo.nativeTokenPrice) {
+            FeeSwap = feeInSol * solGasInfo.nativeTokenPrice;
+          }
+        }
+
+        // Final fallback
+        if (!Number.isFinite(FeeSwap) || FeeSwap <= 0) {
+          FeeSwap = 0.001; // Default minimal fee for Solana
         }
       } catch(e) {
         FeeSwap = 0.001;
       }
 
-      // Get route info for multi-dex display
-      const subResults = [];
-      if (response.routePlan && Array.isArray(response.routePlan)) {
-        for (const step of response.routePlan) {
-          try {
-            const swapInfo = step.swapInfo || {};
-            const provider = swapInfo.label || step.ammKey || 'Jupiter';
-            subResults.push({
-              dexId: provider,
-              dexName: provider,
-              provider: provider,
-              amount_out: amount_out,
-              amountOut: amount_out,
-              FeeSwap: FeeSwap,
-              fee: FeeSwap,
-              priceImpact: parseFloat(response.priceImpactPct || 0)
-            });
-          } catch(e) {
-            continue;
-          }
-        }
-      }
-
-      // If no route details, use main result
-      if (subResults.length === 0) {
-        subResults.push({
-          dexId: 'Jupiter',
-          dexName: 'Jupiter',
-          provider: 'Jupiter',
-          amount_out: amount_out,
-          amountOut: amount_out,
-          FeeSwap: FeeSwap,
-          fee: FeeSwap,
-          priceImpact: parseFloat(response.priceImpactPct || 0)
-        });
-      }
-
-      // Return format for multi-DEX display
+      // Return simple format like Kyber
       return {
         amount_out: amount_out,
         FeeSwap: FeeSwap,
-        dexTitle: 'JUPITER',
-        subResults: subResults.slice(0, 3),
-        isMultiDex: true,
-        priceImpact: parseFloat(response.priceImpactPct || 0)
+        dexTitle: 'JUPITER'
+      };
+    }
+  };
+
+  // =============================
+  // DFLOW Strategy - Solana DEX Aggregator
+  // =============================
+  dexStrategies.dflow = {
+    buildRequest: ({ sc_input_in, sc_output_in, amount_in_big }) => {
+      // DFlow Quote API endpoint
+      // Use original addresses (base58 is case-sensitive for Solana)
+      const params = new URLSearchParams({
+        inputMint: sc_input_in,
+        outputMint: sc_output_in,
+        amount: amount_in_big.toString(),
+        slippageBps: 'auto' // Auto slippage
+      });
+
+      return {
+        url: `https://quote-api.dflow.net/quote?${params.toString()}`,
+        method: 'GET'
+      };
+    },
+    parseResponse: (response, { des_output }) => {
+      // Check for error response
+      if (response?.error || response?.errorMessage) {
+        throw new Error(response.errorMessage || response.error || 'DFlow API Error');
+      }
+
+      // Parse DFlow response
+      if (!response?.outAmount) {
+        throw new Error("Invalid DFlow response structure");
+      }
+
+      const amount_out = parseFloat(response.outAmount) / Math.pow(10, des_output);
+
+      // Parse fees - DFlow doesn't return explicit gas fee, estimate from Solana
+      let FeeSwap = 0;
+      try {
+        // Get SOL price from gas data for fee estimation
+        const allGasData = (typeof getFromLocalStorage === 'function')
+          ? getFromLocalStorage("ALL_GAS_FEES")
+          : null;
+
+        if (allGasData) {
+          const solGasInfo = allGasData.find(g =>
+            String(g.chain || '').toLowerCase() === 'solana'
+          );
+          if (solGasInfo && solGasInfo.nativeTokenPrice) {
+            // Estimate compute units to SOL (~0.00001 SOL typical)
+            const computeUnits = response.simulatedComputeUnits || 300000;
+            const estimatedSolFee = (computeUnits / 1e6) * 0.00001 * 5000; // rough estimate
+            FeeSwap = estimatedSolFee * solGasInfo.nativeTokenPrice;
+          }
+        }
+
+        // Final fallback
+        if (!Number.isFinite(FeeSwap) || FeeSwap <= 0) {
+          FeeSwap = 0.001; // Default minimal fee for Solana
+        }
+      } catch(e) {
+        FeeSwap = 0.001;
+      }
+
+      // Return simple format like Kyber
+      return {
+        amount_out: amount_out,
+        FeeSwap: FeeSwap,
+        dexTitle: 'DFLOW'
       };
     }
   };

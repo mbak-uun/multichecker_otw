@@ -2493,23 +2493,33 @@ try { window.updateAddTokenButtonState = updateAddTokenButtonState; } catch(_) {
 
 function updatePriceFilterState() {
     try {
-        // Check if table has data (koin sudah dimuat)
-        const hasData = $('#sync-modal-tbody tr').length > 0;
-        const isEmpty = $('#sync-modal-tbody tr td[colspan]').length > 0; // Cek jika ada pesan kosong
+        // Check if table has data rows (bukan pesan kosong)
+        const $tbody = $('#sync-modal-tbody');
+        const rowCount = $tbody.find('tr').length;
+        const hasEmptyMessage = $tbody.find('tr td[colspan]').length > 0;
+        const hasData = rowCount > 0 && !hasEmptyMessage;
 
-        const shouldEnable = hasData && !isEmpty;
+        // Get radio buttons
+        const $allRadio = $('input[name="sync-price-filter"][value="all"]');
+        const $priceRadio = $('input[name="sync-price-filter"][value="with-price"]');
 
-        // Enable/disable radio buttons
-        const $priceRadios = $('input[name="sync-price-filter"]');
-        $priceRadios.prop('disabled', !shouldEnable);
+        // Kedua filter SELALU enabled jika ada data di tabel
+        // Pesan informatif akan ditampilkan di tabel jika tidak ada hasil
+        $allRadio.prop('disabled', !hasData);
+        $priceRadio.prop('disabled', !hasData);
 
-        // Visual feedback
-        $('#sync-price-filter-container label').css({
-            opacity: shouldEnable ? '1' : '0.5',
-            cursor: shouldEnable ? 'pointer' : 'not-allowed'
+        // Visual feedback untuk setiap label
+        $allRadio.closest('label').css({
+            opacity: hasData ? '1' : '0.5',
+            cursor: hasData ? 'pointer' : 'not-allowed'
         });
 
-        console.log(`[updatePriceFilterState] Price filter ${shouldEnable ? 'enabled' : 'disabled'}`);
+        $priceRadio.closest('label').css({
+            opacity: hasData ? '1' : '0.5',
+            cursor: hasData ? 'pointer' : 'not-allowed'
+        });
+
+        console.log(`[updatePriceFilterState] Rows: ${rowCount}, HasData: ${hasData}, Filters: ${hasData ? 'ENABLED' : 'DISABLED'}`);
     } catch(e) {
         console.error('[updatePriceFilterState] Error:', e);
     }
@@ -3535,7 +3545,8 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
 
             // Map pair to config; if unknown → NON
             // NON concept: any pair NOT explicitly listed in PAIRDEXS.
-            // For NON we should keep sc_out from source if provided; only fallback to PAIRDEXS['NON'] when input is missing/invalid.
+            // PENTING: Jika user memilih pair dari radio button (USDT, SOL, dll),
+            // SELALU gunakan SC dari config, BUKAN dari data token!
             const customPairDef = usingCustomNon ? {
                 scAddressPair: nonPairConfig.sc || '',
                 desPair: Number.isFinite(nonPairConfig.des) ? nonPairConfig.des : 18,
@@ -3543,21 +3554,26 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
             } : null;
             const pairDef = pairDefs[symbolOut] || customPairDef || pairDefs['NON'] || { scAddressPair: '0x', desPair: 18, symbolPair: 'NON' };
             const isAddrInvalid = (addr) => !addr || String(addr).toLowerCase() === '0x' || String(addr).length < 6;
-            let scOut = tok.sc_out || tok.contract_out || '';
-            let desOut = Number.isFinite(desOutRaw) && desOutRaw > 0 ? desOutRaw : Number(pairDef.desPair);
+
+            let scOut = '';
+            let desOut = 0;
+
             if (pairDefs[symbolOut]) {
-                // Known pair in config: allow fallback to config default if source empty
-                scOut = scOut || pairDef.scAddressPair;
-                desOut = Number.isFinite(desOutRaw) && desOutRaw > 0 ? desOutRaw : Number(pairDef.desPair);
+                // ========== KNOWN PAIR: SELALU gunakan SC dari config ==========
+                // Jangan gunakan sc_out dari token karena itu mungkin SC pair yang berbeda
+                scOut = pairDef.scAddressPair;
+                desOut = Number(pairDef.desPair) || 18;
             } else if (usingCustomNon) {
-                scOut = nonPairConfig.sc || scOut || pairDef.scAddressPair || '';
-                if (isAddrInvalid(scOut)) scOut = pairDef.scAddressPair || scOut;
-                desOut = Number.isFinite(nonPairConfig.des) ? nonPairConfig.des : (Number.isFinite(desOutRaw) && desOutRaw > 0 ? desOutRaw : Number(pairDef.desPair || 18));
+                // Custom NON pair: gunakan input dari user
+                scOut = nonPairConfig.sc || pairDef.scAddressPair || '';
+                desOut = Number.isFinite(nonPairConfig.des) ? nonPairConfig.des : Number(pairDef.desPair || 18);
             } else {
                 // NON: keep source SC if present; only fallback when invalid
+                scOut = tok.sc_out || tok.contract_out || '';
+                desOut = Number.isFinite(desOutRaw) && desOutRaw > 0 ? desOutRaw : 18;
                 if (isAddrInvalid(scOut)) {
-                    scOut = pairDef.scAddressPair || scOut;
-                    desOut = Number(pairDef.desPair || desOutRaw || 18);
+                    scOut = pairDef.scAddressPair || '';
+                    desOut = Number(pairDef.desPair || 18);
                 }
             }
 
@@ -4488,6 +4504,15 @@ $(document).ready(function() {
 
         // Filter berdasarkan CEX dan Harga
         const priceFilter = $('input[name="sync-price-filter"]:checked').val() || 'all';
+
+        // Hitung berapa token punya harga untuk validasi filter
+        const tokensWithPrice = processed.filter(t => {
+            const cexUp = String(t.cex || '').toUpperCase();
+            if (selectedCexs.length && !selectedCexs.includes(cexUp)) return false;
+            const price = Number(t.current_price || 0);
+            return Number.isFinite(price) && price > 0;
+        });
+
         const filtered = processed.filter(t => {
             const cexUp = String(t.cex || '').toUpperCase();
             if (selectedCexs.length && !selectedCexs.includes(cexUp)) return false;
@@ -4498,16 +4523,27 @@ $(document).ready(function() {
                 const hasPrice = Number.isFinite(price) && price > 0;
 
                 if (priceFilter === 'with-price' && !hasPrice) return false;
-                if (priceFilter === 'no-price' && hasPrice) return false;
             }
 
             return true;
         });
 
         if (!filtered.length) {
-            modalBody.html('<tr><td colspan="7">No tokens match filters.</td></tr>');
+            // Pesan lebih informatif berdasarkan kondisi
+            let emptyMessage = 'Tidak ada koin yang cocok dengan filter.';
+            if (priceFilter === 'with-price' && tokensWithPrice.length === 0) {
+                emptyMessage = 'Tidak ada koin dengan harga. Klik "SNAPSHOT [UPDATE KOIN]" untuk memuat harga terbaru.';
+            } else if (selectedCexs.length === 0) {
+                emptyMessage = 'Pilih minimal 1 CEX untuk menampilkan koin.';
+            }
+            modalBody.html(`<tr><td colspan="7">${emptyMessage}</td></tr>`);
             updateSyncSelectedCount();
             updateSyncSortIndicators();
+
+            // Jika filter "Berharga" tapi tidak ada token dengan harga, reset ke "Semua"
+            if (priceFilter === 'with-price' && tokensWithPrice.length === 0) {
+                $('input[name="sync-price-filter"][value="all"]').prop('checked', true);
+            }
             return;
         }
 
