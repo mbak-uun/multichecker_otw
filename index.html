@@ -727,6 +727,82 @@
   </div>
 </div>
 
+<!-- Modal: Bulk Modal Editor (Single Chain Only) -->
+<div id="bulk-modal-editor" uk-modal>
+  <div class="uk-modal-dialog uk-width-1-1@m uk-width-2-3@l uk-margin-auto-vertical">
+
+    <!-- HEADER -->
+    <div class="uk-modal-header uk-flex uk-flex-between uk-flex-middle uk-padding-small">
+      <div>
+        <h4 class="uk-modal-title uk-margin-remove"><span uk-icon="pencil"></span> Bulk Modal Editor</h4>
+        <span class="uk-text-meta uk-margin-remove-top">Edit modal DEX untuk semua token sekaligus</span>
+      </div>
+      <button class="uk-modal-close-default" type="button" uk-close></button>
+    </div>
+
+    <!-- BODY -->
+    <div class="uk-modal-body uk-padding-small">
+
+      <!-- Info Section -->
+      <div class="uk-alert uk-alert-primary uk-padding-small" uk-alert>
+        <p class="uk-margin-remove uk-text-small">
+          <strong>Chain:</strong> <span id="bulk-chain-label" class="uk-text-bold">-</span> |
+          <strong>CEX Filter:</strong> <span id="bulk-cex-label" class="uk-text-bold">Semua</span> |
+          <strong>Token Terpengaruh:</strong> <span id="bulk-token-count" class="uk-badge uk-text-bold">0</span>
+        </p>
+      </div>
+
+      <div class="uk-grid-small" uk-grid>
+        <!-- Left Column: Filter CEX -->
+        <div class="uk-width-1-3@m">
+          <div class="uk-card uk-card-default uk-card-body uk-padding-small">
+            <h6 class="uk-heading-bullet uk-margin-small uk-text-bolder">Filter CEX</h6>
+            <div id="bulk-filter-cex" class="uk-flex uk-flex-column" style="gap:2px; max-height:180px; overflow:auto;">
+              <!-- CEX checkboxes will be populated here -->
+            </div>
+
+            <h6 class="uk-heading-bullet uk-margin-small uk-margin-top uk-text-bolder">Quick Set Modal</h6>
+            <div class="uk-flex uk-flex-wrap" style="gap:4px;">
+              <button type="button" class="uk-button uk-button-default uk-button-small bulk-quick-set" data-value="50">50</button>
+              <button type="button" class="uk-button uk-button-default uk-button-small bulk-quick-set" data-value="100">100</button>
+              <button type="button" class="uk-button uk-button-default uk-button-small bulk-quick-set" data-value="200">200</button>
+              <button type="button" class="uk-button uk-button-default uk-button-small bulk-quick-set" data-value="500">500</button>
+              <button type="button" class="uk-button uk-button-default uk-button-small bulk-quick-set" data-value="1000">1K</button>
+            </div>
+            <p class="uk-text-meta uk-text-small uk-margin-small-top">Klik untuk set nilai modal ke semua DEX di bawah</p>
+          </div>
+        </div>
+
+        <!-- Right Column: DEX Modal Inputs -->
+        <div class="uk-width-2-3@m">
+          <div class="uk-card uk-card-default uk-card-body uk-padding-small">
+            <div class="uk-flex uk-flex-between uk-flex-middle uk-margin-small">
+              <h6 class="uk-margin-remove uk-text-bolder">Modal DEX (KIRI | KANAN)</h6>
+              <label class="uk-text-small">
+                <input type="checkbox" class="uk-checkbox" id="bulk-apply-all-dex" checked> Terapkan ke Semua DEX
+              </label>
+            </div>
+
+            <div id="bulk-dex-inputs" class="uk-overflow-auto" style="max-height:45vh;">
+              <!-- DEX inputs will be populated here dynamically -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- FOOTER -->
+    <div class="uk-modal-footer uk-text-right uk-padding-small">
+      <button class="uk-button uk-button-danger uk-button-small uk-modal-close" type="button">Batal</button>
+      <button id="bulk-apply-btn" class="uk-button uk-button-primary uk-button-small" type="button" disabled>
+        <span uk-icon="icon: check; ratio: 0.8"></span> Terapkan Perubahan
+      </button>
+    </div>
+
+  </div>
+</div>
+
 <!-- Modal: History Log -->
 <div id="history-modal" uk-modal>
   <div class="uk-modal-dialog uk-width-1-1@m uk-width-2-3@l uk-margin-auto-vertical">

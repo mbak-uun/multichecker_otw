@@ -1605,6 +1605,24 @@ body.dark-mode .db-table-title .uk-badge {
     color: #1a1a1a !important;
 }
 
+/* FlyTrade badge color */
+.bg-fly {
+    background-color: #00d4aa !important;
+    color: #1a1a1a !important;
+}
+
+/* Warning button style (UIkit extension) */
+.uk-button-warning {
+    background-color: #faa05a !important;
+    color: #1a1a1a !important;
+    border: 1px solid #e8883e !important;
+}
+.uk-button-warning:hover,
+.uk-button-warning:focus {
+    background-color: #e8883e !important;
+    color: #fff !important;
+}
+
 /* Solana chain badge color */
 .bg-solana {
     background-color: #d483f4 !important;

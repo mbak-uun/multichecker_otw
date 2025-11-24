@@ -247,25 +247,62 @@
       },
       useProxy: false
     },
-    // fly: {
-    //   buildRequest: ({ chainName, sc_input, sc_output, amount_in_big, SavedSettingData }) => {
-    //     const net = String(chainName || '').toLowerCase();
-    //     const user = SavedSettingData.walletMeta || '0x0000000000000000000000000000000000000000';
-    //     const url = `https://api.fly.trade/aggregator/quote?network=${net}&fromTokenAddress=${sc_input}&toTokenAddress=${sc_output}&fromAddress=${user}&toAddress=${user}&sellAmount=${String(amount_in_big)}&slippage=0.005&gasless=false`;
-    //     return { url, method: 'GET' };
-    //   },
-    //   parseResponse: (response, { chainName, des_output }) => {
-    //     const rawOut = response?.amountOut;
-    //     const outNum = parseFloat(rawOut);
-    //     if (!Number.isFinite(outNum) || outNum <= 0) throw new Error('Invalid FlyTrade amountOut');
-    //     // Normalisasi ke unit token keluaran (selaras strategi lain)
-    //     const amount_out = outNum / Math.pow(10, des_output);
-    //     const feeDex = parseFloat(response?.fees?.[0]?.value || 0);
-    //     const FeeSwap = (Number.isFinite(feeDex) && feeDex > 0) ? feeDex : getFeeSwap(chainName);
-    //     // Use canonical display title matching app DEX key to avoid id mismatches elsewhere
-    //     return { amount_out, FeeSwap, dexTitle: 'FLY' };
-    //   }
-    // },
+    fly: {
+      buildRequest: ({ chainName, sc_input, sc_output, sc_input_in, sc_output_in, amount_in_big }) => {
+        // Check for API key - Fly.trade now requires authentication
+        const apiKey = (root.CONFIG_APP && root.CONFIG_APP.DEX_API_KEYS && root.CONFIG_APP.DEX_API_KEYS.FLY)
+          ? String(root.CONFIG_APP.DEX_API_KEYS.FLY).trim()
+          : '';
+
+        if (!apiKey) {
+          throw new Error('FLY API key required. Set CONFIG_APP.DEX_API_KEYS.FLY in config.js');
+        }
+
+        // Map chain name to Fly.trade network parameter
+        const chainNetworkMap = {
+          'bsc': 'bsc',
+          'polygon': 'polygon',
+          'arbitrum': 'arbitrum',
+          'ethereum': 'ethereum',
+          'base': 'base',
+          'avalanche': 'avalanche',
+          'optimism': 'optimism',
+          'fantom': 'fantom',
+          'linea': 'linea',
+          'scroll': 'scroll',
+          'zksync': 'zksync',
+          'solana': 'solana'
+        };
+        const chainLower = String(chainName || '').toLowerCase();
+        const net = chainNetworkMap[chainLower] || chainLower;
+        // Solana uses base58 addresses (case-sensitive), use original addresses
+        const isSolana = chainLower === 'solana';
+        const fromAddr = isSolana ? sc_input_in : sc_input;
+        const toAddr = isSolana ? sc_output_in : sc_output;
+        // Use authenticated endpoint with API key
+        const url = `https://api.magpiefi.xyz/aggregator/quote?network=${net}&fromTokenAddress=${fromAddr}&toTokenAddress=${toAddr}&sellAmount=${String(amount_in_big)}&slippage=0.1&gasless=false`;
+        return {
+          url,
+          method: 'GET',
+          headers: {
+            'apikey': apiKey
+          }
+        };
+      },
+      parseResponse: (response, { chainName, des_output }) => {
+        const rawOut = response?.amountOut;
+        const outNum = parseFloat(rawOut);
+        if (!Number.isFinite(outNum) || outNum <= 0) throw new Error('Invalid FlyTrade amountOut');
+        // Normalisasi ke unit token keluaran (selaras strategi lain)
+        const amount_out = outNum / Math.pow(10, des_output);
+        // Gas fee dari response.fees[0].value (dalam USD)
+        const gasFee = response?.fees?.find(f => f.type === 'gas');
+        const feeDex = parseFloat(gasFee?.value || 0);
+        const FeeSwap = (Number.isFinite(feeDex) && feeDex > 0) ? feeDex : getFeeSwap(chainName);
+        return { amount_out, FeeSwap, dexTitle: 'FLY' };
+      },
+      useProxy: false // API key auth - tidak perlu CORS proxy
+    },
     // ZeroSwap aggregator untuk 1inch
     'zero-1inch': {
       buildRequest: ({ sc_input, sc_output, amount_in_big, des_input, des_output, codeChain }) => {
@@ -872,7 +909,15 @@
       const map = cfg.fetchdex || {};
       const ak = actionKey(action);
       const primary = map.primary && map.primary[ak] ? String(map.primary[ak]).toLowerCase() : null;
-      const alternative = map.alternative && map.alternative[ak] ? String(map.alternative[ak]).toLowerCase() : null;
+      // Gunakan alternative dari config DEX, atau fallback global dari CONFIG_APP.DEX_FALLBACK
+      let alternative = map.alternative && map.alternative[ak] ? String(map.alternative[ak]).toLowerCase() : null;
+      if (!alternative) {
+        // Fallback global: 'dzap' | 'swoop' | 'none' (dari CONFIG_APP.DEX_FALLBACK)
+        const globalFallback = (root.CONFIG_APP && root.CONFIG_APP.DEX_FALLBACK)
+          ? String(root.CONFIG_APP.DEX_FALLBACK).toLowerCase()
+          : 'dzap';
+        alternative = globalFallback !== 'none' ? globalFallback : null;
+      }
       return { primary, alternative };
     } catch(_){ return { primary: null, alternative: null }; }
   }
@@ -892,10 +937,9 @@
       const runStrategy = (strategyName) => new Promise((res, rej) => {
         try {
           const sname = String(strategyName || '').toLowerCase();
-          // Hanya arahkan ke fallbackDZAP saat DZAP dipakai sebagai fallback DEX lain.
-          // Jika DEX utamanya memang DZAP, jalankan strategi asli agar top 3 provider terambil.
-          const isPrimaryDzap = (sname === 'dzap') && (String(dexType || '').toLowerCase() === 'dzap');
-          if (sname === 'swoop' || (sname === 'dzap' && !isPrimaryDzap)) {
+          // DZAP dan SWOOP sekarang hanya digunakan sebagai fallback alternatif
+          // Langsung arahkan ke getPriceAltDEX jika strategy adalah 'dzap' atau 'swoop'
+          if (sname === 'swoop' || sname === 'dzap') {
             const force = sname; // paksa jenis fallback khusus
             getPriceAltDEX(sc_input, des_input, sc_output, des_output, amount_in, PriceRate, dexType, NameToken, NamePair, cex, chainName, codeChain, action, { force })
               .then(res)
@@ -1193,11 +1237,21 @@
       });
     }
 
-    // Pilih fallback berdasarkan parameter 'force'
-    if (force === 'dzap') {
+    // Pilih fallback berdasarkan parameter 'force' atau CONFIG_APP.DEX_FALLBACK
+    const configFallback = (root.CONFIG_APP && root.CONFIG_APP.DEX_FALLBACK)
+      ? String(root.CONFIG_APP.DEX_FALLBACK).toLowerCase()
+      : 'dzap';
+    const fallbackType = force || configFallback;
+
+    // Jika 'none', reject langsung tanpa fallback
+    if (fallbackType === 'none') {
+      return Promise.reject({ pesanDEX: 'Fallback disabled', DEX: dexType.toUpperCase() });
+    }
+
+    if (fallbackType === 'dzap') {
       return fallbackDZAP();
     }
-    // Default fallback adalah swoop jika tidak ada 'force' atau 'force' bukan 'dzap'
+    // Default fallback adalah swoop
     return fallbackSWOOP();
   }
 
@@ -1254,5 +1308,14 @@
     } catch(_){}
 
     root.DEX = DexAPI;
+
+    // Register FlyTrade dengan proxy enabled
+    DexAPI.register('fly', {
+      allowFallback: false,
+      proxy: true,
+      builder: function({ chainName, codeChain, tokenAddress, pairAddress }) {
+        return `https://fly.trade/swap?network=${String(chainName||'').toLowerCase()}&from=${pairAddress}&to=${tokenAddress}`;
+      }
+    });
   })();
 })(typeof window !== 'undefined' ? window : this);

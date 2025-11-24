@@ -269,8 +269,12 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
         const linkOKDEX = createHoverLink(`https://www.okx.com/web3/dex-swap?inputChain=${chainConfig.Kode_Chain}&inputCurrency=${data.sc_in}&outputChain=${chainConfig.Kode_Chain}&outputCurrency=${data.sc_out}`, '#OKX', 'uk-text-primary');
         const linkUNIDEX = createHoverLink(`https://app.unidex.exchange/?chain=${chainConfig.Nama_Chain}&from=${data.sc_in}&to=${data.sc_out}`, '#UNX', 'uk-text-success');
         const linkDEFIL = createHoverLink(`https://swap.defillama.com/?chain=${chainConfig.Nama_Chain}&from=${data.sc_in}&to=${data.sc_out}`, '#DFL', 'uk-text-danger');
-        const linkDZAP = createHoverLink(`https://app.dzap.io/trade?referral=d0d7E9b4&fromChain=${chainConfig.Kode_Chain}&fromToken=${data.sc_in}&toChain=${chainConfig.Kode_Chain}&toToken=${data.sc_out}`, '#DZP', 'uk-text-dark');
-        const linkDelta= createHoverLink(` https://app.1delta.io/swap?chain=${chainConfig.Kode_Chain}&inputCurrency=${data.sc_in}&outputCurrency=${data.sc_out}`, '#DLX', 'uk-text-warning');
+        // DZAP: Solana uses chain ID 7565164
+        const dzapChainId = String(data.chain || '').toLowerCase() === 'solana' ? 7565164 : chainConfig.Kode_Chain;
+        const linkDZAP = createHoverLink(`https://app.dzap.io/trade?referral=d0d7E9b4&fromChain=${dzapChainId}&fromToken=${data.sc_in}&toChain=${dzapChainId}&toToken=${data.sc_out}`, '#DZP', 'uk-text-dark');
+        // Jumper (LIFI): Solana uses chain ID 1151111081099710
+        const jumperChainId = String(data.chain || '').toLowerCase() === 'solana' ? 1151111081099710 : chainConfig.Kode_Chain;
+        const linkJumper = createHoverLink(`https://jumper.exchange/?fromChain=${jumperChainId}&fromToken=${data.sc_in}&toChain=${jumperChainId}&toToken=${data.sc_out}`, '#JMX', 'uk-text-warning');
         
         const rowId = `DETAIL_${String(data.cex).toUpperCase()}_${String(data.symbol_in).toUpperCase()}_${String(data.symbol_out).toUpperCase()}_${String(data.chain).toUpperCase()}`.replace(/[^A-Z0-9_]/g,'');
         const chainShort = (data.chain || '').substring(0,3).toUpperCase();
@@ -304,7 +308,7 @@ function loadKointoTable(filteredData, tableBodyId = 'dataTableBody') {
                 <span class="detail-line uk-text-bolder">${WD_TOKEN}~ ${DP_TOKEN} | ${WD_PAIR}~ ${DP_PAIR}</span>
                 <span class="detail-line"><span class="uk-text-primary uk-text-bolder">${(data.symbol_in||'').toUpperCase()}</span> ${linkSCtoken} : ${linkStokToken}</span>
                 <span class="detail-line"><span class="uk-text-primary uk-text-bolder">${(data.symbol_out||'').toUpperCase()}</span> ${linkSCpair} : ${linkStokPair}</span>
-                <span class="detail-line">${linkUNIDEX} ${linkOKDEX} ${linkDelta} ${linkDEFIL} ${linkDZAP}</span>
+                <span class="detail-line">${linkUNIDEX} ${linkOKDEX} ${linkJumper} ${linkDEFIL} ${linkDZAP}</span>
             </td>`;
 
         // refactor: render slot DEX kanan via helper
@@ -589,6 +593,7 @@ function renderTokenManagementList() {
         ];
         if (m.type === 'single') {
           base.splice(2, 0, `<button id=\"sync-tokens-btn\" class=\"uk-button uk-button-small uk-button-primary\" title=\"Sinkronisasi Data Koin\"><span uk-icon=\"database\"></span> SYNC</button>`);
+          base.splice(3, 0, `<button id=\"bulk-modal-btn\" class=\"uk-button uk-button-small uk-button-warning\" title=\"Bulk Edit Modal DEX\" uk-toggle=\"target: #bulk-modal-editor\"><span uk-icon=\"pencil\"></span> BULK MODAL</button>`);
         }
         return base.join('\n');
     })();

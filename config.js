@@ -5,6 +5,15 @@ const CONFIG_APP = {
         VERSION: "6.0",
         SCAN_LIMIT: false,
         AUTORUN: true,  // Set false untuk menyembunyikan & menonaktifkan fitur autorun
+    },
+    // Konfigurasi fallback DEX saat DEX utama gagal (rate limit, server error, timeout)
+    // Pilihan: 'dzap' | 'swoop' | 'none'
+    DEX_FALLBACK: 'dzap',
+    // API Keys untuk DEX yang membutuhkan autentikasi
+    DEX_API_KEYS: {
+        // Fly.trade API Key - Dapatkan dari Discord: https://discord.gg/fly-trade
+        // Endpoint: https://api.magpiefi.xyz (membutuhkan header 'apikey')
+        FLY: ''  // Isi dengan API key dari Fly.trade
     }
 };
 
@@ -157,7 +166,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://bscscan.com/tx/${hash}`
             }
         },
-        DEXS: ["odos", "paraswap", "0x", "kyber", "dzap", "lifi"],
+        DEXS: ["odos", "paraswap", "0x", "kyber", "lifi", "fly"],
         WALLET_CEX: {
             GATE: { address : '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX : 'BSC' },
             BINANCE: { address : '0x8894E0a0c962CB723c1976a4421c95949bE2D4E3', address2 : '0xe2fc31F816A9b94326492132018C3aEcC4a93aE1', chainCEX : 'BSC' },
@@ -179,11 +188,11 @@ const CONFIG_CHAINS = {
         Nama_Pendek: "poly",
         URL_Chain: "https://polygonscan.com",
         ICON: "https://s2.coinmarketcap.com/static/img/coins/200x200/3890.png",
-        WARNA:"#a05df6",
+        WARNA:"#cd72f4ff",
         DATAJSON: 'https://monitoring-koin.vercel.app/JSON_KOIN/POLYGON.json',
         BaseFEEDEX : "MATICUSDT", // Corrected from POLUSDT
         GASLIMIT: 80000,
-        DEXS: ["odos", "paraswap", "0x", "kyber", "dzap", "lifi"],
+        DEXS: ["odos", "paraswap", "0x", "kyber", "lifi", "fly"],
         LINKS: {
             explorer: {
                 token: (address) => `https://polygonscan.com/token/${address}`,
@@ -216,7 +225,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://arbiscan.io/tx/${hash}`
             }
         },
-        DEXS: ["odos", "paraswap", "0x", "kyber", "dzap", "lifi"],
+        DEXS: ["odos", "paraswap", "0x", "kyber", "lifi", "fly"],
         WALLET_CEX: {
             GATE: { address : '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX : 'ARBITRUM' },
             BINANCE: { address : '0x290275e3db66394C52272398959845170E4DCb88', address2 : '0xe7804c37c13166fF0b37F5aE0BB07A3aEbb6e245', chainCEX : 'ARBITRUM' },
@@ -240,7 +249,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://etherscan.io/tx/${hash}`
             }
         },
-        DEXS: ["odos", "paraswap", "0x", "kyber", "dzap", "lifi"],
+        DEXS: ["odos", "paraswap", "0x", "kyber", "lifi", "fly"],
         WALLET_CEX: {
             GATE: { address : '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX : 'ETH' },
             BINANCE: { address : '0xDFd5293D8e347dFe59E90eFd55b2956a1343963d', address2 : '0x28C6c06298d514Db089934071355E5743bf21d60', address3 : '0x21a31Ee1afC51d94C2eFcCAa2092aD1028285549', chainCEX : 'ETH' },
@@ -267,7 +276,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://basescan.org/tx/${hash}`
             }
         },
-        DEXS: ["odos", "paraswap", "0x", "kyber", "dzap", "lifi"],
+        DEXS: ["odos", "paraswap", "0x", "kyber", "lifi", "fly"],
         WALLET_CEX: {
             GATE: { address: '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX: 'BASE' },
             BINANCE: { address: '0xDFd5293D8e347dFe59E90eFd55b2956a1343963d', address2: '0x28C6c06298d514Db089934071355E5743bf21d60', chainCEX: 'BASE' },
@@ -291,7 +300,7 @@ const CONFIG_CHAINS = {
         Nama_Chain: "solana",
         Nama_Pendek: "sol",
         URL_Chain: "https://solscan.io/",
-        WARNA: "#d483f4",
+        WARNA: "#7f1ea5ff",
         ICON: "https://cdn.iconscout.com/icon/premium/png-256-thumb/solana-sol-7152167-5795323.png",
         DATAJSON: 'https://monitoring-koin.vercel.app/JSON_KOIN/SOL.json',
         BaseFEEDEX: "SOLUSDT",
@@ -303,7 +312,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://solscan.io/tx/${hash}`
             }
         },
-        DEXS: ["lifi", "0x", "dzap", "jupiter", "dflow"],
+        DEXS: ["lifi", "0x", "jupiter", "dflow", "fly"],
         WALLET_CEX: {
             GATE: { address: 'HiRpdAZifEsZGdzQ5Xo5wcnaH3D2Jj9SoNsUzcYNK78J', address2: 'u6PJ8DtQuPFnfmwHbGFULQ4u4EgjDiyYKjVEsynXq2w', chainCEX: 'SOL' },
             BINANCE: { address: '28nYGHJyUVcVdxZtzKByBXEj127XnrUkrE3VaGuWj1ZU', address2: '2ojv9BAiHUrvsm9gxDe7fJSzbNZSJcxZvf8dqmWGHG8S', chainCEX: 'SOL' },
@@ -334,10 +343,10 @@ const CONFIG_UI = {
         { key: 'paraswap', label: 'ParaSwap', badgeClass: 'bg-paraswap', fallbackSlug: 'paraswap' },
         { key: '0x', label: 'Matcha', badgeClass: 'bg-matcha', fallbackSlug: '0x' },
         { key: 'kyber', label: 'KyberSwap', badgeClass: 'bg-kyberswap', fallbackSlug: 'kyberswap' },
-        { key: 'dzap', label: 'DZAP', badgeClass: 'bg-dzap', fallbackSlug: 'dzap' },
         { key: 'lifi', label: 'LIFI', badgeClass: 'bg-lifi', fallbackSlug: 'lifi' },
-        { key: 'jupiter', label: 'Jupiter', badgeClass: 'bg-jupiter', fallbackSlug: 'jupiter' }
-        // DISABLED: 1inch, okx
+        { key: 'jupiter', label: 'Jupiter', badgeClass: 'bg-jupiter', fallbackSlug: 'jupiter' },
+        { key: 'fly', label: 'FlyTrade', badgeClass: 'bg-fly', fallbackSlug: 'fly' }
+        // DISABLED: 1inch, okx, dzap (now used as fallback only)
     ],
     CHAINS: [
         { key: 'polygon', label: 'Polygon', short: 'POLY', badgeClass: 'bg-success text-light' },

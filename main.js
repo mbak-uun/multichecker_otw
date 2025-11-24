@@ -5131,3 +5131,266 @@ $(document).on('click', '#histClearAll', async function(){
         };
         reader.readAsText(file);
     });
+
+// =================================================================================
+// BULK MODAL EDITOR - Edit modal DEX untuk semua token sekaligus (Single Chain Only)
+// =================================================================================
+(function initBulkModalEditor() {
+    'use strict';
+
+    // State untuk bulk editor
+    let bulkState = {
+        chain: null,
+        selectedCexs: [],
+        dexInputs: {},
+        affectedTokens: []
+    };
+
+    // Initialize modal when it's shown
+    $(document).on('beforeshow', '#bulk-modal-editor', function() {
+        const m = getAppMode();
+        if (m.type !== 'single') {
+            if (typeof toast !== 'undefined' && toast.warning) {
+                toast.warning('Bulk Modal Editor hanya tersedia di mode Single Chain');
+            }
+            return false; // Prevent modal from opening
+        }
+        bulkState.chain = m.chain;
+        initBulkEditor();
+    });
+
+    function initBulkEditor() {
+        const chainKey = bulkState.chain;
+        if (!chainKey) return;
+
+        // Update chain label
+        $('#bulk-chain-label').text(String(chainKey).toUpperCase());
+
+        // Populate CEX checkboxes (vertical layout)
+        const $cexContainer = $('#bulk-filter-cex').empty();
+        const cexList = CONFIG_UI?.CEXES || [];
+        cexList.forEach(cex => {
+            const cexKey = cex.key;
+            const cexLabel = cex.label || cexKey;
+            const cexColor = CONFIG_CEX?.[cexKey]?.WARNA || '#666';
+            $cexContainer.append(`
+                <div class="uk-margin-small-bottom">
+                    <label class="uk-flex uk-flex-middle" style="gap:6px; cursor:pointer;">
+                        <input type="checkbox" class="uk-checkbox bulk-cex-filter" value="${cexKey}" checked>
+                        <span style="color:${cexColor}; font-weight:bold; font-size:14px;">${cexLabel}</span>
+                    </label>
+                </div>
+            `);
+        });
+
+        // Populate DEX inputs based on chain's DEXS
+        const chainConfig = CONFIG_CHAINS?.[chainKey] || {};
+        const dexList = chainConfig.DEXS || [];
+        const $dexContainer = $('#bulk-dex-inputs').empty();
+
+        dexList.forEach(dexKey => {
+            const dexConfig = CONFIG_DEXS?.[dexKey] || {};
+            const dexUiConfig = CONFIG_UI?.DEXES?.find(d => d.key === dexKey) || {};
+            const dexLabel = dexConfig.label || dexUiConfig.label || String(dexKey).toUpperCase();
+            const dexColor = dexConfig.warna || '#666';
+
+            $dexContainer.append(`
+                <div class="uk-card uk-card-default uk-card-body uk-padding-small uk-margin-small-bottom">
+                    <div class="uk-flex uk-flex-middle uk-flex-between">
+                        <label class="uk-flex uk-flex-middle" style="gap:6px; cursor:pointer;">
+                            <input type="checkbox" class="uk-checkbox bulk-dex-checkbox" value="${dexKey}" checked>
+                            <span style="color:${dexColor}; font-weight:bold; font-size:14px;">${dexLabel}</span>
+                        </label>
+                        <div class="uk-flex uk-flex-middle" style="gap:8px;">
+                            <div class="uk-flex uk-flex-middle" style="gap:4px;">
+                                <span class="uk-text-small" style="color:${dexColor};">KIRI:</span>
+                                <input type="number" class="uk-input uk-form-small bulk-dex-left" data-dex="${dexKey}"
+                                       style="width:70px; text-align:center;" placeholder="0" min="0" step="1" value="100">
+                            </div>
+                            <div class="uk-flex uk-flex-middle" style="gap:4px;">
+                                <span class="uk-text-small" style="color:${dexColor};">KANAN:</span>
+                                <input type="number" class="uk-input uk-form-small bulk-dex-right" data-dex="${dexKey}"
+                                       style="width:70px; text-align:center;" placeholder="0" min="0" step="1" value="100">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `);
+        });
+
+        // Initial update
+        updateAffectedCount();
+    }
+
+    // Handle CEX filter changes
+    $(document).on('change', '.bulk-cex-filter', function() {
+        updateAffectedCount();
+    });
+
+    // Handle DEX checkbox changes
+    $(document).on('change', '.bulk-dex-checkbox', function() {
+        updateAffectedCount();
+    });
+
+    // Handle "Apply to All DEX" checkbox
+    $(document).on('change', '#bulk-apply-all-dex', function() {
+        const isChecked = $(this).is(':checked');
+        $('.bulk-dex-checkbox').prop('checked', isChecked);
+        updateAffectedCount();
+    });
+
+    // Handle Quick Set buttons
+    $(document).on('click', '.bulk-quick-set', function() {
+        const value = $(this).data('value');
+        $('.bulk-dex-left, .bulk-dex-right').val(value);
+    });
+
+    function getSelectedCexs() {
+        const selected = [];
+        $('.bulk-cex-filter:checked').each(function() {
+            selected.push(String($(this).val()).toUpperCase());
+        });
+        return selected;
+    }
+
+    function getSelectedDexInputs() {
+        const inputs = {};
+        $('.bulk-dex-checkbox:checked').each(function() {
+            const dexKey = String($(this).val()).toLowerCase();
+            const left = parseFloat($(`.bulk-dex-left[data-dex="${dexKey}"]`).val()) || 0;
+            const right = parseFloat($(`.bulk-dex-right[data-dex="${dexKey}"]`).val()) || 0;
+            inputs[dexKey] = { left, right };
+        });
+        return inputs;
+    }
+
+    function getAffectedTokens() {
+        const chainKey = bulkState.chain;
+        if (!chainKey) return [];
+
+        const tokens = getTokensChain(chainKey) || [];
+        const selectedCexs = getSelectedCexs();
+
+        if (selectedCexs.length === 0) return [];
+
+        // Filter tokens that have at least one matching CEX
+        return tokens.filter(t => {
+            const tokenCexs = (t.selectedCexs || []).map(c => String(c).toUpperCase());
+            return tokenCexs.some(c => selectedCexs.includes(c));
+        });
+    }
+
+    function updateAffectedCount() {
+        const affected = getAffectedTokens();
+        bulkState.affectedTokens = affected;
+        $('#bulk-token-count').text(affected.length);
+
+        // Update CEX label
+        const selectedCexs = getSelectedCexs();
+        if (selectedCexs.length === 0) {
+            $('#bulk-cex-label').text('Tidak ada');
+        } else if (selectedCexs.length === (CONFIG_UI?.CEXES?.length || 0)) {
+            $('#bulk-cex-label').text('Semua');
+        } else {
+            $('#bulk-cex-label').text(selectedCexs.join(', '));
+        }
+
+        // Enable/disable apply button
+        const dexInputs = getSelectedDexInputs();
+        const canApply = affected.length > 0 && Object.keys(dexInputs).length > 0;
+        $('#bulk-apply-btn').prop('disabled', !canApply);
+    }
+
+
+    // Handle Apply button
+    $(document).on('click', '#bulk-apply-btn', async function() {
+        const chainKey = bulkState.chain;
+        if (!chainKey) return;
+
+        const affected = getAffectedTokens();
+        const dexInputs = getSelectedDexInputs();
+
+        if (affected.length === 0 || Object.keys(dexInputs).length === 0) {
+            if (typeof toast !== 'undefined' && toast.warning) {
+                toast.warning('Tidak ada perubahan untuk diterapkan');
+            }
+            return;
+        }
+
+        // Confirm before applying
+        const confirmMsg = `Anda akan mengubah modal DEX untuk ${affected.length} token.\n\nDEX yang diubah:\n${
+            Object.entries(dexInputs).map(([dex, vals]) => `- ${dex.toUpperCase()}: KIRI=${vals.left}, KANAN=${vals.right}`).join('\n')
+        }\n\nLanjutkan?`;
+
+        if (!confirm(confirmMsg)) return;
+
+        try {
+            // Disable button during processing
+            const $btn = $(this).prop('disabled', true).html('<span uk-spinner="ratio: 0.5"></span> Memproses...');
+
+            // Get all tokens and update affected ones
+            let allTokens = getTokensChain(chainKey) || [];
+            const affectedIds = new Set(affected.map(t => String(t.id)));
+
+            let updatedCount = 0;
+            allTokens = allTokens.map(token => {
+                if (!affectedIds.has(String(token.id))) return token;
+
+                // Update dataDexs for this token
+                const newDataDexs = { ...(token.dataDexs || {}) };
+
+                Object.entries(dexInputs).forEach(([dexKey, vals]) => {
+                    // Only update if this DEX is already selected for the token, or add it if not
+                    newDataDexs[dexKey] = { left: vals.left, right: vals.right };
+                });
+
+                // Also ensure selectedDexs includes all the DEXes we're updating
+                let newSelectedDexs = [...(token.selectedDexs || [])];
+                Object.keys(dexInputs).forEach(dexKey => {
+                    if (!newSelectedDexs.includes(dexKey)) {
+                        newSelectedDexs.push(dexKey);
+                    }
+                });
+
+                updatedCount++;
+                return {
+                    ...token,
+                    dataDexs: newDataDexs,
+                    selectedDexs: newSelectedDexs
+                };
+            });
+
+            // Save updated tokens
+            setTokensChain(chainKey, allTokens);
+
+            // Close modal
+            UIkit.modal('#bulk-modal-editor').hide();
+
+            // Show success message
+            if (typeof toast !== 'undefined' && toast.success) {
+                toast.success(`Berhasil mengubah modal DEX untuk ${updatedCount} token`);
+            }
+
+            // Refresh management list
+            if (typeof renderTokenManagementList === 'function') {
+                renderTokenManagementList();
+            }
+            if (typeof loadAndDisplaySingleChainTokens === 'function') {
+                loadAndDisplaySingleChainTokens();
+            }
+
+            // Log action
+            try { setLastAction('BULK MODAL UPDATE'); } catch(_) {}
+
+        } catch(err) {
+            console.error('Bulk modal update error:', err);
+            if (typeof toast !== 'undefined' && toast.error) {
+                toast.error('Terjadi kesalahan saat mengupdate modal');
+            }
+        } finally {
+            // Re-enable button
+            $('#bulk-apply-btn').prop('disabled', false).html('<span uk-icon="icon: check; ratio: 0.8"></span> Terapkan Perubahan');
+        }
+    });
+
+})();
