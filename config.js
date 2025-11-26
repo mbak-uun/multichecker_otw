@@ -2,7 +2,7 @@
 const CONFIG_APP = {
     APP: {
         NAME: "MULTICHECKER-DEV",
-        VERSION: "6.0",
+        VERSION: "7.0",
         SCAN_LIMIT: false,
         AUTORUN: true,  // Set false untuk menyembunyikan & menonaktifkan fitur autorun
     },
@@ -166,7 +166,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://bscscan.com/tx/${hash}`
             }
         },
-        DEXS: ["odos", "paraswap", "0x", "kyber", "lifi", "fly"],
+        DEXS: ["odos", "paraswap", "0x", "kyber", "lifi", "okx"],
         WALLET_CEX: {
             GATE: { address : '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX : 'BSC' },
             BINANCE: { address : '0x8894E0a0c962CB723c1976a4421c95949bE2D4E3', address2 : '0xe2fc31F816A9b94326492132018C3aEcC4a93aE1', chainCEX : 'BSC' },
@@ -192,7 +192,7 @@ const CONFIG_CHAINS = {
         DATAJSON: 'https://monitoring-koin.vercel.app/JSON_KOIN/POLYGON.json',
         BaseFEEDEX : "MATICUSDT", // Corrected from POLUSDT
         GASLIMIT: 80000,
-        DEXS: ["odos", "paraswap", "0x", "kyber", "lifi", "fly"],
+        DEXS: ["odos", "paraswap", "0x", "kyber", "lifi", "okx"],
         LINKS: {
             explorer: {
                 token: (address) => `https://polygonscan.com/token/${address}`,
@@ -225,7 +225,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://arbiscan.io/tx/${hash}`
             }
         },
-        DEXS: ["odos", "paraswap", "0x", "kyber", "lifi", "fly"],
+        DEXS: ["odos", "paraswap", "0x", "kyber", "lifi", "okx"],
         WALLET_CEX: {
             GATE: { address : '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX : 'ARBITRUM' },
             BINANCE: { address : '0x290275e3db66394C52272398959845170E4DCb88', address2 : '0xe7804c37c13166fF0b37F5aE0BB07A3aEbb6e245', chainCEX : 'ARBITRUM' },
@@ -249,7 +249,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://etherscan.io/tx/${hash}`
             }
         },
-        DEXS: ["odos", "paraswap", "0x", "kyber", "lifi", "fly"],
+        DEXS: ["odos", "paraswap", "0x", "kyber", "lifi", "okx"],
         WALLET_CEX: {
             GATE: { address : '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX : 'ETH' },
             BINANCE: { address : '0xDFd5293D8e347dFe59E90eFd55b2956a1343963d', address2 : '0x28C6c06298d514Db089934071355E5743bf21d60', address3 : '0x21a31Ee1afC51d94C2eFcCAa2092aD1028285549', chainCEX : 'ETH' },
@@ -276,7 +276,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://basescan.org/tx/${hash}`
             }
         },
-        DEXS: ["odos", "paraswap", "0x", "kyber", "lifi", "fly"],
+        DEXS: ["odos", "paraswap", "0x", "kyber", "lifi", "okx"],
         WALLET_CEX: {
             GATE: { address: '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX: 'BASE' },
             BINANCE: { address: '0xDFd5293D8e347dFe59E90eFd55b2956a1343963d', address2: '0x28C6c06298d514Db089934071355E5743bf21d60', chainCEX: 'BASE' },
@@ -312,7 +312,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://solscan.io/tx/${hash}`
             }
         },
-        DEXS: ["lifi", "0x", "jupiter", "dflow", "fly"],
+        DEXS: ["lifi", "0x", "okx", "jupiter", "dflow"],
         WALLET_CEX: {
             GATE: { address: 'HiRpdAZifEsZGdzQ5Xo5wcnaH3D2Jj9SoNsUzcYNK78J', address2: 'u6PJ8DtQuPFnfmwHbGFULQ4u4EgjDiyYKjVEsynXq2w', chainCEX: 'SOL' },
             BINANCE: { address: '28nYGHJyUVcVdxZtzKByBXEj127XnrUkrE3VaGuWj1ZU', address2: '2ojv9BAiHUrvsm9gxDe7fJSzbNZSJcxZvf8dqmWGHG8S', chainCEX: 'SOL' },
@@ -336,6 +336,9 @@ const CONFIG_UI = {
         { key: 'BINANCE', label: 'Binance', short: 'BINC', badgeClass: 'bg-binance' },
         { key: 'MEXC', label: 'MEXC', short: 'MEXC', badgeClass: 'bg-mexc' },
         { key: 'GATE', label: 'Gateio', short: 'GATE', badgeClass: 'bg-gateio' },
+        { key: 'BYBIT', label: 'Bybit', short: 'BYBT', badgeClass: 'bg-bybit' },
+        { key: 'BITGET', label: 'Bitget', short: 'BITG', badgeClass: 'bg-bitget' },
+        { key: 'KUCOIN', label: 'KuCoin', short: 'KUCN', badgeClass: 'bg-kucoin' },
         { key: 'INDODAX', label: 'INDODAX', short: 'INDX', badgeClass: 'bg-indodax' }
     ],
     DEXES: [
@@ -344,9 +347,8 @@ const CONFIG_UI = {
         { key: '0x', label: 'Matcha', badgeClass: 'bg-matcha', fallbackSlug: '0x' },
         { key: 'kyber', label: 'KyberSwap', badgeClass: 'bg-kyberswap', fallbackSlug: 'kyberswap' },
         { key: 'lifi', label: 'LIFI', badgeClass: 'bg-lifi', fallbackSlug: 'lifi' },
-        { key: 'jupiter', label: 'Jupiter', badgeClass: 'bg-jupiter', fallbackSlug: 'jupiter' },
-        { key: 'fly', label: 'FlyTrade', badgeClass: 'bg-fly', fallbackSlug: 'fly' }
-        // DISABLED: 1inch, okx, dzap (now used as fallback only)
+        { key: 'jupiter', label: 'Jupiter', badgeClass: 'bg-jupiter', fallbackSlug: 'jupiter' }
+        // DISABLED: 1inch, okx, dzap, fly (now used as fallback only or not active)
     ],
     CHAINS: [
         { key: 'polygon', label: 'Polygon', short: 'POLY', badgeClass: 'bg-success text-light' },
@@ -648,15 +650,15 @@ const CONFIG_DEXS = {
     okx: {
         label: 'OKXDEX',
         badgeClass: 'bg-okxdex',
-        disabled: true, // DISABLED - tidak digunakan
+        disabled: false, // ✅ ENABLED - OKX DEX Aggregator active
         warna: "#000000",
         builder: ({ chainCode, tokenAddress, pairAddress }) =>
-            `https://www.okx.com/web3/dex-swap?inputChain=${chainCode}&inputCurrency=${tokenAddress}&outputChain=501&outputCurrency=${pairAddress}`,
+            `https://www.okx.com/web3/dex-swap?inputChain=${chainCode}&inputCurrency=${tokenAddress}&outputChain=${chainCode}&outputCurrency=${pairAddress}`,
         fetchdex: {
             primary: { tokentopair: 'okx', pairtotoken: 'okx' },
             alternative: { tokentopair: 'swoop', pairtotoken: 'swoop' }
         },
-        allowFallback: false,
+        allowFallback: true, // ✅ Enable fallback to SWOOP
     },
     '1inch': {
         label: '1inch',
@@ -684,8 +686,8 @@ const CONFIG_DEXS = {
         },
         fetchdex: {
             primary: {
-                tokentopair: 'paraswap6',   // CEX→DEX (Actionkiri): ParaSwap API v6 (terbaru)
-                pairtotoken: 'paraswap5'    // DEX→CEX (ActionKanan): ParaSwap API v5 (lebih stabil)
+                tokentopair: 'paraswap6',   // CEX→DEX: ParaSwap API v6.2 (recommended by Velora)
+                pairtotoken: 'paraswap6'    // DEX→CEX: ParaSwap API v6.2 (v5 is deprecated)
             },
             alternative: {
                 tokentopair: 'swoop',   // Fallback CEX→DEX: SWOOP aggregator
@@ -759,25 +761,26 @@ const CONFIG_DEXS = {
             }
         },
         allowFallback: false // DFlow is a Solana DEX aggregator
-    }
+    },
 
-    // fly: {
-    //     label: 'FLY',
-    //     badgeClass: 'bg-fly',
-    //     proxy: true,
-    //     warna: "#ba28f9ff", // fly teal
-    //     builder: ({ chainName, tokenAddress, pairAddress }) => {
-    //         const net = String(chainName || '').toLowerCase() || 'ethereum';
-    //         return `https://app.fly.trade/swap/${net}/${String(tokenAddress).toLowerCase()}/${net}/${String(pairAddress).toLowerCase()}`;
-    //     },
-    //     fetchdex: {
-    //         primary: {
-    //             tokentopair: 'fly',
-    //             pairtotoken: 'fly'
-    //         }
-    //     },
-    //     allowFallback: false,
-    // },
+    fly: {
+        label: 'FLY',
+        badgeClass: 'bg-fly',
+        disabled: true, // ❌ DISABLED - FlyTrade not active
+        proxy: false,
+        warna: "#ba28f9ff", // fly purple
+        builder: ({ chainName, tokenAddress, pairAddress }) => {
+            const net = String(chainName || '').toLowerCase() || 'ethereum';
+            return `https://app.fly.trade/swap/${net}/${String(tokenAddress).toLowerCase()}/${net}/${String(pairAddress).toLowerCase()}`;
+        },
+        fetchdex: {
+            primary: {
+                tokentopair: 'fly',
+                pairtotoken: 'fly'
+            }
+        },
+        allowFallback: false
+    }
 
 
 };

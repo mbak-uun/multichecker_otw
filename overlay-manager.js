@@ -18,6 +18,7 @@
     class OverlayManager {
         constructor() {
             this.overlays = new Map();
+            this.hideTimeouts = new Map(); // Track setTimeout IDs to prevent race conditions
             this.currentOverlay = null;
             this.initialized = false;
             this.bodyFreezed = false;
@@ -40,7 +41,6 @@
             });
 
             this.initialized = true;
-            console.log('[OVERLAY MANAGER] Initialized');
         }
 
         /**
@@ -52,8 +52,6 @@
             this.originalBodyStyle = document.body.style.pointerEvents || '';
             document.body.style.pointerEvents = 'none';
             this.bodyFreezed = true;
-
-            console.log('[OVERLAY MANAGER] Body frozen - screen locked');
         }
 
         /**
@@ -64,8 +62,6 @@
 
             document.body.style.pointerEvents = this.originalBodyStyle;
             this.bodyFreezed = false;
-
-            console.log('[OVERLAY MANAGER] Body unfrozen - screen unlocked');
         }
 
         /**
@@ -91,12 +87,18 @@
                     background: rgba(0, 0, 0, 0.85);
                     backdrop-filter: blur(10px);
                     -webkit-backdrop-filter: blur(10px);
-                    z-index: 99999;
+                    z-index: 999999 !important;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     animation: fadeIn 0.3s ease-in-out;
                     pointer-events: auto;
+                }
+
+                /* Ensure overlay content is also high z-index */
+                .app-overlay-content {
+                    position: relative;
+                    z-index: 1000000 !important;
                 }
 
                 @keyframes fadeIn {
@@ -273,8 +275,26 @@
 
             const config = { ...defaults, ...options };
 
-            // Remove existing overlay with same ID
-            this.hide(config.id);
+            // CRITICAL FIX: Clear any pending hide timeout for this ID to prevent race condition
+            if (this.hideTimeouts.has(config.id)) {
+                clearTimeout(this.hideTimeouts.get(config.id));
+                this.hideTimeouts.delete(config.id);
+            }
+
+            // Remove existing overlay with same ID (IMMEDIATE, no animation/timeout)
+            const existingOverlay = this.overlays.get(config.id);
+            if (existingOverlay && existingOverlay.element) {
+                if (existingOverlay.element.parentNode) {
+                    existingOverlay.element.parentNode.removeChild(existingOverlay.element);
+                }
+                this.overlays.delete(config.id);
+            } else {
+                // FORCE REMOVE: Also check DOM for stuck elements
+                const existingElement = document.getElementById(config.id);
+                if (existingElement && existingElement.parentNode) {
+                    existingElement.parentNode.removeChild(existingElement);
+                }
+            }
 
             // Freeze screen to prevent user interaction
             if (config.freezeScreen) {
@@ -437,7 +457,11 @@
          */
         updateProgress(id, current, total, message = '') {
             const overlay = this.overlays.get(id);
-            if (!overlay) return;
+            if (!overlay) {
+                console.warn(`[OVERLAY MANAGER] updateProgress - overlay not found for id: ${id}`);
+                console.warn(`[OVERLAY MANAGER] Available overlay IDs:`, Array.from(this.overlays.keys()));
+                return;
+            }
 
             const element = overlay.element;
             const progress = element.querySelector('progress');
@@ -528,17 +552,35 @@
          * Hide overlay
          */
         hide(id) {
+            // Clear any existing hide timeout for this ID
+            if (this.hideTimeouts.has(id)) {
+                clearTimeout(this.hideTimeouts.get(id));
+                this.hideTimeouts.delete(id);
+            }
+
             const overlay = this.overlays.get(id);
-            if (!overlay) return;
+            if (!overlay) {
+                // FORCE REMOVE: Cari element by ID dan remove langsung
+                const element = document.getElementById(id);
+                if (element) {
+                    element.remove();
+                    if (this.overlays.size === 0) {
+                        this.unfreezeBody();
+                    }
+                }
+                return;
+            }
 
             const element = overlay.element;
             element.classList.add('hiding');
 
-            setTimeout(() => {
+            // Store setTimeout ID to track pending hide operations
+            const timeoutId = setTimeout(() => {
                 if (element.parentNode) {
                     element.parentNode.removeChild(element);
                 }
                 this.overlays.delete(id);
+                this.hideTimeouts.delete(id); // Clean up timeout tracking
 
                 if (this.currentOverlay === id) {
                     this.currentOverlay = null;
@@ -549,6 +591,9 @@
                     this.unfreezeBody();
                 }
             }, 300); // Match animation duration
+
+            // Track this timeout so it can be cleared if needed
+            this.hideTimeouts.set(id, timeoutId);
         }
 
         /**
@@ -558,6 +603,39 @@
             this.overlays.forEach((overlay, id) => {
                 this.hide(id);
             });
+
+            // FORCE CLEANUP: Remove any orphan overlay elements
+            setTimeout(() => {
+                const orphans = document.querySelectorAll('.app-overlay');
+                if (orphans.length > 0) {
+                    orphans.forEach(el => el.remove());
+                    this.unfreezeBody();
+                }
+            }, 350);
+        }
+
+        /**
+         * Force remove all overlays (emergency cleanup)
+         */
+        forceCleanup() {
+            // Clear all pending hide timeouts
+            this.hideTimeouts.forEach((timeoutId, id) => {
+                clearTimeout(timeoutId);
+            });
+            this.hideTimeouts.clear();
+
+            // Clear all tracked overlays
+            this.overlays.clear();
+            this.currentOverlay = null;
+
+            // Remove all overlay elements from DOM
+            const allOverlays = document.querySelectorAll('.app-overlay');
+            allOverlays.forEach(el => {
+                el.remove();
+            });
+
+            // Unfreeze body
+            this.unfreezeBody();
         }
 
         /**
@@ -589,8 +667,20 @@
     if (typeof global !== 'undefined') {
         global.AppOverlay = instance;
         global.OverlayManager = OverlayManager;
+
+        // Add keyboard shortcut: ESC to force close all overlays
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && instance.overlays.size > 0) {
+                console.log('[OVERLAY MANAGER] ESC pressed, hiding all overlays');
+                instance.hideAll();
+            }
+        });
+
+        // Add global helper for emergency cleanup
+        global.closeAllOverlays = () => instance.forceCleanup();
     }
 
     console.log('[OVERLAY MANAGER] Module loaded');
+    console.log('[OVERLAY MANAGER] Emergency cleanup: Type closeAllOverlays() in console or press ESC');
 
 })(typeof window !== 'undefined' ? window : this);

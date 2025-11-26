@@ -1005,33 +1005,76 @@
 
 
 
-<!-- Load all scripts at the end -->
+<!-- ========================================================================= -->
+<!-- SCRIPT LOADING ORDER - REFACTORED MODULAR ARCHITECTURE                  -->
+<!-- ========================================================================= -->
+
+<!-- 1. APP FOUNDATION -->
 <script src="app-namespace.js"></script>
 <script src="secrets.js"></script>
 <script src="config.js"></script>
 
-<!-- NEW: Core Utilities -->
-<script src="event-bus.js"></script><!-- GLOBAL EVENT SYSTEM -->
-<script src="overlay-manager.js"></script><!-- UNIFIED OVERLAY -->
-<script src="table-manager.js"></script><!-- STANDARDIZED TABLES -->
+<!-- 2. CORE UTILITIES -->
+<script src="event-bus.js"></script><!-- Global event system -->
+<script src="overlay-manager.js"></script><!-- Unified overlay -->
+<script src="table-manager.js"></script><!-- Standardized tables -->
 
-<!-- RPC SYSTEM: Load in correct order -->
+<!-- 3. RPC SYSTEM (must load in this order) -->
 <script src="storage.js"></script><!-- Must load BEFORE rpc-database-migrator -->
-<script src="rpc-database-migrator.js"></script><!-- RPC DATABASE MIGRATION & INITIALIZATION -->
-<script src="rpc-manager.js"></script><!-- RPC MANAGEMENT WITH AUTO FALLBACK -->
+<script src="rpc-database-migrator.js"></script><!-- RPC migration & init -->
+<script src="rpc-manager.js"></script><!-- RPC management with auto fallback -->
 
+<!-- 4. SERVICES REGISTRY -->
 <script src="services/cex/registry.js"></script>
 
-<script src="utils.js"></script>
+<!-- 5. UTILITIES HELPERS (NEW MODULAR STRUCTURE) -->
+<script src="utils/helpers/logger.js"></script>
+<script src="utils/helpers/app-state.js"></script>
+<script src="utils/helpers/scan-lock.js"></script>
+<script src="utils/helpers/filters.js"></script>
+<script src="utils/helpers/tokens.js"></script>
+<script src="utils/helpers/formatting.js"></script>
+<script src="utils/helpers/chain-helpers.js"></script>
+<script src="utils/helpers/theme.js"></script>
+<script src="utils/helpers/ui-utils.js"></script>
+
+<!-- 6. SERVICES -->
 <script src="services/cex.js"></script>
 <script src="services/dex.js"></script>
 <script src="api.js"></script>
+
+<!-- 7. SCANNER MODULES (NEW MODULAR STRUCTURE) -->
+<script src="core/scanner/state.js"></script>
+<script src="core/scanner/dom-helpers.js"></script>
+<script src="core/scanner/ui-updater.js"></script>
+<script src="core/scanner/cex-fetcher.js"></script>
+<script src="core/scanner/dex-fetcher.js"></script>
+<script src="core/scanner/core.js"></script>
+
+<!-- 8. FEATURE MODULES -->
 <script src="snapshot-new.js"></script>
 <script src="database-viewer.js"></script>
-<script src="main.js"></script>
 <script src="ui.js"></script>
 <script src="dom-renderer.js"></script>
-<script src="scanner.js"></script>
 <script src="wallet-exchanger.js"></script>
+
+<!-- 9. EVENT HANDLERS (NEW MODULAR STRUCTURE) -->
+<script src="core/handlers/scanner-handlers.js"></script>
+<script src="core/handlers/filter-handlers.js"></script>
+<script src="core/handlers/token-handlers.js"></script>
+<script src="core/handlers/settings-handlers.js"></script>
+<script src="core/handlers/wallet-handlers.js"></script>
+<script src="core/handlers/ui-handlers.js"></script>
+
+<!-- 10. INITIALIZATION -->
+<script src="core/init/app-init.js"></script>
+
+<!-- 11. LEGACY FILES (remaining code) -->
+<script src="scanner.js"></script><!-- Remaining scanner logic -->
+<script src="main.js"></script><!-- Remaining main logic -->
+
+<!-- ========================================================================= -->
+<!-- END SCRIPT LOADING                                                       -->
+<!-- ========================================================================= -->
 </body>
 </html>

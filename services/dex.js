@@ -249,15 +249,6 @@
     },
     fly: {
       buildRequest: ({ chainName, sc_input, sc_output, sc_input_in, sc_output_in, amount_in_big }) => {
-        // Check for API key - Fly.trade now requires authentication
-        const apiKey = (root.CONFIG_APP && root.CONFIG_APP.DEX_API_KEYS && root.CONFIG_APP.DEX_API_KEYS.FLY)
-          ? String(root.CONFIG_APP.DEX_API_KEYS.FLY).trim()
-          : '';
-
-        if (!apiKey) {
-          throw new Error('FLY API key required. Set CONFIG_APP.DEX_API_KEYS.FLY in config.js');
-        }
-
         // Map chain name to Fly.trade network parameter
         const chainNetworkMap = {
           'bsc': 'bsc',
@@ -279,14 +270,11 @@
         const isSolana = chainLower === 'solana';
         const fromAddr = isSolana ? sc_input_in : sc_input;
         const toAddr = isSolana ? sc_output_in : sc_output;
-        // Use authenticated endpoint with API key
-        const url = `https://api.magpiefi.xyz/aggregator/quote?network=${net}&fromTokenAddress=${fromAddr}&toTokenAddress=${toAddr}&sellAmount=${String(amount_in_big)}&slippage=0.1&gasless=false`;
+        // Use public endpoint (no API key required)
+        const url = `https://api.fly.trade/aggregator/quote?network=${net}&fromTokenAddress=${fromAddr}&toTokenAddress=${toAddr}&sellAmount=${String(amount_in_big)}&slippage=0.1&gasless=false`;
         return {
           url,
-          method: 'GET',
-          headers: {
-            'apikey': apiKey
-          }
+          method: 'GET'
         };
       },
       parseResponse: (response, { chainName, des_output }) => {
@@ -301,7 +289,7 @@
         const FeeSwap = (Number.isFinite(feeDex) && feeDex > 0) ? feeDex : getFeeSwap(chainName);
         return { amount_out, FeeSwap, dexTitle: 'FLY' };
       },
-      useProxy: false // API key auth - tidak perlu CORS proxy
+      useProxy: true // Public endpoint - gunakan CORS proxy
     },
     // ZeroSwap aggregator untuk 1inch
     'zero-1inch': {
@@ -893,8 +881,9 @@
 
   // Back-compat alias: support legacy 'kyberswap' key
   dexStrategies.kyberswap = dexStrategies.kyber;
-  dexStrategies.paraswap5 = dexStrategies.paraswap;
-  dexStrategies.paraswap = dexStrategies.paraswap6;
+  // ParaSwap aliases: v6.2 is recommended by Velora (v5 is deprecated)
+  dexStrategies.paraswap = dexStrategies.paraswap6;  // Default to v6
+  // Keep paraswap5 as-is (already defined above) - but note: v5 is deprecated by Velora
   // Alias untuk Matcha (0x)
   dexStrategies.matcha = dexStrategies['0x'];
 
@@ -922,6 +911,14 @@
     } catch(_){ return { primary: null, alternative: null }; }
   }
 
+  // ========== REQUEST DEDUPLICATION & CACHING ==========
+  // Cache untuk menyimpan response yang sudah berhasil (60 detik)
+  const DEX_RESPONSE_CACHE = new Map();
+  const DEX_CACHE_TTL = 60000; // 60 seconds
+
+  // Cache untuk menyimpan ongoing requests (mencegah duplicate concurrent requests)
+  const DEX_INFLIGHT_REQUESTS = new Map();
+
   /**
    * Quote swap output from a DEX aggregator.
    * Builds request by strategy, applies timeout, and returns parsed amounts.
@@ -930,6 +927,38 @@
     return new Promise((resolve, reject) => {
       const sc_input = sc_input_in.toLowerCase();
       const sc_output = sc_output_in.toLowerCase();
+
+      // ========== CACHE KEY GENERATION ==========
+      // Generate unique cache key based on request parameters
+      const cacheKey = `${dexType}|${chainName}|${sc_input}|${sc_output}|${amount_in}|${action}`.toLowerCase();
+
+      // ========== CHECK RESPONSE CACHE ==========
+      // Check if we have a recent cached response
+      if (DEX_RESPONSE_CACHE.has(cacheKey)) {
+        const cached = DEX_RESPONSE_CACHE.get(cacheKey);
+        const now = Date.now();
+        if (now - cached.timestamp < DEX_CACHE_TTL) {
+          // Cache hit - return cached response immediately
+          const ageSeconds = Math.round((now - cached.timestamp) / 1000);
+          console.log(`[DEX CACHE HIT] ${dexType.toUpperCase()} (age: ${ageSeconds}s) - Request saved!`);
+          resolve(cached.response);
+          return;
+        } else {
+          // Cache expired - remove from cache
+          DEX_RESPONSE_CACHE.delete(cacheKey);
+        }
+      }
+
+      // ========== CHECK INFLIGHT REQUESTS ==========
+      // Check if there's already an ongoing request for this exact same parameters
+      if (DEX_INFLIGHT_REQUESTS.has(cacheKey)) {
+        // Request deduplication - attach to existing request
+        console.log(`[DEX DEDUP] ${dexType.toUpperCase()} - Duplicate request prevented!`);
+        const existingRequest = DEX_INFLIGHT_REQUESTS.get(cacheKey);
+        existingRequest.then(resolve).catch(reject);
+        return;
+      }
+
       const SavedSettingData = getFromLocalStorage('SETTING_SCANNER', {});
       const timeoutMilliseconds = Math.max(Math.round((SavedSettingData.speedScan || 4) * 1000));
       const amount_in_big = BigInt(Math.round(Math.pow(10, des_input) * amount_in));
@@ -1024,8 +1053,17 @@
       const primary = plan.primary || String(dexType||'').toLowerCase();
       const alternative = plan.alternative || null;
 
-      runStrategy(primary)
-        .then(resolve)
+      // ========== CREATE INFLIGHT REQUEST PROMISE ==========
+      // Create promise chain and store in inflight cache to prevent duplicate requests
+      const inflightPromise = runStrategy(primary)
+        .then((result) => {
+          // SUCCESS: Cache the response for future use
+          DEX_RESPONSE_CACHE.set(cacheKey, {
+            response: result,
+            timestamp: Date.now()
+          });
+          return result;
+        })
         .catch((e1) => {
           const code = Number(e1 && e1.statusCode);
           const primaryKey = String(primary || '').toLowerCase();
@@ -1042,11 +1080,29 @@
             (Number.isFinite(code) && (code === 429 || code >= 500)) || // Rate limit atau server error
             isNoRespFallback // Atau no response (timeout/network error)
           );
-          if (!shouldFallback) return reject(e1);
-          runStrategy(computedAlt)
-            .then(resolve)
-            .catch((e2) => reject(e2));
+          if (!shouldFallback) throw e1;
+
+          // Try alternative strategy
+          return runStrategy(computedAlt)
+            .then((result) => {
+              // SUCCESS: Cache the fallback response
+              DEX_RESPONSE_CACHE.set(cacheKey, {
+                response: result,
+                timestamp: Date.now()
+              });
+              return result;
+            });
+        })
+        .finally(() => {
+          // CLEANUP: Remove from inflight cache after completion (success or error)
+          DEX_INFLIGHT_REQUESTS.delete(cacheKey);
         });
+
+      // Store in inflight cache
+      DEX_INFLIGHT_REQUESTS.set(cacheKey, inflightPromise);
+
+      // Attach resolve/reject to the inflight promise
+      inflightPromise.then(resolve).catch(reject);
     });
   }
 

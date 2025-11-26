@@ -1964,8 +1964,8 @@ img:hover {
             bsc: 'https://bsc-dataseed.binance.org/',
            //bsc:'https://binance.llamarpc.com',
             polygon: 'https://polygon-pokt.nodies.app',
-            base:'https://base.llamarpc.com',
-           // base: 'https://mainnet.base.org',
+            // Gunakan RPC resmi Base agar saldo terbaru (hindari data stale dari mirror RPC)
+            base: 'https://mainnet.base.org',
             arbitrum: `https://arbitrum-mainnet.infura.io/v3/${infuraApiKey}`,
             avax: `https://avalanche-mainnet.infura.io/v3/${infuraApiKey}`,
             solana: 'https://api.mainnet-beta.solana.com' 
@@ -2245,6 +2245,11 @@ img:hover {
         $('#SaveWalletChains').on('click', async function () {
             $(this).prop('disabled', true);  // Menonaktifkan tombol selama proses
 
+            // Bersihkan cache saldo chain supaya tampilan selalu memakai hasil fetch terbaru
+            localStorage.removeItem('MULTI_assetDataCEX');
+            localStorage.removeItem('MULTI_TotalSaldoChain');
+            localStorage.removeItem('MULTI_lastUpdateChain');
+
             // Show loading overlay only if not already active
             const isStandaloneCall = !window.BalanceCheckOverlay.isActive;
             if (isStandaloneCall) {
@@ -2385,6 +2390,7 @@ img:hover {
                 }
             } catch (error) {
                 localStorage.setItem('MULTI_TotalSaldoChain', '0');
+                localStorage.removeItem('MULTI_assetDataCEX');
                 $('#output_chain').html(
                     `<tr><td colspan="4">ERROR : ${error.message}</td></tr>`
                 );

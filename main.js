@@ -2118,10 +2118,8 @@ const SnapshotOverlay = (function() {
                     progressMax: 100,
                     canClose: false
                 });
-
-                // console.log(`[SnapshotOverlay] Shown: ${title}`);
             } catch(error) {
-                // console.error('[SnapshotOverlay.show] Error:', error);
+                console.error('[SnapshotOverlay.show] ERROR:', error);
             }
         },
 
@@ -2135,7 +2133,6 @@ const SnapshotOverlay = (function() {
                     if (overlayId) {
                         AppOverlay.hide(overlayId);
                         overlayId = null;
-                        // console.log('[SnapshotOverlay] Hidden');
                     }
                 };
 
@@ -2145,7 +2142,7 @@ const SnapshotOverlay = (function() {
                     doHide();
                 }
             } catch(error) {
-                // console.error('[SnapshotOverlay.hide] Error:', error);
+                console.error('[SnapshotOverlay.hide] ERROR:', error);
             }
         },
 
@@ -2157,11 +2154,13 @@ const SnapshotOverlay = (function() {
          */
         updateProgress(current, total, message = '') {
             try {
-                if (!overlayId) return;
+                if (!overlayId) {
+                    return;
+                }
 
                 AppOverlay.updateProgress(overlayId, current, total, message);
             } catch(error) {
-                // console.error('[SnapshotOverlay.updateProgress] Error:', error);
+                console.error('[SnapshotOverlay.updateProgress] Error:', error);
             }
         },
 
@@ -4513,7 +4512,7 @@ $(document).ready(function() {
             return Number.isFinite(price) && price > 0;
         });
 
-        const filtered = processed.filter(t => {
+        let filtered = processed.filter(t => {
             const cexUp = String(t.cex || '').toUpperCase();
             if (selectedCexs.length && !selectedCexs.includes(cexUp)) return false;
 
@@ -4613,8 +4612,26 @@ $(document).ready(function() {
             /* debug logs removed */
         } catch(e) { /* debug logs removed */ }
 
+        // Declare in higher scope for chunked rendering
         const priceJobKeys = new Set();
         const priceJobs = [];
+
+        // ========== PERFORMANCE FIX: LIMIT ROWS TO PREVENT BROWSER FREEZE ==========
+        // Jika filtered > 1000 rows, limit untuk menghindari browser hang
+        const MAX_SYNC_ROWS = 1000; // ← REDUCED dari 3000 ke 1000 untuk mencegah "Not Responding"
+        const totalFiltered = filtered.length;
+        if (totalFiltered > MAX_SYNC_ROWS) {
+            console.warn(`[renderSyncTableCore] Too many rows (${totalFiltered}). Limiting to ${MAX_SYNC_ROWS} rows to prevent browser freeze.`);
+            filtered = filtered.slice(0, MAX_SYNC_ROWS);
+
+            // Show warning message to user
+            if (typeof toast !== 'undefined' && toast.warning) {
+                toast.warning(`⚠️ Menampilkan ${MAX_SYNC_ROWS} dari ${totalFiltered} koin.\n\n✅ GUNAKAN FILTER untuk mempersempit hasil:\n• Filter by CEX (BITGET, BYBIT, dll)\n• Filter by Status (WD/DP ON/OFF)\n• Filter by Pair (USDT, BTC, dll)\n\nTerlalu banyak rows menyebabkan browser hang!`, {
+                    duration: 10000
+                });
+            }
+        }
+        // ===========================================================================
 
         // ========== OPTIMASI: BATCH DOM RENDERING ==========
         // Build semua HTML rows dalam 1 string, lalu insert sekali saja
@@ -4860,13 +4877,33 @@ $(document).ready(function() {
         } finally {
             // ========== LOADING OVERLAY: END ==========
             // Hide overlay setelah rendering selesai (atau error)
-            // Tambahkan delay kecil agar transisi lebih smooth
-            setTimeout(() => {
-                if (overlayId && window.AppOverlay) {
-                    console.log('[renderSyncTableCore] Hiding overlay after render:', overlayId);
+            console.log('[renderSyncTableCore] Finally block executed. overlayId:', overlayId, 'AppOverlay exists:', !!window.AppOverlay);
+
+            // Immediate hide instead of setTimeout to prevent event loop blocking
+            if (overlayId && window.AppOverlay) {
+                console.log('[renderSyncTableCore] Calling AppOverlay.hide for:', overlayId);
+                try {
                     window.AppOverlay.hide(overlayId);
+                    console.log('[renderSyncTableCore] AppOverlay.hide called successfully');
+                } catch(err) {
+                    console.error('[renderSyncTableCore] Error hiding overlay:', err);
                 }
-            }, 100);
+
+                // FORCE HIDE: Double-check dan remove element langsung jika masih ada
+                setTimeout(() => {
+                    const overlayElement = document.getElementById(overlayId);
+                    if (overlayElement) {
+                        console.warn('[renderSyncTableCore] FORCE REMOVING stuck overlay element:', overlayId);
+                        overlayElement.remove();
+                        // Unfreeze body manually jika AppOverlay gagal
+                        if (window.AppOverlay && window.AppOverlay.bodyFreezed) {
+                            window.AppOverlay.unfreezeBody();
+                        }
+                    }
+                }, 500);
+            } else {
+                console.warn('[renderSyncTableCore] Cannot hide overlay - overlayId:', overlayId, 'AppOverlay:', !!window.AppOverlay);
+            }
             // ==========================================
         }
     }

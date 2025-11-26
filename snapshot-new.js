@@ -1390,10 +1390,11 @@
                     `Update Snapshot ${chainDisplay}`,
                     `Mengambil data wallet dari ${cex}...`
                 );
+                // Update progress at START of CEX fetch (showing which CEX is being processed)
                 window.SnapshotOverlay.updateProgress(
                     i,
                     orderedCex.length,
-                    `CEX ${i + 1}/${orderedCex.length}: ${cex}`
+                    `Memproses CEX ${i + 1}/${orderedCex.length}: ${cex}...`
                 );
             }
 
@@ -1448,6 +1449,15 @@
 
             // CEX berhasil
             cexResults.set(cexUpper, { success: true, count: cexTokens.length });
+
+            // Update progress AFTER successful fetch
+            if (window.SnapshotOverlay) {
+                window.SnapshotOverlay.updateProgress(
+                    i + 1,
+                    orderedCex.length,
+                    `✅ ${cexUpper}: ${cexTokens.length} koin ditemukan`
+                );
+            }
 
             // Special handling untuk INDODAX: lookup TOKEN database
             if (isIndodax && cexTokens.length > 0) {
