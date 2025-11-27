@@ -417,6 +417,43 @@
         };
       }
     },
+    'unidex-0x': {
+      buildRequest: ({ codeChain, sc_input_in, sc_output_in, amount_in_big, SavedSettingData }) => {
+        const userAddr = SavedSettingData?.walletMeta || '0x0000000000000000000000000000000000000000';
+        const affiliateAddress = '0x8c128f336B479b142429a5f351Af225457a987Fa';
+        const feeRecipient = '0x8c128f336B479b142429a5f351Af225457a987Fa';
+
+        const params = new URLSearchParams({
+          chainId: String(codeChain),
+          sellToken: sc_input_in,
+          buyToken: sc_output_in,
+          sellAmount: String(amount_in_big),
+          slippagePercentage: '0.002',
+          affiliateAddress: affiliateAddress,
+          taker: userAddr,
+          feeRecipient: feeRecipient
+        });
+
+        return {
+          url: `https://app.unidex.exchange/api/0x/quote?${params.toString()}`,
+          method: 'GET'
+        };
+      },
+      parseResponse: (response, { des_output, chainName }) => {
+        if (!response?.buyAmount) throw new Error("Invalid Unidex 0x response structure");
+
+        const amount_out = parseFloat(response.buyAmount) / Math.pow(10, des_output);
+        const FeeSwap = getFeeSwap(chainName);
+
+        // FIX: Gunakan 'UNIDEX-0X' sebagai routeTool untuk membedakan dari Matcha API biasa
+        return {
+          amount_out,
+          FeeSwap,
+          dexTitle: '0X',
+          routeTool: 'UNIDEX-0X'
+        };
+      }
+    },
     okx: {
       buildRequest: ({ amount_in_big, codeChain, sc_input_in, sc_output_in }) => {
         const selectedApiKey = getRandomApiKeyOKX(apiKeysOKXDEX);
@@ -1293,10 +1330,27 @@
       });
     }
 
-    // Pilih fallback berdasarkan parameter 'force' atau CONFIG_APP.DEX_FALLBACK
-    const configFallback = (root.CONFIG_APP && root.CONFIG_APP.DEX_FALLBACK)
-      ? String(root.CONFIG_APP.DEX_FALLBACK).toLowerCase()
-      : 'dzap';
+    // FIX: Pilih fallback berdasarkan CONFIG_DEXS[dex].alternative per arah, baru CONFIG_APP.DEX_FALLBACK
+    let configFallback = null;
+    try {
+      const dexLower = String(dexType || '').toLowerCase();
+      const dexConfig = (root.CONFIG_DEXS || {})[dexLower];
+      if (dexConfig && dexConfig.fetchdex && dexConfig.fetchdex.alternative) {
+        const actionKey = String(action||'').toLowerCase() === 'pairtotoken' ? 'pairtotoken' : 'tokentopair';
+        const altStrategy = dexConfig.fetchdex.alternative[actionKey];
+        if (altStrategy) {
+          configFallback = String(altStrategy).toLowerCase();
+        }
+      }
+    } catch(_) {}
+
+    // Fallback global jika tidak ada alternative per-DEX
+    if (!configFallback) {
+      configFallback = (root.CONFIG_APP && root.CONFIG_APP.DEX_FALLBACK)
+        ? String(root.CONFIG_APP.DEX_FALLBACK).toLowerCase()
+        : 'dzap';
+    }
+
     const fallbackType = force || configFallback;
 
     // Jika 'none', reject langsung tanpa fallback

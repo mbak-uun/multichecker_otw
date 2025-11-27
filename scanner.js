@@ -196,6 +196,17 @@ function appendCellTitleById(id, line){
 }
 
 /**
+ * Mengatur (replace) teks tooltip berdasarkan ID sel.
+ * @param {string} id - ID elemen sel.
+ * @param {string} text - Teks tooltip yang akan diatur.
+ */
+function setCellTitleById(id, text){
+    const cell = document.getElementById(id);
+    if (!cell) return;
+    setCellTitleByEl(cell, text);
+}
+
+/**
  * Placeholder function untuk kompatibilitas.
  * Form edit TETAP AKTIF saat scanning untuk memungkinkan user mengubah data.
  * Fungsi simpan akan di-modifikasi agar tidak refresh tabel saat scanning.
@@ -1019,7 +1030,8 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                             `    🚀 PROFIT : ${profitLoss>=0?'+':''}${profitLoss.toFixed(2)} USDT`,
                                             `idCELL: ${idCELL}`,
                                         ].filter(Boolean).join('\n'); // filter(Boolean) menghapus string kosong
-                                        appendCellTitleById(idCELL, lines);
+                                        // FIX: Gunakan setCellTitleById untuk replace (bukan append) agar tidak ada header [LOG...]
+                                        setCellTitleById(idCELL, lines);
                                         try { if (window.SCAN_LOG_ENABLED) console.log(lines); } catch(_) {}
                                     } catch(_) {}
                                     // Masukkan hasil kalkulasi ke antrian pembaruan UI.
@@ -1200,7 +1212,8 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                                 prosesLine,
                                                 statusLine
                                             ].join('\n');
-                                            appendCellTitleById(idCELL, headerBlock);
+                                            // FIX: Gunakan setCellTitleById untuk replace (bukan append) agar tidak ada header [LOG...]
+                                            setCellTitleById(idCELL, headerBlock);
                                             try { if (window.SCAN_LOG_ENABLED) console.log(headerBlock); } catch(_) {}
                                         } catch(_) {}
                                         try {

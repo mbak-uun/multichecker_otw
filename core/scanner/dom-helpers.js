@@ -96,6 +96,17 @@ function appendCellTitleById(id, line){
 }
 
 /**
+ * Mengatur (replace) teks tooltip berdasarkan ID sel.
+ * @param {string} id - ID elemen sel.
+ * @param {string} text - Teks tooltip yang akan diatur.
+ */
+function setCellTitleById(id, text){
+    const cell = document.getElementById(id);
+    if (!cell) return;
+    setCellTitleByEl(cell, text);
+}
+
+/**
  * Mengubah judul halaman untuk menandakan pemindaian sedang aktif.
  * @param {boolean} running - True jika pemindaian sedang berjalan.
  */

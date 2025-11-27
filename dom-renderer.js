@@ -900,11 +900,15 @@ function DisplayPNL(data) {
       statusSpan.className = 'dex-status';
     }
   } catch(_) {}
-  // Capture existing title log (built during scan in scanner.js) to reuse on price links only
+  // Capture existing title log (built during scan in scanner.js) untuk ditampilkan di cell
   let __titleLog = null;
   try { __titleLog = (el && el.dataset && el.dataset.titleLog) ? String(el.dataset.titleLog) : null; } catch(_) {}
-  // Remove cell-level title so tooltip lives only on price anchors (as requested)
-  try { el.removeAttribute('title'); if (el && el.dataset) el.dataset.titleLog=''; } catch(_) {}
+  // FIX: Kembalikan title lengkap seperti app lama (jangan dihapus)
+  try {
+    if (__titleLog) {
+      el.setAttribute('title', __titleLog);
+    }
+  } catch(_) {}
   const $mainCell = $(el);
 
   // Helpers
@@ -1078,9 +1082,15 @@ function DisplayPNL(data) {
         const bestTotalFee = bestFeeSwap + baseFeeWD + baseFeeTrade;
         const bestProfitPercent = baseModal > 0 ? ((bestPnl / baseModal) * 100) : 0;
 
-        // Kirim signal dengan nama DEX aggregator (DZAP/LIFI)
+        // FIX: Jika hanya 1 provider di subResults, kirim sinyal ke card provider tersebut
+        // Jika lebih dari 1 provider, kirim ke card aggregator (LIFI/DZAP)
+        const signalDexType = (subResults.length === 1 && bestSubRes?.dexTitle)
+          ? lower(bestSubRes.dexTitle)  // Kirim ke card DEX spesifik jika hanya 1 provider
+          : lower(dextype);              // Kirim ke card aggregator jika multi-provider
+
+        // Kirim signal
         InfoSinyal(
-          lower(dextype),           // DEX type: 'dzap' atau 'lifi'
+          signalDexType,            // DEX type: provider spesifik atau aggregator
           NameX,                    // Token pair name
           bestPnl,                  // PNL terbaik
           bestTotalFee,             // Total fee
@@ -1434,9 +1444,12 @@ function InfoSinyal(DEXPLUS, TokenPair, PNL, totalFee, cex, NameToken, NamePair,
   const isSingleMode2 = String(modeNow2.type).toLowerCase() === 'single';
   const chainPart = isSingleMode2 ? '' : ` <span style="color:${warnaChain};">[${chainShort}]</span>`;
 
+  // Generate unique ID untuk signal item (untuk mencegah duplicate)
+  const signalItemId = `signal_${idPrefix}${baseId}`;
+
   // Item sinyal: kompak + border kanan (separator)
   const sLink = `
-    <div class="signal-item uk-flex uk-flex-middle uk-flex-nowrap uk-text-small uk-padding-remove-vertical" >
+    <div id="${signalItemId}" class="signal-item uk-flex uk-flex-middle uk-flex-nowrap uk-text-small uk-padding-remove-vertical" >
       <a href="#${idPrefix}${baseId}" class="uk-link-reset " style="text-decoration:none; font-size:12px; margin-top:2px; margin-left:4px;">
         <span class="${Number(PNL) > filterPNLValue ? 'signal-highlight' : ''}" style="color:${warnaCEX}; ${highlightStyle}; display:inline-block; font-weight:bolder;">
           🔸 ${String(cex).slice(0,3).toUpperCase()}X
@@ -1447,7 +1460,18 @@ function InfoSinyal(DEXPLUS, TokenPair, PNL, totalFee, cex, NameToken, NamePair,
       </a>
     </div>`;
 
-  $("#sinyal" + DEXPLUS.toLowerCase()).append(sLink);
+  // FIX: Cek apakah signal dengan ID ini sudah ada, jika sudah skip (prevent duplicate)
+  const $container = $("#sinyal" + DEXPLUS.toLowerCase());
+  const existingSignal = document.getElementById(signalItemId);
+
+  if (!existingSignal) {
+    // Signal belum ada, tambahkan
+    $container.append(sLink);
+  } else {
+    // Signal sudah ada, update saja (optional: bisa skip update jika tidak perlu)
+    // Untuk sekarang kita skip agar tidak duplicate
+    return;
+  }
 
   // Pastikan kartu sinyal DEX utama terlihat ketika ada item sinyal // REFACTORED
   if (typeof window !== 'undefined' && typeof window.showSignalCard === 'function') {

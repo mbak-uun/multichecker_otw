@@ -616,8 +616,9 @@ const CONFIG_DEXS = {
         },
         fetchdex: {
             primary: {
-                tokentopair: '0x',      // CEX→DEX (Actionkiri): Matcha (0x) API langsung
-                pairtotoken: '0x'       // DEX→CEX (ActionKanan): Matcha (0x) API langsung
+                tokentopair: 'unidex-0x',          // CEX→DEX (Actionkiri): Matcha (0x) API langsung
+               // tokentopair: '0x', 
+                pairtotoken: 'unidex-0x'    // DEX→CEX (ActionKanan): Unidex 0x API (lebih stabil)
             },
             alternative: {
                 tokentopair: 'swoop',   // Fallback CEX→DEX: SWOOP aggregator
