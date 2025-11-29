@@ -2819,31 +2819,67 @@ img:hover {
  
         //fungsi update history PNL
         $('#UpdateHistoryPNL').on('click', async function () {
-            // Memanggil fungsi untuk mengecek saldo assets di wallets (all chain)
-            await $('#SaveWalletChains').trigger('click'); 
-
-            // Memanggil fungsi untuk mengecek asset di CEX
-            $('#SaveConfigCEXS').trigger('click');
-            // Menyimpan waktu saat data diperbarui
             var formattedTime = getFormattedTime();
-            // Simpan waktu terakhir diperbarui ke localStorage
-            localStorage.setItem('MULTI_lastUpdatePNL', formattedTime);               
 
-            // Retrieve data from localStorage
-            const saldoExchanger = JSON.parse(localStorage.getItem('MULTI_TotalSaldoCEX'));
-            const assetDataChain = JSON.parse(localStorage.getItem('MULTI_TotalSaldoChain'));
-            const modalawal = JSON.parse(localStorage.getItem('MULTI_MODALAWAL'));
-            const saldoAkhir = Number(saldoExchanger) + Number(assetDataChain);
-            const pnl = Number(saldoAkhir) - Number(modalawal);
+            // Show loading overlay
+            window.BalanceCheckOverlay.show(
+                'Update History PNL',
+                'Mengambil data saldo terbaru dari wallet dan exchanger...'
+            );
+
+            // Create promises to wait for both checks to complete
+            const walletCheckPromise = new Promise((resolve) => {
+                $(document).one('WalletCheckCompleted', resolve);
+            });
+
+            const cexCheckPromise = new Promise((resolve) => {
+                $(document).one('CEXCheckCompleted', resolve);
+            });
+
+            // Trigger both checks
+            window.BalanceCheckOverlay.updateProgress(20, 'Mengecek saldo wallet...');
+            $('#SaveWalletChains').trigger('click');
+
+            window.BalanceCheckOverlay.updateProgress(40, 'Mengecek saldo exchanger...');
+            $('#SaveConfigCEXS').trigger('click');
+
+            // Wait for both checks to complete
+            window.BalanceCheckOverlay.updateProgress(60, 'Menunggu data selesai...');
+            await Promise.all([walletCheckPromise, cexCheckPromise]);
+
+            window.BalanceCheckOverlay.updateProgress(80, 'Menghitung PNL...');
+
+            // Retrieve data from localStorage SETELAH kedua proses selesai
+            const saldoExchanger = parseFloat(localStorage.getItem('MULTI_TotalSaldoCEX')) || 0;
+            const assetDataChain = parseFloat(localStorage.getItem('MULTI_TotalSaldoChain')) || 0;
+            const modalawal = parseFloat(localStorage.getItem('MULTI_MODALAWAL')) || 0;
+            const saldoAkhir = saldoExchanger + assetDataChain;
+            const pnl = saldoAkhir - modalawal;
+
             console.log("-----------------------");
-            console.log("Saldo Exchanger: " + saldoExchanger);
-            console.log("Saldo Chain: " + assetDataChain);
-            console.log("Saldo Awal: " + modalawal);
-            console.log("Saldo Akhir: " + saldoAkhir);
-            console.log("Time: " + formattedTime);
+            console.log("Update PNL - Saldo Exchanger:", saldoExchanger);
+            console.log("Update PNL - Saldo Chain:", assetDataChain);
+            console.log("Update PNL - Modal Awal:", modalawal);
+            console.log("Update PNL - Saldo Akhir:", saldoAkhir);
+            console.log("Update PNL - PNL:", pnl);
+            console.log("Update PNL - Time:", formattedTime);
 
-            addTableHistory(formattedTime,Number(modalawal) ,Number(saldoAkhir) ,pnl,"update")
-                
+            window.BalanceCheckOverlay.updateProgress(90, 'Menyimpan history...');
+
+            addTableHistory(formattedTime, modalawal, saldoAkhir, pnl, "update");
+
+            // Simpan waktu terakhir diperbarui ke localStorage
+            localStorage.setItem('MULTI_lastUpdatePNL', formattedTime);
+
+            window.BalanceCheckOverlay.updateProgress(100, 'Selesai!');
+
+            setTimeout(() => {
+                window.BalanceCheckOverlay.hide();
+                if (typeof toast !== 'undefined' && toast.success) {
+                    toast.success("UPDATE HISTORY PNL BERHASIL [ " + formattedTime + " ] ");
+                }
+            }, 500);
+
         });
 
        // Fungsi Save Modal
@@ -2874,18 +2910,41 @@ img:hover {
         // Fungsi Reset Modal
         $('#ResetModal').on('click', async function () {
             var formattedTime = getFormattedTime();
-            await $('#SaveWalletChains').trigger('click');
 
-            // Memanggil fungsi untuk mengecek asset di CEX
+            // Show loading overlay
+            window.BalanceCheckOverlay.show(
+                'Reset Modal',
+                'Mengambil data saldo terbaru dari wallet dan exchanger...'
+            );
+
+            // Create promises to wait for both checks to complete
+            const walletCheckPromise = new Promise((resolve) => {
+                $(document).one('WalletCheckCompleted', resolve);
+            });
+
+            const cexCheckPromise = new Promise((resolve) => {
+                $(document).one('CEXCheckCompleted', resolve);
+            });
+
+            // Trigger both checks
+            window.BalanceCheckOverlay.updateProgress(20, 'Mengecek saldo wallet...');
+            $('#SaveWalletChains').trigger('click');
+
+            window.BalanceCheckOverlay.updateProgress(40, 'Mengecek saldo exchanger...');
             $('#SaveConfigCEXS').trigger('click');
-            // Simpan waktu terakhir diperbarui ke localStorage
-            localStorage.setItem('MULTI_lastUpdatePNL', formattedTime);
-            if (typeof toast !== 'undefined' && toast.success) toast.success("RESET MODAL BERHASIL [ " + formattedTime + " ] ");
 
-            // Ambil data untuk pengisian history
-            const saldoExchanger = JSON.parse(localStorage.getItem('MULTI_TotalSaldoCEX'));
-            const assetDataChain = JSON.parse(localStorage.getItem('MULTI_TotalSaldoChain'));
-            const saldoAkhir = Number(saldoExchanger) + Number(assetDataChain);
+            // Wait for both checks to complete
+            window.BalanceCheckOverlay.updateProgress(60, 'Menunggu data selesai...');
+            await Promise.all([walletCheckPromise, cexCheckPromise]);
+
+            window.BalanceCheckOverlay.updateProgress(80, 'Menghitung total saldo...');
+
+            // Ambil data untuk pengisian history setelah kedua proses selesai
+            const saldoExchanger = parseFloat(localStorage.getItem('MULTI_TotalSaldoCEX')) || 0;
+            const assetDataChain = parseFloat(localStorage.getItem('MULTI_TotalSaldoChain')) || 0;
+            const saldoAkhir = saldoExchanger + assetDataChain;
+
+            console.log('Reset Modal - CEX:', saldoExchanger, 'Wallet:', assetDataChain, 'Total:', saldoAkhir);
 
             // Set modal awal ke saldo total saat ini (reset)
             localStorage.setItem('MULTI_MODALAWAL', saldoAkhir.toFixed(2));
@@ -2893,12 +2952,22 @@ img:hover {
             // Update input field modal awal dengan nilai total saat ini
             $("#MODALAWAL").val(saldoAkhir.toFixed(2));
 
-            addTableHistory(formattedTime,Number(saldoAkhir) ,Number(saldoAkhir),0,"reset");
+            window.BalanceCheckOverlay.updateProgress(90, 'Menyimpan history...');
 
-            // Reload halaman agar modal awal sesuai dengan total modal saat ini
+            addTableHistory(formattedTime, saldoAkhir, saldoAkhir, 0, "reset");
+
+            // Simpan waktu terakhir diperbarui ke localStorage
+            localStorage.setItem('MULTI_lastUpdatePNL', formattedTime);
+
+            window.BalanceCheckOverlay.updateProgress(100, 'Selesai!');
+
+            if (typeof toast !== 'undefined' && toast.success) toast.success("RESET MODAL BERHASIL [ " + formattedTime + " ] ");
+
+            // Hide overlay and reload halaman agar modal awal sesuai dengan total modal saat ini
             setTimeout(() => {
+                window.BalanceCheckOverlay.hide();
                 location.reload();
-            }, 1000); // Delay 1 detik untuk memastikan toast notification terlihat
+            }, 1500); // Delay 1.5 detik untuk memastikan toast notification terlihat
         });
         
         function addTableHistory(date,awal,akhir,pnl,action){ // Tambahkan data ke riwayat

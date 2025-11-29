@@ -508,8 +508,9 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
         if (!isScanRunning && uiUpdateQueue.length === 0) return;
 
         const start = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-        // Batas waktu eksekusi per frame (misal, 8ms) untuk menjaga UI tetap responsif.
-        const budgetMs = 8; // aim to keep under one frame @120Hz
+        // Increased budget from 8ms to 16ms to process more updates per frame
+        // This prevents queue backlog when scanning many rows
+        const budgetMs = 16; // aim to keep under one frame @60Hz
         let processed = 0;
 
         // "Penyapuan keamanan": Finalisasi sel DEX yang melewati batas waktu (timeout)
@@ -522,7 +523,23 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                 try {
                     const d = Number(cell.dataset.deadline || 0);
                     const done = String(cell.dataset.final || '') === '1';
-                    if (!done && d > 0 && nowTs - d > 250) {
+                    // Increased buffer from 250ms to 1000ms to allow slower responses to complete
+                    if (!done && d > 0 && nowTs - d > 1000) {
+                        // CRITICAL FIX: Check if there's a pending update in queue for this cell
+                        // Don't force timeout if the result is already queued but not yet processed
+                        const cellId = cell.id;
+                        let hasPendingUpdate = false;
+                        try {
+                            hasPendingUpdate = uiUpdateQueue.some(item =>
+                                item && (item.id === cellId || item.resultId === cellId)
+                            );
+                        } catch(_) {}
+
+                        // Skip timeout if update is pending in queue
+                        if (hasPendingUpdate) {
+                            return; // Let the queued update process normally
+                        }
+
                         const dexName = (cell.dataset.dex || '').toUpperCase() || 'DEX';
                         // stop any lingering ticker for this cell
                         try { clearDexTickerById(cell.id); } catch(_) {}
@@ -1229,7 +1246,8 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                 const cexSummary = `CEX READY BT=${fmt6(DataCEX.priceBuyToken)} ST=${fmt6(DataCEX.priceSellToken)} BP=${fmt6(DataCEX.priceBuyPair)} SP=${fmt6(DataCEX.priceSellPair)}`;
                                 updateDexCellStatus('checking', dex, cexSummary);
                                 // REMOVED: Watchdog for primary DEX removed
-                                const dexTimeoutWindow = getJedaDex(dex) + Math.max(speedScan) + 300;
+                                // Increased timeout window from 300ms to 2000ms for slower DEX APIs
+                                const dexTimeoutWindow = getJedaDex(dex) + Math.max(speedScan) + 2000;
                                 // Mulai ticker countdown untuk menampilkan sisa detik pada label "Checking".
                                 try {
                                     const endAt = Date.now() + dexTimeoutWindow;
