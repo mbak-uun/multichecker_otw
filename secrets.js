@@ -191,21 +191,7 @@ const apiKeysOKXDEX = [
         secretKeyOKX: "FFC78575E3961D11BF134C8DE9CBE7F8",
         PassphraseOKX: "Regi!#007"
     },
-    {
-    ApiKeyOKX : "a4569d13-8a59-4ecd-9936-6c4e1233bff8",
-    secretKeyOKX : "4484BC9B2FC22C35CB1071A2A520FDC8",
-    PassphraseOKX : "Macpro-2025",
-    },
-        {
-    ApiKeyOKX : "71cbe094-380a-4146-b619-e81a254c0702",
-    secretKeyOKX : "5116D48C1847EB2D7BDD6DDD1FC8B199",
-    PassphraseOKX : "Macpro-2025"
-    },
-        {
-    ApiKeyOKX : "81a072cc-b079-410c-9963-fb8e49c16d9d",
-    secretKeyOKX : "BF44AE00CF775DC6DDB0FDADF61EC724",
-    PassphraseOKX : "Macpro-2025"
-    },
+     
     {
     ApiKeyOKX : "adad55d1-bf90-43ac-ac03-0a43dc7ccee2",
     secretKeyOKX : "528AFB3ECC88653A9070F05CC3839611",

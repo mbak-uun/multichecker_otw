@@ -52,7 +52,8 @@ async function getUserIP() {
  * Stores 'PRICE_RATE_USDT' for IDR conversions (e.g., INDODAX display).
  */
 function getRateUSDT() {
-    const url = "https://cloudme-toko.2meta.app/api/v1/depth?symbol=USDTIDR&limit=5";
+    //const url = "https://cloudme-toko.2meta.app/api/v1/depth?symbol=USDTIDR&limit=5";
+    const url ="https://www.tokocrypto.site/api/v3/depth?symbol=USDTIDR&limit=5"
     return $.getJSON(url)
         .done(data => {
             if (data && data.bids && data.bids.length > 0) {

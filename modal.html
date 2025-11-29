@@ -1557,7 +1557,8 @@ img:hover {
             DAI: 1
         };
 
-        const MIN_DISPLAY_USDT = 0.5;
+        // Changed to 1.0 to show only assets with value above $1
+        const MIN_DISPLAY_USDT = 1.0;
 
         const priceTickerCache = {
             lastFetch: 0,
@@ -1762,7 +1763,31 @@ img:hover {
 
             assetsWithValues.sort((a, b) => (b.usdtValue || 0) - (a.usdtValue || 0));
 
-            const visibleAssets = assetsWithValues.filter(item => item.rate && item.usdtValue >= MIN_DISPLAY_USDT);
+            // Debug: log all assets before filtering
+            console.log(`[${exchangeId}] Total assets from API:`, aggregated.length);
+            console.log(`[${exchangeId}] Assets with rates:`, assetsWithValues.filter(a => a.rate > 0).length);
+            console.log(`[${exchangeId}] Assets without rates:`, assetsWithValues.filter(a => !a.rate).length);
+            assetsWithValues.forEach(a => {
+                if (!a.rate) {
+                    console.log(`[${exchangeId}] No rate found for:`, a.symbol, 'amount:', a.amount);
+                }
+            });
+
+            // Filter: only show assets with valid rate AND value >= MIN_DISPLAY_USDT ($1)
+            const visibleAssets = assetsWithValues.filter(item => {
+                // Only show if has valid rate (> 0) AND value >= $1
+                return item.rate > 0 && item.usdtValue >= MIN_DISPLAY_USDT;
+            });
+
+            // Debug: log filtering results
+            const filteredCount = assetsWithValues.length - visibleAssets.length;
+            const noRateCount = assetsWithValues.filter(a => !a.rate || a.rate <= 0).length;
+            const dustCount = assetsWithValues.filter(a => a.rate > 0 && a.usdtValue < MIN_DISPLAY_USDT).length;
+
+            if (filteredCount > 0) {
+                console.log(`[${exchangeId}] Filtered ${filteredCount} assets: ${noRateCount} without rate, ${dustCount} below $${MIN_DISPLAY_USDT}`);
+            }
+            console.log(`[${exchangeId}] Displaying ${visibleAssets.length} assets (value >= $${MIN_DISPLAY_USDT})`);
 
             if (!visibleAssets.length) {
                 container.innerHTML = `<span class="uk-text-muted ${brandClass}">Tidak Ada</span>`;
@@ -1771,14 +1796,17 @@ img:hover {
                 return;
             }
 
+            // Calculate total only from assets with valid rates
             const totalUsdt = visibleAssets.reduce((sum, item) => sum + item.usdtValue, 0);
+            const hiddenCount = assetsWithValues.length - visibleAssets.length;
             const detail = {
                 total: parseFloat(totalUsdt.toFixed(2)),
+                hiddenCount, // Track how many assets are hidden (no rate or below $1)
                 assets: visibleAssets.map(item => ({
                     symbol: item.symbol,
                     amount: parseFloat(item.amount.toFixed(8)),
-                    rate: item.rate ? parseFloat(item.rate.toFixed(8)) : 0,
-                    usdtValue: item.rate ? parseFloat(item.usdtValue.toFixed(2)) : 0
+                    rate: parseFloat(item.rate.toFixed(8)),
+                    usdtValue: parseFloat(item.usdtValue.toFixed(2))
                 }))
             };
 
@@ -1807,10 +1835,16 @@ img:hover {
             }).join("");
 
             const totalText = formatUsdtValue(parseFloat(detail.total || 0));
+            const hiddenWarning = (detail.hiddenCount && detail.hiddenCount > 0)
+                ? `<div class="uk-text-muted uk-text-small" style="margin-top: 4px;">
+                     <span uk-icon="icon: info; ratio: 0.6"></span> ${detail.hiddenCount} asset(s) disembunyikan (< $1 atau tanpa rate)
+                   </div>`
+                : '';
             return `
                 ${assetLines}
                 <hr class="uk-margin-small-top uk-margin-small-bottom">
                 <b class="${exClass}">Total ${totalText} {USDT}</b>
+                ${hiddenWarning}
             `;
         }
 
@@ -2621,11 +2655,39 @@ img:hover {
                 });
 
                 if (response.success) {
-                    const balance = response.return.balance;
-                    const assets = Object.entries(balance || {}).map(([symbol, value]) => ({
+                    // Indodax API returns both "balance" (available) and "balance_hold" (in orders)
+                    const balance = response.return.balance || {};
+                    const balanceHold = response.return.balance_hold || {};
+
+                    console.log("[INDODAX] Raw balance:", balance);
+                    console.log("[INDODAX] Raw balance_hold:", balanceHold);
+
+                    // Combine balance + balance_hold for total assets
+                    const combinedBalance = {};
+
+                    // Add available balance
+                    Object.entries(balance).forEach(([symbol, value]) => {
+                        const amount = parseFloat(value || 0) || 0;
+                        if (amount > 0) {
+                            combinedBalance[symbol] = amount;
+                        }
+                    });
+
+                    // Add held balance (in orders)
+                    Object.entries(balanceHold).forEach(([symbol, value]) => {
+                        const amount = parseFloat(value || 0) || 0;
+                        if (amount > 0) {
+                            combinedBalance[symbol] = (combinedBalance[symbol] || 0) + amount;
+                        }
+                    });
+
+                    // Convert to assets array
+                    const assets = Object.entries(combinedBalance).map(([symbol, amount]) => ({
                         symbol: symbol.toUpperCase(),
-                        amount: parseFloat(value || 0) || 0
+                        amount: amount
                     }));
+
+                    console.log("[INDODAX] Combined assets:", assets);
 
                     const rateIDR = await USDTIDR(1);
                     const overrides = {};
@@ -2634,7 +2696,7 @@ img:hover {
                     }
 
                     await renderExchangeAssets("INDODAX", assets, { overrides });
-                    console.log("Cek Asset Indodax:", assets);
+                    console.log("[INDODAX] Final displayed assets:", assets.length, "items");
                 } else {
                     $("#INDODAXSaldo").text("NO DATA").addClass("error");
                     localStorage.setItem("MULTI_INDODAXSaldo", "0");
