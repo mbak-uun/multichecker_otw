@@ -1992,18 +1992,74 @@ img:hover {
 
         // END KALKULATOR
         const infuraApiKey = '9d0429abadc34232af7d5c0e6ab98631'; // Ganti dengan API Key Infura Anda
-      
-        const chains = {
-            ethereum: `https://eth.llamarpc.com`,
+
+        // DEFAULT RPC (fallback jika tidak ada di setting)
+        const DEFAULT_CHAINS = {
+            ethereum:`https://eth-mainnet.g.alchemy.com/v2/demo`,
             bsc: 'https://bsc-dataseed.binance.org/',
-           //bsc:'https://binance.llamarpc.com',
             polygon: 'https://polygon-pokt.nodies.app',
-            // Gunakan RPC resmi Base agar saldo terbaru (hindari data stale dari mirror RPC)
             base: 'https://mainnet.base.org',
             arbitrum: `https://arbitrum-mainnet.infura.io/v3/${infuraApiKey}`,
             avax: `https://avalanche-mainnet.infura.io/v3/${infuraApiKey}`,
-            solana: 'https://api.mainnet-beta.solana.com' 
+            solana: 'https://api.mainnet-beta.solana.com'
         };
+
+        /**
+         * Get RPC URL from app settings or use default
+         * Mengikuti setting RPC dari aplikasi utama (SETTING_SCANNER.userRPCs)
+         */
+        function getRPCFromSettings(chainName) {
+            try {
+                const settingStr = localStorage.getItem('SETTING_SCANNER');
+                if (settingStr) {
+                    const settings = JSON.parse(settingStr);
+                    if (settings.userRPCs && settings.userRPCs[chainName]) {
+                        console.log(`✅ Using RPC from settings for ${chainName}: ${settings.userRPCs[chainName]}`);
+                        return settings.userRPCs[chainName];
+                    }
+                }
+            } catch (error) {
+                console.warn(`⚠️ Failed to read RPC settings for ${chainName}:`, error);
+            }
+            // Fallback to default
+            console.log(`ℹ️ Using default RPC for ${chainName}: ${DEFAULT_CHAINS[chainName]}`);
+            return DEFAULT_CHAINS[chainName];
+        }
+
+        // Initialize chains object with RPC from settings
+        let chains = {
+            ethereum: getRPCFromSettings('ethereum'),
+            bsc: getRPCFromSettings('bsc'),
+            polygon: getRPCFromSettings('polygon'),
+            base: getRPCFromSettings('base'),
+            arbitrum: getRPCFromSettings('arbitrum'),
+            avax: getRPCFromSettings('avax'), // avax tidak ada di main app, akan gunakan default
+            solana: getRPCFromSettings('solana')
+        };
+
+        /**
+         * Refresh RPC settings from app settings
+         * Dipanggil saat button reload atau saat ingin refresh RPC tanpa reload halaman
+         */
+        function refreshRPCSettings() {
+            chains = {
+                ethereum: getRPCFromSettings('ethereum'),
+                bsc: getRPCFromSettings('bsc'),
+                polygon: getRPCFromSettings('polygon'),
+                base: getRPCFromSettings('base'),
+                arbitrum: getRPCFromSettings('arbitrum'),
+                avax: getRPCFromSettings('avax'),
+                solana: getRPCFromSettings('solana')
+            };
+            console.log('✅ RPC settings refreshed from app settings:', chains);
+            if (typeof toast !== 'undefined' && toast.info) {
+                toast.info('RPC settings berhasil di-refresh dari setting app!');
+            }
+            return chains;
+        }
+
+        // Expose for global access
+        window.refreshRPCSettings = refreshRPCSettings;
         // Fungsi untuk mendapatkan saldo aset ERC20 dan gas
         const erc20Contracts = {
             ethereum: '0xdAC17F958D2ee523a2206206994597C13D831ec7', // USDT Ethereum
@@ -3623,8 +3679,10 @@ img:hover {
 
         //fungsi refresh
         $("#reload").on("click", function () {
+            // Refresh RPC settings sebelum reload halaman
+            refreshRPCSettings();
             // Panggil fungsi reloadPage saat tombol ditekan
-            location.reload();
+            setTimeout(() => location.reload(), 500); // delay sedikit agar toast muncul
         });
         //get time update
         function getFormattedTime() {
