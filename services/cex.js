@@ -105,7 +105,7 @@
               const b = (data?.result?.b || []).map(([p,v]) => [p, v]);
               return processOrderBook({ asks: a, bids: b }, 4);
             } catch(_) { return { priceBuy: [], priceSell: [] }; }
-          };
+          }
         }
         if (parserFn) {
           merged[e.name] = { url: ob.urlTpl, processData: parserFn };
@@ -136,7 +136,7 @@
           const b = (data?.result?.b || []).map(([p,v]) => [p, v]);
           return processOrderBook({ asks: a, bids: b }, 4);
         } catch(_) { return { priceBuy: [], priceSell: [] }; }
-      };
+      }
       if (parserFn) exchangeConfig[up] = { url: ob.urlTpl, processData: parserFn };
     });
   } catch(_) {}
@@ -496,6 +496,61 @@
                       });
                   });
               });
+              return arr;
+          }
+
+          case 'LBANK': {
+              // LBank withdrawConfigs is a PUBLIC endpoint (no authentication required)
+              // Reference: CCXT library and LBank official API docs
+              const url = `https://api.lbkex.com/v2/withdrawConfigs.do`;
+
+              const res = await $.ajax({ url, method: 'GET' });
+              const data = (res && res.data) || [];
+              const arr = [];
+
+              data.forEach(item => {
+                  const coin = item?.assetCode || '';
+                  const chain = item?.chainName || String(item?.chain || '');
+
+                  // Parse canWithDraw - can be boolean or string "true"/"false"
+                  const canWithdraw = (item?.canWithDraw === true) ||
+                                     (item?.canWithDraw === 'true') ||
+                                     (String(item?.canWithDraw).toLowerCase() === 'true');
+
+                  // Parse fee - can be number or string
+                  const fee = parseFloat(item?.fee || 0);
+
+                  if (!coin) return; // Skip if no coin code
+
+                  // Note: LBank withdrawConfigs endpoint does NOT provide canDeposit field
+                  // We assume deposit is enabled if coin is listed and withdraw is enabled
+                  // This matches behavior of other exchanges (MEXC, KUCOIN, BITGET)
+                  const depositEnable = canWithdraw; // Conservative: same as withdraw status
+
+                  // ===== CONTRACT ADDRESS ENRICHMENT =====
+                  // LBank API doesn't provide contract address, so we need enrichment
+                  // This will be enriched later in snapshot-new.js from:
+                  // 1. Existing snapshot data (fallback)
+                  // 2. Token database (DATAJSON per chain)
+                  // 3. Web3 validation
+                  // For now, mark as empty and let enrichment handle it
+                  const contractAddress = ''; // Will be enriched in snapshot-new.js
+
+                  arr.push({
+                      cex: 'LBANK',
+                      tokenName: String(coin).toUpperCase(),
+                      chain: String(chain).toUpperCase(),
+                      feeWDs: isFinite(fee) ? fee : 0,
+                      depositEnable: depositEnable,
+                      withdrawEnable: canWithdraw,
+                      contractAddress: contractAddress,
+                      trading: true, // Assume trading is enabled if coin is listed
+                      // Add flag to indicate enrichment needed
+                      needsEnrichment: true
+                  });
+              });
+
+              console.log(`[LBANK] Fetched ${arr.length} coins from withdrawConfigs endpoint (contract addresses need enrichment)`);
               return arr;
           }
 

@@ -1611,6 +1611,12 @@ body.dark-mode .db-table-title .uk-badge {
     color: #1a1a1a !important;
 }
 
+/* LBank CEX badge color */
+.bg-lbank {
+    background-color: #3461ff !important;
+    color: white !important;
+}
+
 /* Warning button style (UIkit extension) */
 .uk-button-warning {
     background-color: #faa05a !important;

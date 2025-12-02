@@ -413,6 +413,25 @@
                 });
                 return map;
             }
+        },
+        LBANK: {
+            url: 'https://api.lbkex.com/v1/ticker.do?symbol=all',
+            proxy: true,
+            parser: (data) => {
+                // LBank returns array of tickers or data object with ticker array
+                const list = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+                const map = new Map();
+                list.forEach(item => {
+                    const symbol = String(item?.symbol || '').toUpperCase();
+                    const price = Number(item?.ticker?.latest ?? item?.latest ?? item?.last);
+                    if (!symbol || !Number.isFinite(price)) return;
+                    // LBank uses underscore format like eth_usdt
+                    map.set(symbol, price);
+                    map.set(symbol.replace(/_/g, ''), price); // Also add without underscore
+                    map.set(symbol.replace(/_/g, '-'), price); // Also add with dash
+                });
+                return map;
+            }
         }
     };
 
@@ -841,6 +860,54 @@
 
                 if (coins.length === 0) {
                     // console.warn(`${cexUpper}: No service data and no cached data available`);
+                }
+            }
+
+            // ===== LBANK CONTRACT ADDRESS ENRICHMENT =====
+            // LBANK API doesn't provide contract address, so we enrich from token database
+            if (cexUpper === 'LBANK' && coins.length > 0) {
+                try {
+                    // Load token database for this chain (DATAJSON)
+                    const chainConfig = CONFIG_CHAINS[chainKey];
+                    const tokenDbUrl = chainConfig?.DATAJSON;
+
+                    if (tokenDbUrl) {
+                        console.log(`[LBANK ENRICHMENT] Loading token database from ${tokenDbUrl}`);
+                        const tokenDatabase = await $.ajax({ url: tokenDbUrl, dataType: 'json', timeout: 10000 });
+
+                        if (Array.isArray(tokenDatabase) && tokenDatabase.length > 0) {
+                            // Create lookup map by symbol (case-insensitive)
+                            const tokenLookup = new Map();
+                            tokenDatabase.forEach(token => {
+                                const symbol = String(token.Nama_Token || token.symbol || '').toUpperCase();
+                                const sc = String(token.SC_Token || token.sc || token.address || '').trim();
+                                const decimals = Number(token.Des_Token || token.decimals || 18);
+
+                                if (symbol && sc && sc !== '0x' && sc.length > 6) {
+                                    tokenLookup.set(symbol, { sc, decimals });
+                                }
+                            });
+
+                            // Enrich LBANK coins with contract address from token database
+                            let enrichedCount = 0;
+                            coins.forEach(coin => {
+                                if (coin.needsEnrichment && !coin.contractAddress) {
+                                    const symbol = String(coin.tokenName || '').toUpperCase();
+                                    const tokenData = tokenLookup.get(symbol);
+
+                                    if (tokenData) {
+                                        coin.contractAddress = tokenData.sc;
+                                        enrichedCount++;
+                                        console.log(`[LBANK ENRICHMENT] ✅ ${symbol} → ${tokenData.sc.slice(0, 10)}...`);
+                                    }
+                                }
+                            });
+
+                            console.log(`[LBANK ENRICHMENT] Enriched ${enrichedCount}/${coins.length} coins from token database`);
+                        }
+                    }
+                } catch (enrichError) {
+                    console.warn(`[LBANK ENRICHMENT] Failed to enrich from token database:`, enrichError);
                 }
             }
 
@@ -1331,9 +1398,12 @@
             );
         }
 
+        // Declare web3Cache in function scope so it's accessible in finally block
+        let web3Cache = null;
+
         try {
             // ========== LOAD WEB3 CACHE ==========
-            const web3Cache = await loadWeb3Cache();
+            web3Cache = await loadWeb3Cache();
             //console.log('[Web3 Cache] Loaded cache with', Object.keys(web3Cache).length, 'entries');
             // =====================================
 

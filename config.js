@@ -114,7 +114,7 @@ const CONFIG_CEX = {
         }
     },
     INDODAX: {
-        WARNA: "#1285b5",  
+        WARNA: "#1285b5",
         LINKS: {
             tradeToken: ({ token }) => `https://indodax.com/market/${String(token||'').toUpperCase()}IDR`,
             tradePair:  ({ pair })  => `https://indodax.com/market/${String(pair||'').toUpperCase()}IDR`,
@@ -125,7 +125,20 @@ const CONFIG_CEX = {
             urlTpl: ({ symbol }) => `https://indodax.com/api/depth/${String(symbol||'').toLowerCase()}idr`,
             parser: 'indodax'
         }
-    },   
+    },
+    LBANK: {
+        WARNA: "#3461ff",  // Blue LBank color
+        LINKS: {
+            tradeToken: ({ token }) => `https://www.lbank.info/trade/${String(token||'').toLowerCase()}_usdt`,
+            tradePair:  ({ pair })  => `https://www.lbank.info/trade/${String(pair||'').toLowerCase()}_usdt`,
+            withdraw:   ({ token }) => `https://www.lbank.info/account/withdraw.html?asset=${String(token||'').toLowerCase()}`,
+            deposit:    ({ token }) => `https://www.lbank.info/account/deposit.html?asset=${String(token||'').toLowerCase()}`
+        },
+        ORDERBOOK: {
+            urlTpl: ({ symbol }) => `https://api.lbkex.info/v1/depth.do?symbol=${String(symbol||'').toLowerCase()}_usdt&size=5`,
+            parser: 'standard'
+        }
+    }
 };
 
 // Merge secrets into CONFIG_CEX (legacy secrets.js)
@@ -170,11 +183,12 @@ const CONFIG_CHAINS = {
         WALLET_CEX: {
             GATE: { address : '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX : 'BSC' },
             BINANCE: { address : '0x8894E0a0c962CB723c1976a4421c95949bE2D4E3', address2 : '0xe2fc31F816A9b94326492132018C3aEcC4a93aE1', chainCEX : 'BSC' },
-            MEXC: { address : '0x4982085C9e2F89F2eCb8131Eca71aFAD896e89CB', chainCEX : 'BSC' }, 
+            MEXC: { address : '0x4982085C9e2F89F2eCb8131Eca71aFAD896e89CB', chainCEX : 'BSC' },
             INDODAX: { address : '0xaBa3002AB1597433bA79aBc48eeAd54DC10A45F2', address2 : '0x3C02290922a3618A4646E3BbCa65853eA45FE7C6', chainCEX : 'BSC' },
             KUCOIN: { address : '0x58edF78281334335EfFa23101bBe3371b6a36A51', address2 : '0xD6216fC19DB775Df9774a6E33526131dA7D19a2c', chainCEX : 'BEP20' },
             BITGET: { address : '0x0639556F03714A74a5fEEaF5736a4A64fF70D206', address2 : '0xBDf5bAfEE1291EEc45Ae3aadAc89BE8152D4E673', address3 : '0x1AB4973a48dc892Cd9971ECE8e01DcC7688f8F23', chainCEX : 'BEP20' },
             BYBIT: { address : '0xf89d7b9c864f589bbf53a82105107622b35eaa40', chainCEX : 'BSC' },
+            LBANK: { address : '', chainCEX : 'BSC' },
         },
         PAIRDEXS: {
             "BNB": { symbolPair: "BNB", scAddressPair: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c", desPair: "18" },
@@ -202,12 +216,13 @@ const CONFIG_CHAINS = {
         },
         WALLET_CEX: {
            GATE: { address : '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX : 'MATIC' },
-           BINANCE: { address : '0x290275e3db66394C52272398959845170E4DCb88', address2 : '0xe7804c37c13166fF0b37F5aE0BB07A3aEbb6e245', chainCEX : 'MATIC' },          
+           BINANCE: { address : '0x290275e3db66394C52272398959845170E4DCb88', address2 : '0xe7804c37c13166fF0b37F5aE0BB07A3aEbb6e245', chainCEX : 'MATIC' },
            MEXC: { address : '0x51E3D44172868Acc60D68ca99591Ce4230bc75E0', chainCEX : 'MATIC' },
            KUCOIN: { address : '0x9AC5637d295FEA4f51E086C329d791cC157B1C84', address2 : '0xD6216fC19DB775Df9774a6E33526131dA7D19a2c', chainCEX : 'Polygon POS' },
            BITGET: { address : '0x0639556F03714A74a5fEEaF5736a4A64fF70D206', address2 : '0x51971c86b04516062c1e708CDC048CB04fbe959f', address3 : '0xBDf5bAfEE1291EEc45Ae3aadAc89BE8152D4E673', chainCEX : 'Polygon' },
            BYBIT: { address : '0xf89d7b9c864f589bbF53a82105107622B35EaA40', chainCEX : 'Polygon PoS' },
-           INDODAX: { address : '0x3C02290922a3618A4646E3BbCa65853eA45FE7C6', address2 : '0x91Dca37856240E5e1906222ec79278b16420Dc92', chainCEX : 'POLYGON' },   
+           INDODAX: { address : '0x3C02290922a3618A4646E3BbCa65853eA45FE7C6', address2 : '0x91Dca37856240E5e1906222ec79278b16420Dc92', chainCEX : 'POLYGON' },
+           LBANK: { address : '', chainCEX : 'MATIC' },
         },
         PAIRDEXS: {
            "USDT": { symbolPair: 'USDT', scAddressPair: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F', desPair: '6' },
@@ -233,6 +248,7 @@ const CONFIG_CHAINS = {
             KUCOIN: { address : '0x03E6FA590CAdcf15A38e86158E9b3D06FF3399Ba', chainCEX : 'ARBITRUM' },
             BITGET: { address : '0x5bdf85216ec1e38d6458c870992a69e38e03f7ef', chainCEX : 'ArbitrumOne' },
             BYBIT: { address : '0xf89d7b9c864f589bbF53a82105107622B35EaA40', chainCEX : 'Arbitrum One' },
+            LBANK: { address : '', chainCEX : 'ARBITRUM' },
         },    
         PAIRDEXS: {  
             "ETH":{ symbolPair: 'ETH', scAddressPair: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1', desPair: '18' },
@@ -253,11 +269,12 @@ const CONFIG_CHAINS = {
         WALLET_CEX: {
             GATE: { address : '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX : 'ETH' },
             BINANCE: { address : '0xDFd5293D8e347dFe59E90eFd55b2956a1343963d', address2 : '0x28C6c06298d514Db089934071355E5743bf21d60', address3 : '0x21a31Ee1afC51d94C2eFcCAa2092aD1028285549', chainCEX : 'ETH' },
-            INDODAX: { address : '0x3C02290922a3618A4646E3BbCa65853eA45FE7C6', address2 : '0x91Dca37856240E5e1906222ec79278b16420Dc92', chainCEX : 'ETH' }, 
+            INDODAX: { address : '0x3C02290922a3618A4646E3BbCa65853eA45FE7C6', address2 : '0x91Dca37856240E5e1906222ec79278b16420Dc92', chainCEX : 'ETH' },
             MEXC: { address : '0x75e89d5979E4f6Fba9F97c104c2F0AFB3F1dcB88', address2 : '0x9642b23Ed1E01Df1092B92641051881a322F5D4E', chainCEX : 'ETH' },
             KUCOIN: { address : '0x58edF78281334335EfFa23101bBe3371b6a36A51', address2 : '0xD6216fC19DB775Df9774a6E33526131dA7D19a2c', chainCEX : 'ERC20' },
             BITGET: { address : '0x0639556F03714A74a5fEEaF5736a4A64fF70D206', address2 : '0x51971c86b04516062c1e708CDC048CB04fbe959f', address3 : '0xBDf5bAfEE1291EEc45Ae3aadAc89BE8152D4E673', chainCEX : 'ERC20' },
             BYBIT: { address : '0xf89d7b9c864f589bbF53a82105107622B35EaA40', address2 : '0xf89d7b9c864f589bbF53a82105107622B35EaA40', chainCEX : 'Ethereum' },
+            LBANK: { address : '', chainCEX : 'ETH' },
         },
         PAIRDEXS: {  
             "ETH":{ symbolPair: 'ETH', scAddressPair: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', desPair: '18' },
@@ -285,6 +302,7 @@ const CONFIG_CHAINS = {
             KUCOIN: { address: '0x58edF78281334335EfFa23101bBe3371b6a36A51', address2: '0xD6216fC19DB775Df9774a6E33526131dA7D19a2c', chainCEX: 'Base' },
             BITGET: { address: '0x0639556F03714A74a5fEEaF5736a4A64fF70D206', address2: '0x51971c86b04516062c1e708CDC048CB04fbe959f', address3 : '0xBDf5bAfEE1291EEc45Ae3aadAc89BE8152D4E673', chainCEX: 'BASE' },
             BYBIT: { address: '0xf89d7b9c864f589bbF53a82105107622B35EaA40', address2: '0xf89d7b9c864f589bbF53a82105107622B35EaA40', chainCEX: 'Base Mainnet' },
+            LBANK: { address: '', chainCEX: 'BASE' },
         },
         PAIRDEXS: {
            "ETH": { symbolPair: 'ETH', scAddressPair: '0x4200000000000000000000000000000000000006', desPair: '18' },
@@ -322,6 +340,7 @@ const CONFIG_CHAINS = {
             BYBIT: { address: 'AC5RDfQFmDS1deWZos921JfqscXdByf8BKHs5ACWjtW2', address2: '42brAgAVNzMBP7aaktPvAmBSPEkehnFQejiZc53EpJFd', chainCEX: 'SOL' },
             OKX: { address: 'AC5RDfQFmDS1deWZos921JfqscXdByf8BKHs5ACWjtW2', address2: '42brAgAVNzMBP7aaktPvAmBSPEkehnFQejiZc53EpJFd', chainCEX: 'Solana' },
             INDODAX: { address: 'AC5RDfQFmDS1deWZos921JfqscXdByf8BKHs5ACWjtW2', chainCEX: 'SOL' },
+            LBANK: { address: '', chainCEX: 'SOL' },
         },
         PAIRDEXS: {
             "SOL": { symbolPair: 'SOL', scAddressPair: 'So11111111111111111111111111111111111111112', desPair: '9' },
@@ -339,7 +358,8 @@ const CONFIG_UI = {
         { key: 'BYBIT', label: 'Bybit', short: 'BYBT', badgeClass: 'bg-bybit' },
         { key: 'BITGET', label: 'Bitget', short: 'BITG', badgeClass: 'bg-bitget' },
         { key: 'KUCOIN', label: 'KuCoin', short: 'KUCN', badgeClass: 'bg-kucoin' },
-        { key: 'INDODAX', label: 'INDODAX', short: 'INDX', badgeClass: 'bg-indodax' }
+        { key: 'INDODAX', label: 'INDODAX', short: 'INDX', badgeClass: 'bg-indodax' },
+        { key: 'LBANK', label: 'LBank', short: 'LBNK', badgeClass: 'bg-lbank' }
     ],
     DEXES: [
         { key: 'odos', label: 'ODOS', badgeClass: 'bg-odos', fallbackSlug: 'odos', skipDelay: true },

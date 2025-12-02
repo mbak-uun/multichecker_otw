@@ -637,38 +637,17 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
             const cexResult = await fetchCEXWithRetry(token, tableBodyId, { maxAttempts: 3, delayMs: 450 });
             const DataCEX = cexResult.data || {};
 
-            // Jika pengambilan data CEX gagal setelah semua percobaan, tandai semua sel DEX sebagai error.
+            // ===== AUTO SKIP FEATURE =====
+            // Jika pengambilan data CEX gagal, tampilkan warning toast tapi TETAP lanjut ke DEX
+            // (tidak lagi return error dan skip DEX)
             if (!cexResult.ok) {
-                if (typeof toast !== 'undefined' && toast.error) {
-                    toast.error(`CEK MANUAL ${token.symbol_in} di ${token.cex}`);
+                if (typeof toast !== 'undefined' && toast.warning) {
+                    toast.warning(`⚠️ CEX ${token.cex} gagal - Auto skip ke DEX untuk ${token.symbol_in}`, {
+                        duration: 3000
+                    });
                 }
-                try {
-                    if (Array.isArray(token.dexs)) {
-                        token.dexs.forEach((dd) => {
-                            try { if (!allowedDexs.includes(String(dd.dex||'').toLowerCase())) return; } catch(_) {}
-                            const dex = String(dd.dex||'').toLowerCase();
-                            ['TokentoPair','PairtoToken'].forEach(dir => {
-                                const isKiri = dir === 'TokentoPair';
-                                // ID generation: include token ID for uniqueness
-                                const sym1 = isKiri ? String(token.symbol_in).toUpperCase() : String(token.symbol_out).toUpperCase();
-                                const sym2 = isKiri ? String(token.symbol_out).toUpperCase() : String(token.symbol_in).toUpperCase();
-                                const tokenId = String(token.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-                                const baseIdRaw = `${String(token.cex).toUpperCase()}_${String(dex).toUpperCase()}_${sym1}_${sym2}_${String(token.chain).toUpperCase()}_${tokenId}`;
-                                const baseId = baseIdRaw.replace(/[^A-Z0-9_]/g,'');
-                                const idCELL = tableBodyId + '_' + baseId;
-                                const cell = document.getElementById(idCELL);
-                                if (!cell) return;
-                                setDexErrorBackground(cell);
-                                const span = ensureDexStatusSpan(cell);
-                                span.className = 'dex-status uk-text-danger';
-                                span.innerHTML = `<span class=\"uk-label uk-label-danger\">ERROR</span>`;
-                                appendCellTitleByEl(cell, '[CEX] INVALID PRICES');
-                                try { if (cell.dataset) cell.dataset.final = '1'; } catch(_) {}
-                            });
-                        });
-                    }
-                } catch(_) {}
-                return;
+                // Log untuk debugging
+                console.warn(`[AUTO SKIP] CEX ${token.cex} failed for ${token.symbol_in}, continuing to DEX...`);
             }
 
             // 2. Lanjut ke DEX tanpa jeda CEX terkonfigurasi (fitur dihapus)
@@ -687,8 +666,23 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                             } catch(_) {}
                             const modalKiri = dexData.left;
                             const modalKanan = dexData.right;
-                            const amount_in_token = parseFloat(modalKiri) / DataCEX.priceBuyToken;
-                            const amount_in_pair = parseFloat(modalKanan) / DataCEX.priceBuyPair;
+
+                            // ===== AUTO SKIP FEATURE =====
+                            // Jika CEX gagal, gunakan nilai default untuk amount_in
+                            // Default: 100 USD worth untuk testing DEX quotes
+                            const DEFAULT_AMOUNT = 100;
+                            let amount_in_token, amount_in_pair;
+
+                            if (cexResult.ok && DataCEX.priceBuyToken > 0 && DataCEX.priceBuyPair > 0) {
+                                // CEX berhasil, gunakan harga CEX untuk menghitung amount
+                                amount_in_token = parseFloat(modalKiri) / DataCEX.priceBuyToken;
+                                amount_in_pair = parseFloat(modalKanan) / DataCEX.priceBuyPair;
+                            } else {
+                                // CEX gagal, gunakan default amount untuk cek quote DEX
+                                amount_in_token = DEFAULT_AMOUNT;
+                                amount_in_pair = DEFAULT_AMOUNT;
+                                console.log(`[AUTO SKIP] Using default amount ${DEFAULT_AMOUNT} for DEX quote check`);
+                            }
 
                             /**
                              * Fungsi internal untuk memanggil API DEX untuk satu arah transaksi.
@@ -1295,7 +1289,11 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                     getPriceDEX(
                                         scInSafe, desInSafe,
                                         scOutSafe, desOutSafe,
-                                        isKiri ? amount_in_token : amount_in_pair, DataCEX.priceBuyPair, dex,
+                                        isKiri ? amount_in_token : amount_in_pair,
+                                        // ===== AUTO SKIP FEATURE =====
+                                        // Jika CEX gagal, gunakan default price pair (1 untuk simplicity)
+                                        (cexResult.ok && DataCEX.priceBuyPair > 0) ? DataCEX.priceBuyPair : 1,
+                                        dex,
                                         isKiri ? token.symbol_in : token.symbol_out, isKiri ? token.symbol_out : token.symbol_in,
                                         token.cex, token.chain, CONFIG_CHAINS[token.chain.toLowerCase()].Kode_Chain, direction, tableBodyId
                                     )
@@ -1601,9 +1599,13 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
 
 /**
  * Stops the currently running scanner.
- * Ini adalah "hard stop" yang akan me-reload halaman.
+ * - Jika scan SEDANG berjalan: "hard stop" dengan reload halaman
+ * - Jika scan SUDAH selesai (autorun countdown): stop countdown tanpa reload
+ * FIX: Prevent losing scan results when user stops autorun countdown
  */
 async function stopScanner() {
+    const wasScanning = isScanRunning; // Capture state sebelum di-set false
+
     isScanRunning = false;
     try { cancelAnimationFrame(animationFrameId); } catch(_) {}
     clearInterval(window.__autoRunInterval);
@@ -1637,9 +1639,32 @@ async function stopScanner() {
         // console.error('[SCANNER] Error releasing scan state on manual stop:', e);
     }
 
-    // Simpan state 'run:NO' dan update indikator UI sebelum reload.
+    // Simpan state 'run:NO'
     await persistRunStateNo();
-    location.reload();
+
+    // ===== FIX: HANYA reload jika scan SEDANG berjalan =====
+    // Jika scan sudah selesai (hanya autorun countdown), JANGAN reload
+    if (wasScanning) {
+        // Scan sedang berjalan → reload untuk clean state
+        console.log('[SCANNER] Scan was running, reloading page...');
+        location.reload();
+    } else {
+        // Scan sudah selesai, hanya stop autorun countdown
+        console.log('[SCANNER] Scan already completed, stopping autorun countdown without reload');
+
+        // Reset UI ke state normal
+        $('#stopSCAN').hide().prop('disabled', true);
+        $('#startSCAN').prop('disabled', false).text('Start').removeClass('uk-button-disabled');
+        $('#autoRunCountdown').text('').css({ color: '', fontWeight: '' });
+
+        // Release UI gating
+        if (typeof setScanUIGating === 'function') setScanUIGating(false);
+
+        // Show toast notification
+        if (typeof toast !== 'undefined' && toast.info) {
+            toast.info('Autorun countdown stopped', { duration: 2000 });
+        }
+    }
 }
 
 /**

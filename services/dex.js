@@ -403,23 +403,88 @@
     '0x': {
       buildRequest: ({ chainName, sc_input_in, sc_output_in, amount_in_big, codeChain, sc_output, sc_input, SavedSettingData }) => {
         const userAddr = SavedSettingData?.walletMeta || '0x0000000000000000000000000000000000000000';
+        // ⚠️ IMPORTANT: Matcha Solana endpoint is UNDOCUMENTED
+        // - 0x Swap API officially supports only EVM chains (NOT Solana)
+        // - Matcha frontend has Solana support but uses internal/undocumented API
+        // - This endpoint may be unstable or change without notice
+        // - For Solana, DZAP is configured as automatic fallback (see resolveFetchPlan)
+        // - References:
+        //   - 0x Supported Chains: https://0x.org/docs/developer-resources/supported-chains
+        //   - Matcha Solana Launch: https://www.theblock.co/post/349429/0x-dex-aggregator-matcha-solana-cross-chain-avoid-memecoin-rug-pulls
         const url = chainName.toLowerCase() === 'solana'
           ? `https://matcha.xyz/api/swap/quote/solana?sellTokenAddress=${sc_input_in}&buyTokenAddress=${sc_output_in}&sellAmount=${amount_in_big}&dynamicSlippage=true&slippageBps=50&userPublicKey=Eo6CpSc1ViboPva7NZ1YuxUnDCgqnFDXzcDMDAF6YJ1L`
           : `https://matcha.xyz/api/swap/price?chainId=${codeChain}&buyToken=${sc_output}&sellToken=${sc_input}&sellAmount=${amount_in_big}&takerAddress=${userAddr}`;
         return { url, method: 'GET' };
       },
-      parseResponse: (response, { des_output, chainName }) => {
+      parseResponse: (response, { des_output, des_input, chainName }) => {
         if (!response?.buyAmount) throw new Error("Invalid 0x response structure");
+
+        // ===== SOLANA MATCHA RESPONSE FORMAT =====
+        // For Solana, response includes route.tokens with decimals info
+        // Example response: { buyAmount: "16986", sellAmount: "10000000", route: { tokens: [...] } }
+        let actualDesOutput = des_output;
+        let actualDesInput = des_input;
+
+        // Extract decimals from response for Solana (more accurate)
+        if (chainName.toLowerCase() === 'solana' && response.route?.tokens) {
+          try {
+            // response.route.tokens adalah array of tokens dalam route
+            // Index terakhir biasanya adalah buyToken
+            const tokens = response.route.tokens;
+            if (tokens.length > 0) {
+              // Cari buyToken dan sellToken dari array tokens
+              // Biasanya sellToken adalah tokens[0], buyToken adalah tokens[tokens.length-1]
+              const buyTokenInfo = tokens[tokens.length - 1];
+              const sellTokenInfo = tokens[0];
+
+              if (buyTokenInfo?.decimals !== undefined) {
+                actualDesOutput = Number(buyTokenInfo.decimals);
+                console.log(`[MATCHA SOLANA] Using buyToken decimals from response: ${actualDesOutput}`);
+              }
+
+              if (sellTokenInfo?.decimals !== undefined) {
+                actualDesInput = Number(sellTokenInfo.decimals);
+              }
+            }
+          } catch (e) {
+            console.warn('[MATCHA SOLANA] Failed to extract decimals from response, using default:', e);
+          }
+        }
+
+        // Calculate amount_out with correct decimals
+        const amount_out = parseFloat(response.buyAmount) / Math.pow(10, actualDesOutput);
+
+        // For debugging: log rate calculation for Solana
+        if (chainName.toLowerCase() === 'solana' && response.sellAmount) {
+          try {
+            const sellAmountActual = parseFloat(response.sellAmount) / Math.pow(10, actualDesInput);
+            const rateUSDT = amount_out / sellAmountActual;
+            console.log(`[MATCHA SOLANA] Sell: ${sellAmountActual} tokens, Buy: ${amount_out} USDT, Rate: ${rateUSDT} USDT per token`);
+          } catch (e) {
+            // Silent fail for debugging
+          }
+        }
+
         return {
-          amount_out: response.buyAmount / Math.pow(10, des_output),
+          amount_out: amount_out,
           FeeSwap: getFeeSwap(chainName),
           dexTitle: '0X'
         };
       }
     },
     'unidex-0x': {
-      buildRequest: ({ codeChain, sc_input_in, sc_output_in, amount_in_big, SavedSettingData }) => {
+      buildRequest: ({ codeChain, sc_input_in, sc_output_in, amount_in_big, SavedSettingData, chainName }) => {
         const userAddr = SavedSettingData?.walletMeta || '0x0000000000000000000000000000000000000000';
+
+        // ========== SOLANA CHAIN: Use direct Matcha endpoint ==========
+        // Unidex 0x proxy doesn't support Solana (EVM only)
+        // For Solana, use direct Matcha Solana API instead
+        if (chainName && chainName.toLowerCase() === 'solana') {
+          const url = `https://matcha.xyz/api/swap/quote/solana?sellTokenAddress=${sc_input_in}&buyTokenAddress=${sc_output_in}&sellAmount=${amount_in_big}&dynamicSlippage=true&slippageBps=50&userPublicKey=Eo6CpSc1ViboPva7NZ1YuxUnDCgqnFDXzcDMDAF6YJ1L`;
+          return { url, method: 'GET' };
+        }
+
+        // ========== EVM CHAINS: Use Unidex 0x proxy ==========
         const affiliateAddress = '0x8c128f336B479b142429a5f351Af225457a987Fa';
         const feeRecipient = '0x8c128f336B479b142429a5f351Af225457a987Fa';
 
@@ -439,10 +504,47 @@
           method: 'GET'
         };
       },
-      parseResponse: (response, { des_output, chainName }) => {
+      parseResponse: (response, { des_output, des_input, chainName }) => {
         if (!response?.buyAmount) throw new Error("Invalid Unidex 0x response structure");
 
-        const amount_out = parseFloat(response.buyAmount) / Math.pow(10, des_output);
+        // ========== SOLANA CHAIN: Use same parsing as direct Matcha ==========
+        let actualDesOutput = des_output;
+        let actualDesInput = des_input;
+
+        if (chainName && chainName.toLowerCase() === 'solana' && response.route?.tokens) {
+          try {
+            const tokens = response.route.tokens;
+            if (tokens.length > 0) {
+              const buyTokenInfo = tokens[tokens.length - 1];
+              const sellTokenInfo = tokens[0];
+
+              if (buyTokenInfo?.decimals !== undefined) {
+                actualDesOutput = Number(buyTokenInfo.decimals);
+                console.log(`[UNIDEX-0X SOLANA] Using buyToken decimals from response: ${actualDesOutput}`);
+              }
+
+              if (sellTokenInfo?.decimals !== undefined) {
+                actualDesInput = Number(sellTokenInfo.decimals);
+              }
+            }
+          } catch (e) {
+            console.warn('[UNIDEX-0X SOLANA] Failed to extract decimals from response, using default:', e);
+          }
+        }
+
+        const amount_out = parseFloat(response.buyAmount) / Math.pow(10, actualDesOutput);
+
+        // Debug logging for Solana
+        if (chainName && chainName.toLowerCase() === 'solana' && response.sellAmount) {
+          try {
+            const sellAmountActual = parseFloat(response.sellAmount) / Math.pow(10, actualDesInput);
+            const rateUSDT = amount_out / sellAmountActual;
+            console.log(`[UNIDEX-0X SOLANA] Sell: ${sellAmountActual} tokens, Buy: ${amount_out} USDT, Rate: ${rateUSDT} USDT per token`);
+          } catch (e) {
+            // Silent fail for debugging
+          }
+        }
+
         const FeeSwap = getFeeSwap(chainName);
 
         // FIX: Gunakan 'UNIDEX-0X' sebagai routeTool untuk membedakan dari Matcha API biasa
@@ -928,13 +1030,24 @@
   // Helper: resolve fetch plan per DEX + arah
   // -----------------------------
   function actionKey(a){ return String(a||'').toLowerCase() === 'pairtotoken' ? 'pairtotoken' : 'tokentopair'; }
-  function resolveFetchPlan(dexType, action){
+  function resolveFetchPlan(dexType, action, chainName){
     try {
       const key = String(dexType||'').toLowerCase();
       const cfg = (root.CONFIG_DEXS || {})[key] || {};
       const map = cfg.fetchdex || {};
       const ak = actionKey(action);
-      const primary = map.primary && map.primary[ak] ? String(map.primary[ak]).toLowerCase() : null;
+      let primary = map.primary && map.primary[ak] ? String(map.primary[ak]).toLowerCase() : null;
+
+      // ========== SOLANA CHAIN: MATCHA OVERRIDE ==========
+      // For Solana chain, Matcha (0x) should NOT use unidex-0x
+      // Use direct '0x' strategy instead for Solana
+      const isSolana = chainName && String(chainName).toLowerCase() === 'solana';
+      const isMatcha = key === '0x' || key === 'matcha';
+      if (isSolana && isMatcha && primary === 'unidex-0x') {
+        primary = '0x'; // Override: use direct Matcha endpoint for Solana
+        console.log('[SOLANA] Matcha: Using direct 0x endpoint (not unidex-0x)');
+      }
+
       // Gunakan alternative dari config DEX, atau fallback global dari CONFIG_APP.DEX_FALLBACK
       let alternative = map.alternative && map.alternative[ak] ? String(map.alternative[ak]).toLowerCase() : null;
       if (!alternative) {
@@ -944,6 +1057,14 @@
           : 'dzap';
         alternative = globalFallback !== 'none' ? globalFallback : null;
       }
+
+      // ========== SOLANA CHAIN: FORCE DZAP AS ALTERNATIVE ==========
+      // For Solana chain, DZAP is the ONLY alternative for ALL DEX types
+      // This overrides any configured alternative (swoop, etc.)
+      if (isSolana) {
+        alternative = 'dzap';
+      }
+
       return { primary, alternative };
     } catch(_){ return { primary: null, alternative: null }; }
   }
@@ -1086,7 +1207,7 @@
         }
       });
 
-      const plan = resolveFetchPlan(dexType, action);
+      const plan = resolveFetchPlan(dexType, action, chainName);
       const primary = plan.primary || String(dexType||'').toLowerCase();
       const alternative = plan.alternative || null;
 
@@ -1108,14 +1229,23 @@
           const isOdosFamily = ['odos','odos2','odos3','hinkal'].includes(primaryKey);
           const noResp = !Number.isFinite(code) || code === 0;
           const isNoRespFallback = noResp && (isOdosFamily || primaryKey === 'kyber' || primaryKey === '1inch');
+
+          // ========== SOLANA CHAIN: ALWAYS FALLBACK ON TIMEOUT ==========
+          // For Solana chain, ANY timeout/no-response should trigger fallback to DZAP
+          // This ensures Matcha and other DEX timeouts will use DZAP as backup
+          const isSolanaChain = chainName && String(chainName).toLowerCase() === 'solana';
+          const isSolanaNoResp = isSolanaChain && noResp;
+
           const computedAlt = alternative;
           // Fallback hanya untuk:
           // 1. Rate limit (429)
           // 2. Server error (500+)
-          // 3. No response (timeout/network error)
+          // 3. No response (timeout/network error) for specific DEX families
+          // 4. [SOLANA ONLY] ANY timeout/no-response (falls back to DZAP)
           const shouldFallback = computedAlt && (
             (Number.isFinite(code) && (code === 429 || code >= 500)) || // Rate limit atau server error
-            isNoRespFallback // Atau no response (timeout/network error)
+            isNoRespFallback || // Atau no response (timeout/network error) untuk ODOS/Kyber/1inch
+            isSolanaNoResp // [SOLANA] Atau timeout pada chain Solana (fallback ke DZAP)
           );
           if (!shouldFallback) throw e1;
 
