@@ -5208,7 +5208,7 @@ $(document).on('click', '#histClearAll', async function(){
         const cexList = CONFIG_UI?.CEXES || [];
         cexList.forEach(cex => {
             const cexKey = cex.key;
-            const cexLabel = cex.label || cexKey;
+            const cexLabel = (cex.label || cexKey).toUpperCase();
             const cexColor = CONFIG_CEX?.[cexKey]?.WARNA || '#666';
             $cexContainer.append(`
                 <div class="uk-margin-small-bottom">
@@ -5228,7 +5228,7 @@ $(document).on('click', '#histClearAll', async function(){
         dexList.forEach(dexKey => {
             const dexConfig = CONFIG_DEXS?.[dexKey] || {};
             const dexUiConfig = CONFIG_UI?.DEXES?.find(d => d.key === dexKey) || {};
-            const dexLabel = dexConfig.label || dexUiConfig.label || String(dexKey).toUpperCase();
+            const dexLabel = (dexConfig.label || dexUiConfig.label || String(dexKey)).toUpperCase();
             const dexColor = dexConfig.warna || '#666';
 
             $dexContainer.append(`
@@ -5257,6 +5257,9 @@ $(document).on('click', '#histClearAll', async function(){
 
         // Initial update
         updateAffectedCount();
+
+        // Populate profile dropdown
+        populateProfileSelect();
     }
 
     // Handle CEX filter changes
@@ -5276,10 +5279,148 @@ $(document).on('click', '#histClearAll', async function(){
         updateAffectedCount();
     });
 
-    // Handle Quick Set buttons
-    $(document).on('click', '.bulk-quick-set', function() {
-        const value = $(this).data('value');
-        $('.bulk-dex-left, .bulk-dex-right').val(value);
+    // ========== PROFILE MODAL MANAGEMENT ==========
+    const PROFILE_STORAGE_KEY = 'MODAL_PROFILES';
+
+    // Load profiles from localStorage
+    function loadProfiles() {
+        try {
+            const stored = localStorage.getItem(PROFILE_STORAGE_KEY);
+            return stored ? JSON.parse(stored) : [];
+        } catch(e) {
+            console.error('Error loading profiles:', e);
+            return [];
+        }
+    }
+
+    // Save profiles to localStorage
+    function saveProfiles(profiles) {
+        try {
+            localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles));
+            return true;
+        } catch(e) {
+            console.error('Error saving profiles:', e);
+            return false;
+        }
+    }
+
+    // Populate profile dropdown
+    function populateProfileSelect() {
+        const profiles = loadProfiles();
+        const $select = $('#profile-select');
+        $select.find('option:not(:first)').remove();
+
+        profiles.forEach((profile, index) => {
+            $select.append(`<option value="${index}">${profile.name}</option>`);
+        });
+    }
+
+    // Get current DEX values from inputs
+    function getCurrentDexValues() {
+        const values = {};
+        $('.bulk-dex-left').each(function() {
+            const dexKey = $(this).data('dex');
+            const left = parseFloat($(this).val()) || 0;
+            const right = parseFloat($(`.bulk-dex-right[data-dex="${dexKey}"]`).val()) || 0;
+            values[dexKey] = { left, right };
+        });
+        return values;
+    }
+
+    // Apply profile values to DEX inputs
+    function applyProfileValues(profile) {
+        const ranges = profile.ranges || {};
+        Object.keys(ranges).forEach(dexKey => {
+            const { left, right } = ranges[dexKey];
+            $(`.bulk-dex-left[data-dex="${dexKey}"]`).val(left);
+            $(`.bulk-dex-right[data-dex="${dexKey}"]`).val(right);
+        });
+    }
+
+    // Handle profile selection change
+    $(document).on('change', '#profile-select', function() {
+        const selectedIndex = $(this).val();
+        if (selectedIndex === '') return;
+
+        const profiles = loadProfiles();
+        const profile = profiles[parseInt(selectedIndex)];
+        if (profile) {
+            applyProfileValues(profile);
+            if (typeof toast !== 'undefined' && toast.info) {
+                toast.info(`Profil "${profile.name}" diterapkan`);
+            }
+        }
+    });
+
+    // Handle save profile button
+    $(document).on('click', '#profile-save-btn', function() {
+        const profileName = prompt('Masukkan nama profil:');
+        if (!profileName || profileName.trim() === '') {
+            if (typeof toast !== 'undefined' && toast.warning) {
+                toast.warning('Nama profil tidak boleh kosong');
+            }
+            return;
+        }
+
+        const currentValues = getCurrentDexValues();
+        const profiles = loadProfiles();
+
+        // Check if profile with same name exists
+        const existingIndex = profiles.findIndex(p => p.name === profileName.trim());
+
+        const newProfile = {
+            name: profileName.trim(),
+            ranges: currentValues,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+
+        if (existingIndex >= 0) {
+            // Update existing profile
+            const confirm = window.confirm(`Profil "${profileName}" sudah ada. Timpa profil yang ada?`);
+            if (!confirm) return;
+
+            profiles[existingIndex] = newProfile;
+            if (typeof toast !== 'undefined' && toast.success) {
+                toast.success(`Profil "${profileName}" diperbarui`);
+            }
+        } else {
+            // Create new profile
+            profiles.push(newProfile);
+            if (typeof toast !== 'undefined' && toast.success) {
+                toast.success(`Profil "${profileName}" disimpan`);
+            }
+        }
+
+        saveProfiles(profiles);
+        populateProfileSelect();
+    });
+
+    // Handle delete profile button
+    $(document).on('click', '#profile-delete-btn', function() {
+        const selectedIndex = $('#profile-select').val();
+        if (selectedIndex === '') {
+            if (typeof toast !== 'undefined' && toast.warning) {
+                toast.warning('Pilih profil yang akan dihapus');
+            }
+            return;
+        }
+
+        const profiles = loadProfiles();
+        const profile = profiles[parseInt(selectedIndex)];
+        if (!profile) return;
+
+        const confirm = window.confirm(`Hapus profil "${profile.name}"?`);
+        if (!confirm) return;
+
+        profiles.splice(parseInt(selectedIndex), 1);
+        saveProfiles(profiles);
+        populateProfileSelect();
+        $('#profile-select').val('');
+
+        if (typeof toast !== 'undefined' && toast.success) {
+            toast.success(`Profil "${profile.name}" dihapus`);
+        }
     });
 
     function getSelectedCexs() {

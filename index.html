@@ -761,15 +761,25 @@
               <!-- CEX checkboxes will be populated here -->
             </div>
 
-            <h6 class="uk-heading-bullet uk-margin-small uk-margin-top uk-text-bolder">Quick Set Modal</h6>
-            <div class="uk-flex uk-flex-wrap" style="gap:4px;">
-              <button type="button" class="uk-button uk-button-default uk-button-small bulk-quick-set" data-value="50">50</button>
-              <button type="button" class="uk-button uk-button-default uk-button-small bulk-quick-set" data-value="100">100</button>
-              <button type="button" class="uk-button uk-button-default uk-button-small bulk-quick-set" data-value="200">200</button>
-              <button type="button" class="uk-button uk-button-default uk-button-small bulk-quick-set" data-value="500">500</button>
-              <button type="button" class="uk-button uk-button-default uk-button-small bulk-quick-set" data-value="1000">1K</button>
+            <h6 class="uk-heading-bullet uk-margin-small uk-margin-top uk-text-bolder">Profil Modal</h6>
+
+            <!-- Profile Selection -->
+            <div class="uk-margin-small">
+              <label class="uk-form-label uk-text-small">Pilih Profil:</label>
+              <select id="profile-select" class="uk-select uk-form-small">
+                <option value="">-- Pilih Profil --</option>
+              </select>
             </div>
-            <p class="uk-text-meta uk-text-small uk-margin-small-top">Klik untuk set nilai modal ke semua DEX di bawah</p>
+
+            <!-- Profile Actions -->
+            <div class="uk-margin-small uk-flex uk-flex-column" style="gap:4px;">
+              <button type="button" class="uk-button uk-button-primary uk-button-small" id="profile-save-btn">
+                <span uk-icon="icon: check; ratio: 0.7"></span> Simpan Profil
+              </button>
+              <button type="button" class="uk-button uk-button-danger uk-button-small" id="profile-delete-btn">
+                <span uk-icon="icon: trash; ratio: 0.7"></span> Hapus Profil
+              </button>
+            </div>
           </div>
         </div>
 

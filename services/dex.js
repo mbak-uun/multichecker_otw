@@ -413,7 +413,7 @@
         //   - Matcha Solana Launch: https://www.theblock.co/post/349429/0x-dex-aggregator-matcha-solana-cross-chain-avoid-memecoin-rug-pulls
         const url = chainName.toLowerCase() === 'solana'
           ? `https://matcha.xyz/api/swap/quote/solana?sellTokenAddress=${sc_input_in}&buyTokenAddress=${sc_output_in}&sellAmount=${amount_in_big}&dynamicSlippage=true&slippageBps=50&userPublicKey=Eo6CpSc1ViboPva7NZ1YuxUnDCgqnFDXzcDMDAF6YJ1L`
-          : `https://matcha.xyz/api/swap/price?chainId=${codeChain}&buyToken=${sc_output}&sellToken=${sc_input}&sellAmount=${amount_in_big}&takerAddress=${userAddr}`;
+          : `https://matcha.xyz/api/swap/price?chainId=${codeChain}&buyToken=${sc_output}&sellToken=${sc_input}&sellAmount=${amount_in_big}&slippageBps=50&taker=${userAddr}`;
         return { url, method: 'GET' };
       },
       parseResponse: (response, { des_output, des_input, chainName }) => {
@@ -1038,14 +1038,17 @@
       const ak = actionKey(action);
       let primary = map.primary && map.primary[ak] ? String(map.primary[ak]).toLowerCase() : null;
 
-      // ========== SOLANA CHAIN: MATCHA OVERRIDE ==========
-      // For Solana chain, Matcha (0x) should NOT use unidex-0x
-      // Use direct '0x' strategy instead for Solana
+      // ========== MATCHA STRATEGY OVERRIDE ==========
+      // For ALL chains, Matcha (0x) should use direct endpoint first
+      // Config has primary='unidex-0x', but we want:
+      // - Primary: '0x' (direct matcha.xyz/api/swap/price or /quote/solana)
+      // - Alternative: 'unidex-0x' (fallback for EVM chains only)
       const isSolana = chainName && String(chainName).toLowerCase() === 'solana';
       const isMatcha = key === '0x' || key === 'matcha';
-      if (isSolana && isMatcha && primary === 'unidex-0x') {
-        primary = '0x'; // Override: use direct Matcha endpoint for Solana
-        console.log('[SOLANA] Matcha: Using direct 0x endpoint (not unidex-0x)');
+
+      if (isMatcha && primary === 'unidex-0x') {
+        primary = '0x'; // Override: use direct Matcha endpoint
+        console.log(`[${chainName?.toUpperCase() || 'CHAIN'}] Matcha: Using direct 0x endpoint (not unidex-0x)`);
       }
 
       // Gunakan alternative dari config DEX, atau fallback global dari CONFIG_APP.DEX_FALLBACK
@@ -1058,10 +1061,19 @@
         alternative = globalFallback !== 'none' ? globalFallback : null;
       }
 
-      // ========== SOLANA CHAIN: FORCE DZAP AS ALTERNATIVE ==========
+      // ========== MATCHA ALTERNATIVE OVERRIDE ==========
+      // For Matcha on ALL chains:
+      // - Solana: fallback to DZAP (Unidex doesn't support Solana)
+      // - EVM chains: fallback to unidex-0x
+      if (isMatcha) {
+        alternative = isSolana ? 'dzap' : 'unidex-0x';
+        console.log(`[${chainName?.toUpperCase() || 'CHAIN'}] Matcha alternative: ${alternative}`);
+      }
+
+      // ========== SOLANA CHAIN: FORCE DZAP AS ALTERNATIVE (for non-Matcha DEXs) ==========
       // For Solana chain, DZAP is the ONLY alternative for ALL DEX types
       // This overrides any configured alternative (swoop, etc.)
-      if (isSolana) {
+      if (isSolana && !isMatcha) {
         alternative = 'dzap';
       }
 
@@ -1236,16 +1248,24 @@
           const isSolanaChain = chainName && String(chainName).toLowerCase() === 'solana';
           const isSolanaNoResp = isSolanaChain && noResp;
 
+          // ========== MATCHA EVM CHAINS: ALWAYS FALLBACK ON ERROR ==========
+          // For Matcha on EVM chains, ANY error should trigger fallback to unidex-0x
+          // This ensures we try Unidex proxy if direct Matcha endpoint fails
+          const isMatchaPrimary = primaryKey === '0x';
+          const isMatchaEVMError = isMatchaPrimary && !isSolanaChain;
+
           const computedAlt = alternative;
           // Fallback hanya untuk:
           // 1. Rate limit (429)
           // 2. Server error (500+)
           // 3. No response (timeout/network error) for specific DEX families
           // 4. [SOLANA ONLY] ANY timeout/no-response (falls back to DZAP)
+          // 5. [MATCHA EVM] ANY error when using direct Matcha (falls back to unidex-0x)
           const shouldFallback = computedAlt && (
             (Number.isFinite(code) && (code === 429 || code >= 500)) || // Rate limit atau server error
             isNoRespFallback || // Atau no response (timeout/network error) untuk ODOS/Kyber/1inch
-            isSolanaNoResp // [SOLANA] Atau timeout pada chain Solana (fallback ke DZAP)
+            isSolanaNoResp || // [SOLANA] Atau timeout pada chain Solana (fallback ke DZAP)
+            isMatchaEVMError // [MATCHA EVM] Atau error pada Matcha EVM chains (fallback ke unidex-0x)
           );
           if (!shouldFallback) throw e1;
 
