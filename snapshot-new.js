@@ -818,8 +818,11 @@
                                 return {
                                     cex: cexUpper,
                                     symbol_in: symbol,
+                                    tokenName: item.tokenName || symbol, // ✅ Preserve tokenName for enrichment
                                     token_name: existing?.token_name || item.tokenName || '',
                                     sc_in: contractAddress, // Use contract address from CEX API
+                                    contractAddress: contractAddress, // ✅ Preserve contractAddress field for enrichment
+                                    needsEnrichment: item.needsEnrichment || false, // ✅ Preserve needsEnrichment flag from services/cex.js
                                     tradeable: item.trading !== undefined ? !!item.trading : true, // Use trading status dari CEX API, fallback true jika tidak ada
                                     decimals: existing?.des_in || existing?.decimals || '',
                                     des_in: existing?.des_in || existing?.decimals || '',
@@ -863,53 +866,10 @@
                 }
             }
 
-            // ===== LBANK CONTRACT ADDRESS ENRICHMENT =====
-            // LBANK API doesn't provide contract address, so we enrich from token database
-            if (cexUpper === 'LBANK' && coins.length > 0) {
-                try {
-                    // Load token database for this chain (DATAJSON)
-                    const chainConfig = CONFIG_CHAINS[chainKey];
-                    const tokenDbUrl = chainConfig?.DATAJSON;
-
-                    if (tokenDbUrl) {
-                        console.log(`[LBANK ENRICHMENT] Loading token database from ${tokenDbUrl}`);
-                        const tokenDatabase = await $.ajax({ url: tokenDbUrl, dataType: 'json', timeout: 10000 });
-
-                        if (Array.isArray(tokenDatabase) && tokenDatabase.length > 0) {
-                            // Create lookup map by symbol (case-insensitive)
-                            const tokenLookup = new Map();
-                            tokenDatabase.forEach(token => {
-                                const symbol = String(token.Nama_Token || token.symbol || '').toUpperCase();
-                                const sc = String(token.SC_Token || token.sc || token.address || '').trim();
-                                const decimals = Number(token.Des_Token || token.decimals || 18);
-
-                                if (symbol && sc && sc !== '0x' && sc.length > 6) {
-                                    tokenLookup.set(symbol, { sc, decimals });
-                                }
-                            });
-
-                            // Enrich LBANK coins with contract address from token database
-                            let enrichedCount = 0;
-                            coins.forEach(coin => {
-                                if (coin.needsEnrichment && !coin.contractAddress) {
-                                    const symbol = String(coin.tokenName || '').toUpperCase();
-                                    const tokenData = tokenLookup.get(symbol);
-
-                                    if (tokenData) {
-                                        coin.contractAddress = tokenData.sc;
-                                        enrichedCount++;
-                                        console.log(`[LBANK ENRICHMENT] ✅ ${symbol} → ${tokenData.sc.slice(0, 10)}...`);
-                                    }
-                                }
-                            });
-
-                            console.log(`[LBANK ENRICHMENT] Enriched ${enrichedCount}/${coins.length} coins from token database`);
-                        }
-                    }
-                } catch (enrichError) {
-                    console.warn(`[LBANK ENRICHMENT] Failed to enrich from token database:`, enrichError);
-                }
-            }
+            // ===== NO REMOTE ENRICHMENT FOR LBANK =====
+            // LBANK (and all CEX) will use local database lookup in validateTokenData
+            // Tokens without SC from CEX API will be looked up in snapshot database (local)
+            // If not found in local database, they will be filtered out (not displayed)
 
             // console.log(`fetchCexData for ${cex}: fetched ${coins.length} coins total`);
             return coins;
@@ -936,16 +896,14 @@
         }
 
         if (!sc || sc === '0x') {
-            // Token tidak memiliki SC, coba cari di database berdasarkan simbol / nama
+            // Token tidak memiliki SC, cari di database snapshot SEMUA CEX (bukan hanya CEX yang sama)
             let matched = null;
             if (symbolLookupMap instanceof Map) {
-                const keyByCexSymbol = `CEX:${cexUp}__SYM:${symbol}`;
-                if (symbolLookupMap.has(keyByCexSymbol)) {
-                    matched = symbolLookupMap.get(keyByCexSymbol);
-                }
-                if (!matched && symbolLookupMap.has(`SYM:${symbol}`)) {
+                // ✅ LANGSUNG cari berdasarkan symbol di SEMUA CEX (tidak prioritaskan CEX yang sama)
+                if (symbolLookupMap.has(`SYM:${symbol}`)) {
                     matched = symbolLookupMap.get(`SYM:${symbol}`);
                 }
+                // ✅ Jika tidak ada, cari berdasarkan token name
                 if (!matched) {
                     const tokenNameLower = String(token.token_name || token.name || '').toLowerCase();
                     if (tokenNameLower && symbolLookupMap.has(`NAME:${tokenNameLower}`)) {
@@ -1079,12 +1037,10 @@
             // console.log(`✅ ${symbol}: DES already available (${token.des_in})`);
         }
 
+        // ✅ Update symbolLookupMap untuk pencarian berikutnya (SEMUA CEX)
         if (symbolLookupMap instanceof Map) {
             const symKey = `SYM:${symbol}`;
             symbolLookupMap.set(symKey, token);
-            if (cexUp) {
-                symbolLookupMap.set(`CEX:${cexUp}__SYM:${symbol}`, token);
-            }
             const nameKey = String(token.token_name || token.name || '').toLowerCase();
             if (nameKey) {
                 symbolLookupMap.set(`NAME:${nameKey}`, token);
@@ -1413,22 +1369,16 @@
             const existingTokens = Array.isArray(existingData[keyLower]) ? existingData[keyLower] : [];
 
             const snapshotMap = {}; // Map by SC address for quick lookup
-            const snapshotSymbolMap = new Map(); // Map by symbol/name for SC-less resolution
+            const snapshotSymbolMap = new Map(); // Map by symbol/name for SC-less resolution (ALL CEX)
             existingTokens.forEach(token => {
                 const sc = String(token.sc_in || token.sc || '').toLowerCase();
                 if (sc) snapshotMap[sc] = token;
                 const sym = String(token.symbol_in || token.symbol || '').toUpperCase();
-                const cexTok = String(token.cex || token.exchange || '').toUpperCase();
                 if (sym) {
+                    // ✅ Hanya simpan SYM: (tanpa CEX prefix) - mencakup SEMUA CEX
                     const symKey = `SYM:${sym}`;
                     if (!snapshotSymbolMap.has(symKey)) {
                         snapshotSymbolMap.set(symKey, token);
-                    }
-                    if (cexTok) {
-                        const cexSymKey = `CEX:${cexTok}__SYM:${sym}`;
-                        if (!snapshotSymbolMap.has(cexSymKey)) {
-                            snapshotSymbolMap.set(cexSymKey, token);
-                        }
                     }
                 }
                 const nameKey = String(token.token_name || token.name || '').toLowerCase();
@@ -1754,6 +1704,20 @@
 
                 if (result.status === 'fulfilled' && result.value?.validated) {
                     const { validated, hadDecimals, hadCachedData } = result.value;
+
+                    // ===== FILTER: Only include tokens with valid SC =====
+                    // Skip tokens without smart contract address
+                    const sc = String(validated.sc_in || '').trim().toLowerCase();
+                    const hasValidSC = sc && sc !== '0x' && sc.length > 6;
+
+                    if (!hasValidSC) {
+                        // console.log(`⚠️ Skipping ${validated.symbol_in || 'UNKNOWN'} from ${validated.cex || 'UNKNOWN'}: No valid contract address`);
+                        errorCount++;
+                        batchErrorCount++;
+                        batchErrorTokens.push(`${validated.symbol_in || '???'} (No SC)`);
+                        return; // Skip this token
+                    }
+
                     enrichedTokens.push(validated);
 
                     // Update statistics
@@ -1769,11 +1733,17 @@
                     batchErrorTokens.push(token.symbol_in || '???');
 
                     // console.error(`Validation failed for token ${token.symbol_in}:`, result.reason);
-                    enrichedTokens.push({
-                        ...token,
-                        des_in: 18,
-                        decimals: 18
-                    });
+                    // ===== FILTER: Don't push error tokens without SC either =====
+                    const errorSc = String(token.sc_in || '').trim().toLowerCase();
+                    const hasValidErrorSC = errorSc && errorSc !== '0x' && errorSc.length > 6;
+
+                    if (hasValidErrorSC) {
+                        enrichedTokens.push({
+                            ...token,
+                            des_in: 18,
+                            decimals: 18
+                        });
+                    }
                 }
             });
 

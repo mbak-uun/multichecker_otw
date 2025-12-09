@@ -789,7 +789,7 @@ async function deferredInit() {
         // Create data attribute for color to be used by CSS
         const colorData = color ? `data-color="${color}"` : '';
 
-        return `<label class="uk-text-small ${cls}" data-val="${dval}" ${colorData} style="display:inline-flex;align-items:inherit;cursor:pointer;${styleDis}">
+        return `<label class="uk-text-small ${cls}" data-val="${dval}" ${colorData} style="display:inline-flex;align-items:center;cursor:pointer;${styleDis}">
             <input type="checkbox" class="uk-checkbox" id="${id}" ${checked && !disabled ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
             <span style="${color?`color:${color};`:''} padding-left:4px; font-weight:bolder;">${label}</span>&nbsp;${badge}
         </label>`;
@@ -4515,6 +4515,14 @@ $(document).ready(function() {
         let filtered = processed.filter(t => {
             const cexUp = String(t.cex || '').toUpperCase();
             if (selectedCexs.length && !selectedCexs.includes(cexUp)) return false;
+
+            // ===== FILTER: Only show tokens with valid SC =====
+            // Skip tokens without smart contract address (untuk semua CEX, termasuk LBANK)
+            const sc = String(t.sc_in || t.contract_in || '').trim().toLowerCase();
+            const hasValidSC = sc && sc !== '0x' && sc.length > 6;
+            if (!hasValidSC) {
+                return false; // ❌ Skip token tanpa SC valid
+            }
 
             // Filter harga
             if (priceFilter !== 'all') {

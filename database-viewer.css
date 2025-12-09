@@ -10,22 +10,22 @@
 
 /* Header */
 .db-viewer-header {
-    background: #0f766e;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    padding: 16px;
-    border-radius: 10px;
-    margin-bottom: 18px;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
 }
 
 .db-viewer-header h2 {
-    margin: 0 0 8px 0;
-    font-size: 22px;
-    font-weight: 700;
+    margin: 0 0 10px 0;
+    font-size: 24px;
+    font-weight: bold;
 }
 
 .db-viewer-header p {
     margin: 0;
-    opacity: 0.92;
+    opacity: 0.9;
     font-size: 14px;
 }
 
@@ -38,9 +38,10 @@
 }
 
 .db-stat-item {
-    background: rgba(255, 255, 255, 0.16);
-    padding: 10px 16px;
-    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    padding: 10px 20px;
+    border-radius: 8px;
     display: flex;
     flex-direction: column;
     gap: 5px;
@@ -64,12 +65,11 @@
     gap: 10px;
     align-items: center;
     flex-wrap: wrap;
-    margin-bottom: 18px;
-    padding: 14px;
-    background: #ffffff;
-    border-radius: 10px;
-    border: 1px solid #e4e7ec;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    margin-bottom: 20px;
+    padding: 15px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
 .db-search-box {
@@ -88,8 +88,8 @@
 
 .db-search-box input:focus {
     outline: none;
-    border-color: #0f766e;
-    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .db-search-icon {
@@ -109,25 +109,24 @@
 /* Table Card */
 .db-table-card {
     margin-bottom: 15px;
-    border-radius: 10px;
+    border-radius: 8px;
     overflow: hidden;
     transition: all 0.3s ease;
-    border: 1px solid #e5e7ec;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+    border: 1px solid #e5e5e5;
 }
 
 .db-table-card:hover {
-    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
 .db-table-card.expanded {
-    border-color: #0f766e;
+    border-color: #667eea;
 }
 
 /* Table Header */
 .db-table-header {
-    padding: 14px 18px;
-    background: #f6f7fb;
+    padding: 15px 20px;
+    background: #f8f9fa;
     cursor: pointer;
     user-select: none;
     display: flex;
@@ -137,11 +136,11 @@
 }
 
 .db-table-header:hover {
-    background: #eef1f6;
+    background: #e9ecef;
 }
 
 .db-table-card.expanded .db-table-header {
-    background: #0f766e;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
 }
 
@@ -193,14 +192,14 @@ body.dark-mode .db-table-card.expanded .db-table-title strong.multichain-highlig
 }
 
 .export-table-btn:hover {
-    background: #0f766e;
+    background: #667eea;
     color: white;
-    border-color: #0f766e;
+    border-color: #667eea;
 }
 
 .db-table-card.expanded .export-table-btn {
     background: white;
-    color: #0f766e;
+    color: #667eea;
     border-color: white;
 }
 
@@ -220,9 +219,9 @@ body.dark-mode .db-table-card.expanded .db-table-title strong.multichain-highlig
     gap: 20px;
     flex-wrap: wrap;
     padding: 15px;
-    background: #f6f7fb;
-    border-radius: 8px;
-    border-left: 4px solid #0f766e;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border-left: 4px solid #667eea;
 }
 
 .summary-item {
@@ -241,13 +240,13 @@ body.dark-mode .db-table-card.expanded .db-table-title strong.multichain-highlig
 }
 
 .db-data-table thead {
-    background: #f6f7fb;
+    background: #f8f9fa;
 }
 
 .db-data-table thead th {
     font-weight: 600;
     color: #333;
-    border-bottom: 2px solid #0f766e;
+    border-bottom: 2px solid #667eea;
     padding: 12px 8px;
 }
 
@@ -367,10 +366,10 @@ body.dark-mode .db-table-card.expanded .db-table-title strong.multichain-highlig
 }
 
 .db-table-content::-webkit-scrollbar-thumb {
-    background: #0f766e;
+    background: #667eea;
     border-radius: 4px;
 }
 
 .db-table-content::-webkit-scrollbar-thumb:hover {
-    background: #0c5f59;
+    background: #764ba2;
 }

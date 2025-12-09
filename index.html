@@ -4,9 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MULTICHECKER-PLUS</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/uikit/3.6.22/css/uikit.min.css" />
     <script src="https://code.jquery.com/jquery-3.7.1.js" integrity="sha256-eKhayi8LEQwp4NKxN+CfCh+3qOVUtJn3QNZ0TciWLP4=" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/uikit/3.6.22/js/uikit.min.js"></script>
@@ -80,54 +77,61 @@
             <form id="FormScanner" class="uk-grid-small uk-flex-middle" uk-grid>
 
                 <!-- KOLOM KIRI: semua kontrol kecuali Search -->
-                <div class="uk-width-expand uk-flex uk-flex-middle uk-flex-wrap">
-                  <span class=" uk-text-bolder">SCANNER [ <input class="uk-checkbox" type="checkbox" id="toggleScanLog">
-                     Log ]: </span>
-                <label class="uk-margin-small-left">
+                <div class="uk-width-expand uk-flex uk-flex-middle uk-flex-wrap" style="gap: 8px;">
+
+                  <span class="uk-text-bolder scanner-label">
+                    SCANNER [ <input class="uk-checkbox" type="checkbox" id="toggleScanLog"> Log ]:
+                  </span>
+
+                  <label class="scanner-control">
                     <input class="uk-checkbox" type="checkbox" id="autoRunToggle">
                     <span class="uk-text-success">Auto Run</span>
-                </label>                 
-                <label class="uk-margin-small-left">
+                  </label>
+
+                  <label class="scanner-control">
                     <input class="uk-checkbox" type="checkbox" id="autoScrollCheckbox">
                     <span class="uk-text-warning">Auto Scroll</span>
-                    
+                  </label>
+
+                  <label class="scanner-control">
                     <input class="uk-checkbox vol-check" id="checkVOL" type="checkbox">
                     <span class="uk-text-danger">Vol Check</span>
-                </label>
+                  </label>
 
-                <label class="uk-margin-small-left">
+                  <label class="scanner-control">
                     <input class="uk-checkbox posisi-check" type="checkbox" value="Actionkiri" checked>
-                    <span  >KIRI</span>
-                </label>
-                <label>
-                    <input class="uk-checkbox posisi-check uk-margin-small-left" type="checkbox" value="ActionKanan" checked>
-                    <span >KANAN</span>
-                </label>
-                <label>
-                    <input class="uk-checkbox uk-margin-small-left" id="checkWalletCEX" type="checkbox">
+                    <span>KIRI</span>
+                  </label>
+
+                  <label class="scanner-control">
+                    <input class="uk-checkbox posisi-check" type="checkbox" value="ActionKanan" checked>
+                    <span>KANAN</span>
+                  </label>
+
+                  <label class="scanner-control">
+                    <input class="uk-checkbox" id="checkWalletCEX" type="checkbox">
                     <span class="uk-text-primary">Wallet CEX</span>
-                </label>
+                  </label>
 
-                <div class="uk-inline uk-margin-small-left">
+                  <div class="scanner-control-inline">
                     <span class="uk-text-danger uk-text-bolder">PNL</span>
-                    <input id="pnlFilterInput" class="uk-input uk-form-small" type="number" step="0.01" min="0" placeholder="PNL $" style="width:70px;">
-                </div>
+                    <input id="pnlFilterInput" class="uk-input uk-form-small" type="number" step="0.01" min="0" placeholder="0" style="width:80px;">
+                  </div>
 
-                <div class="uk-button-group uk-margin-small-left">
+                  <div class="uk-button-group">
                     <label class="uk-button uk-button-small uk-button-default toggle-radio sort-toggle active" data-sort="opt_A">
-                    <input class="uk-hidden" type="radio" name="toggle" value="opt_A" checked> A-Z
+                      <input class="uk-hidden" type="radio" name="toggle" value="opt_A" checked> A-Z
                     </label>
                     <label class="uk-button uk-button-small uk-button-default toggle-radio sort-toggle" data-sort="opt_Z">
-                    <input class="uk-hidden" type="radio" name="toggle" value="opt_Z"> Z-A
+                      <input class="uk-hidden" type="radio" name="toggle" value="opt_Z"> Z-A
                     </label>
-                </div>
- 
-                <div class="uk-button-group uk-margin-small-left">
-                    <button type="button" id="startSCAN" data-feature="scan" class="uk-button uk-button-secondary uk-button-small">START</button>&nbsp;&nbsp;
+                  </div>
+
+                  <div class="uk-button-group scanner-actions">
+                    <button type="button" id="startSCAN" data-feature="scan" class="uk-button uk-button-success uk-button-small">RUNNING</button>
                     <button type="button" id="stopSCAN" data-feature="scan" style="display:none;" class="uk-button uk-button-danger uk-button-small">STOP</button>
-                    
-                </div>
-                
+                  </div>
+
                 </div>
 
                 <!-- KOLOM KANAN: Search, rata kanan ≥ @m -->
