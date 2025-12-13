@@ -30,6 +30,7 @@
   let readyResolve;
   const ready = new Promise((res) => (readyResolve = res));
   const nativeKeysAtInit = [];
+  const pendingWrites = new Set(); // Track pending write operations
 
   function openDB() {
     return new Promise((resolve, reject) => {
@@ -71,8 +72,28 @@
   function idbSet(key, value) {
     if (!db) return;
     try {
-      tx(STORE_NAME, 'readwrite').put({ key, value });
-    } catch (_) {}
+      pendingWrites.add(key);
+      const req = tx(STORE_NAME, 'readwrite').put({ key, value });
+      req.onsuccess = function() {
+        pendingWrites.delete(key);
+        // console.log('[IDB] ✅ Saved:', key);
+      };
+      req.onerror = function(e) {
+        pendingWrites.delete(key);
+        console.error('[IDB] ❌ Failed to save key:', key, e.target.error);
+        // Fallback: keep in cache even if IDB write fails
+        if (!cache.has(key)) {
+          cache.set(key, String(value));
+        }
+      };
+    } catch (e) {
+      pendingWrites.delete(key);
+      console.error('[IDB] Exception during idbSet:', key, e);
+      // Fallback: keep in cache
+      if (!cache.has(key)) {
+        cache.set(key, String(value));
+      }
+    }
   }
 
   function idbRemove(key) {
@@ -94,18 +115,27 @@
       try {
         const store = tx(STORE_NAME, 'readonly');
         const req = store.openCursor();
+        let loadedCount = 0;
         req.onsuccess = (e) => {
           const cursor = e.target.result;
           if (cursor) {
             const { key, value } = cursor.value || {};
-            if (typeof key === 'string') cache.set(key, String(value));
+            if (typeof key === 'string') {
+              cache.set(key, String(value));
+              loadedCount++;
+            }
             cursor.continue();
           } else {
+            console.log('[IDB] Loaded', loadedCount, 'items from IndexedDB');
             resolve();
           }
         };
-        req.onerror = () => resolve();
-      } catch (_) {
+        req.onerror = (e) => {
+          console.error('[IDB] Failed to load from IndexedDB:', e.target.error);
+          resolve();
+        };
+      } catch (e) {
+        console.error('[IDB] Exception during idbLoadAll:', e);
         resolve();
       }
     });
@@ -180,6 +210,19 @@
     idbClear();
   };
 
+  // Warn user if they try to close/refresh while writes are pending
+  window.addEventListener('beforeunload', function(e) {
+    if (pendingWrites.size > 0) {
+      const msg = 'Data sedang disimpan ke database. Yakin ingin keluar?';
+      e.preventDefault();
+      e.returnValue = msg;
+      console.warn('[IDB] ⚠️ Pending writes:', Array.from(pendingWrites));
+      return msg;
+    }
+  });
+
   // Expose a readiness promise in case app code wants to await it
   window.__IDB_LOCALSTORAGE_READY__ = ready;
+  // Expose pending writes for debugging
+  window.__IDB_PENDING_WRITES__ = pendingWrites;
 })();

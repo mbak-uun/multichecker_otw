@@ -114,6 +114,27 @@
     const WEB3_CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
     const WEB3_PENDING_REQUESTS = new Map(); // Track pending requests untuk deduplication
 
+    /**
+     * Get default decimals by chain
+     * Solana tokens typically use 6 or 9 decimals (not 18 like EVM)
+     * @param {string} chainName - Chain name (e.g., 'solana', 'ethereum')
+     * @returns {number} Default decimals for the chain
+     */
+    function getDefaultDecimalsByChain(chainName) {
+        const chain = String(chainName || '').toLowerCase();
+        // Solana: Most tokens use 6 or 9, default to 9 (safer than 18)
+        // Common Solana decimals:
+        // - SOL: 9
+        // - USDC: 6
+        // - USDT: 6
+        // Using 9 as default is safer (less precision loss than 18)
+        if (chain === 'solana' || chain === 'sol') {
+            return 9;
+        }
+        // EVM chains: Default to 18 (standard for most ERC20 tokens)
+        return 18;
+    }
+
     // Load web3 cache from IndexedDB
     async function loadWeb3Cache() {
         try {
@@ -994,15 +1015,17 @@
                         sc: sc
                     };
                 } else {
-                    // Set default decimals 18 jika web3 tidak berhasil
-                    token.des_in = 18;
-                    token.decimals = 18;
-                    // console.warn(`⚠️ ${symbol}: Using default decimals (18) - Web3 returned no data`);
+                    // Set default decimals based on chain (9 for Solana, 18 for EVM)
+                    const defaultDecimals = getDefaultDecimalsByChain(chain);
+                    token.des_in = defaultDecimals;
+                    token.decimals = defaultDecimals;
+                    // console.warn(`⚠️ ${symbol}: Using default decimals (${defaultDecimals}) - Web3 returned no data`);
                 }
             } catch(e) {
-                // Set default decimals 18 jika error
-                token.des_in = 18;
-                token.decimals = 18;
+                // Set default decimals based on chain (9 for Solana, 18 for EVM)
+                const defaultDecimals = getDefaultDecimalsByChain(chain);
+                token.des_in = defaultDecimals;
+                token.decimals = defaultDecimals;
 
                 // Show toast error for Web3 fetch failure (with more details)
                 // Only show every 5th error to avoid spam
@@ -1228,8 +1251,8 @@
                             const symbolResult = results.find(r => r.id === 2)?.result;
                             const nameResult = results.find(r => r.id === 3)?.result;
 
-                            // Fetch decimals
-                            let decimals = 18; // default
+                            // Fetch decimals (use chain-specific default)
+                            let decimals = getDefaultDecimalsByChain(chainKey);
                             if (decimalsResult && decimalsResult !== '0x' && !results.find(r => r.id === 1)?.error) {
                                 decimals = parseInt(decimalsResult, 16);
                             }

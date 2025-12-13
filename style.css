@@ -5,7 +5,7 @@
 :root {
     --bs-primary: #2563eb;
     --bs-secondary: #64748b;
-    --bs-success: #10b981;
+    --bs-success: #165d06;
     --bs-danger: #ef4444;
     --bs-warning: #f59e0b;
     --bs-info: #06b6d4;
@@ -604,8 +604,8 @@ input[type="radio"],
     word-break: break-word;
 }
 
-.signal-item .uk-text-success { color: #198754 !important; }
-.signal-item .uk-text-danger { color: #dc3545 !important; }
+/* .signal-item .uk-text-success { color: #198754 !important; }
+.signal-item .uk-text-danger { color: #dc3545 !important; } */
 
 /* ==========================================================================
    Modals - Glassmorphism
@@ -1663,10 +1663,22 @@ body.dark-mode .db-table-title .uk-badge {
     color: white !important;
 }
 
+/* Rubic badge color */
+.bg-rubic {
+    background-color: #00e28d !important;
+    color: #1a1a1a !important;
+}
+
 /* Jupiter badge color (Solana DEX) */
 .bg-jupiter {
     background-color: #c7f284 !important;
     color: #1a1a1a !important;
+}
+
+/* Kamino badge color (Solana Multi-DEX Aggregator) */
+.bg-kamino {
+    background-color: #7c3aed !important;
+    color: white !important;
 }
 
 /* FlyTrade badge color */
