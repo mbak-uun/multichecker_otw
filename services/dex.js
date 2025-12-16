@@ -838,16 +838,20 @@
         throw new Error("No valid LIFI routes found");
       }
 
-      // Sort by amount_out (descending) dan ambil top 3
+      // Sort by amount_out (descending) dan ambil top N sesuai config
+      // ⚠️ LIMIT: LIFI hanya tampilkan 2 DEX (sesuai maxProviders di config.js)
+      const maxProviders = (typeof window !== 'undefined' && window.CONFIG_DEXS?.lifi?.maxProviders) || 2;
       subResults.sort((a, b) => b.amount_out - a.amount_out);
-      const top3 = subResults.slice(0, 3);
+      const topN = subResults.slice(0, maxProviders);
 
-      // Return format multi-DEX dengan top 3 routes
+      console.log(`[LIFI] Returning top ${maxProviders} routes from ${subResults.length} available routes`);
+
+      // Return format multi-DEX dengan top N routes
       return {
-        amount_out: top3[0].amount_out,
-        FeeSwap: top3[0].FeeSwap,
+        amount_out: topN[0].amount_out,
+        FeeSwap: topN[0].FeeSwap,
         dexTitle: 'LIFI',
-        subResults: top3,
+        subResults: topN,
         isMultiDex: true
       };
     }

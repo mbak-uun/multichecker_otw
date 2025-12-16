@@ -500,9 +500,13 @@
           }
 
           case 'LBANK': {
-              // LBank withdrawConfigs is a PUBLIC endpoint (no authentication required)
-              // Reference: CCXT library and LBank official API docs
-              const url = `https://api.lbkex.com/v2/withdrawConfigs.do`;
+              // ✅ LBANK API v2/assetConfigs.do provides BOTH deposit AND withdraw status
+              // This endpoint includes:
+              // - canDeposit: boolean (deposit status)
+              // - canDraw: boolean (withdrawal status)
+              // - Fee information, minimum amounts, and network details
+              // Reference: LBank API v2 documentation https://www.lbank.com/docs/index.html
+              const url = `https://api.lbkex.com/v2/assetConfigs.do`;
 
               const res = await $.ajax({ url, method: 'GET' });
               const data = (res && res.data) || [];
@@ -510,22 +514,25 @@
 
               data.forEach(item => {
                   const coin = item?.assetCode || '';
-                  const chain = item?.chainName || String(item?.chain || '');
+                  const chain = item?.chain || String(item?.chainName || '');
 
-                  // Parse canWithDraw - can be boolean or string "true"/"false"
-                  const canWithdraw = (item?.canWithDraw === true) ||
-                                     (item?.canWithDraw === 'true') ||
-                                     (String(item?.canWithDraw).toLowerCase() === 'true');
+                  // Parse canDraw (withdraw) - can be boolean or string "true"/"false"
+                  const canWithdraw = (item?.canDraw === true) ||
+                                     (item?.canDraw === 'true') ||
+                                     (String(item?.canDraw).toLowerCase() === 'true');
 
-                  // Parse fee - can be number or string
-                  const fee = parseFloat(item?.fee || 0);
+                  // Parse canDeposit - can be boolean or string "true"/"false"
+                  const canDeposit = (item?.canDeposit === true) ||
+                                    (item?.canDeposit === 'true') ||
+                                    (String(item?.canDeposit).toLowerCase() === 'true');
+
+                  // Parse withdrawal fee - can be number or string
+                  const fee = parseFloat(item?.drawFee || item?.fee || 0);
 
                   if (!coin) return; // Skip if no coin code
 
-                  // Note: LBank withdrawConfigs endpoint does NOT provide canDeposit field
-                  // We assume deposit is enabled if coin is listed and withdraw is enabled
-                  // This matches behavior of other exchanges (MEXC, KUCOIN, BITGET)
-                  const depositEnable = canWithdraw; // Conservative: same as withdraw status
+                  // ✅ FIXED: Now we have BOTH deposit and withdraw status from assetConfigs endpoint
+                  const depositEnable = canDeposit;
 
                   // ===== CONTRACT ADDRESS ENRICHMENT =====
                   // LBank API doesn't provide contract address, so we need enrichment
@@ -550,7 +557,7 @@
                   });
               });
 
-              console.log(`[LBANK] Fetched ${arr.length} coins from withdrawConfigs endpoint (contract addresses need enrichment)`);
+              console.log(`[LBANK] ✅ Fetched ${arr.length} coins from assetConfigs endpoint (includes deposit & withdraw status)`);
               return arr;
           }
 
@@ -828,6 +835,227 @@
       } catch(_) {}
   }
 
+  /**
+   * Fetch ALL ticker prices from CEX in a single request (EFFICIENT!)
+   * Returns: { symbol: price, ... } mapping
+   *
+   * This is MUCH faster than fetching orderbook per-coin:
+   * - 1 request vs hundreds of requests
+   * - No rate limit issues
+   * - Better UX (fast loading)
+   *
+   * Supported CEX:
+   * - BYBIT: /v5/market/tickers?category=spot
+   * - GATE: /api/v4/spot/tickers
+   * - BINANCE: /api/v3/ticker/price
+   * - MEXC: /api/v3/ticker/price
+   * - KUCOIN: /api/v1/market/allTickers
+   * - BITGET: /api/v2/spot/market/tickers
+   * - INDODAX: /api/ticker_all
+   *
+   * @param {string} cex - CEX name (e.g., 'BYBIT', 'GATE', 'BINANCE')
+   * @returns {Promise<Object>} - { 'BTC': 45000.12, 'ETH': 3000.45, ... }
+   */
+  async function fetchAllCEXPrices(cex) {
+      const cexUpper = String(cex || '').toUpperCase();
+      console.log(`[fetchAllCEXPrices] Fetching ALL prices from ${cexUpper}...`);
+
+      try {
+          let url, parseResponse;
+
+          switch (cexUpper) {
+              case 'BYBIT':
+                  // Bybit V5 API - Get all spot tickers
+                  url = 'https://api.bybit.com/v5/market/tickers?category=spot';
+                  parseResponse = (data) => {
+                      const tickers = data?.result?.list || [];
+                      const priceMap = {};
+                      tickers.forEach(ticker => {
+                          const symbol = String(ticker.symbol || '').toUpperCase();
+                          // Only USDT pairs
+                          if (symbol.endsWith('USDT')) {
+                              const base = symbol.replace('USDT', '');
+                              const price = parseFloat(ticker.lastPrice || 0);
+                              if (price > 0) {
+                                  priceMap[base] = price;
+                              }
+                          }
+                      });
+                      return priceMap;
+                  };
+                  break;
+
+              case 'GATE':
+              case 'GATEIO':
+                  // Gate.io V4 API - Get all spot tickers
+                  url = 'https://api.gateio.ws/api/v4/spot/tickers';
+                  parseResponse = (data) => {
+                      const tickers = Array.isArray(data) ? data : [];
+                      const priceMap = {};
+                      tickers.forEach(ticker => {
+                          const pair = String(ticker.currency_pair || '').toUpperCase();
+                          // Format: BTC_USDT
+                          if (pair.endsWith('_USDT')) {
+                              const base = pair.replace('_USDT', '');
+                              const price = parseFloat(ticker.last || 0);
+                              if (price > 0) {
+                                  priceMap[base] = price;
+                              }
+                          }
+                      });
+                      return priceMap;
+                  };
+                  break;
+
+              case 'BINANCE':
+                  // Binance API - Get all ticker prices
+                  url = 'https://api.binance.com/api/v3/ticker/price';
+                  parseResponse = (data) => {
+                      const tickers = Array.isArray(data) ? data : [];
+                      const priceMap = {};
+                      tickers.forEach(ticker => {
+                          const symbol = String(ticker.symbol || '').toUpperCase();
+                          // Only USDT pairs
+                          if (symbol.endsWith('USDT')) {
+                              const base = symbol.replace('USDT', '');
+                              const price = parseFloat(ticker.price || 0);
+                              if (price > 0) {
+                                  priceMap[base] = price;
+                              }
+                          }
+                      });
+                      return priceMap;
+                  };
+                  break;
+
+              case 'MEXC':
+                  // MEXC API - Get all ticker prices (Binance-compatible)
+                  url = 'https://api.mexc.com/api/v3/ticker/price';
+                  parseResponse = (data) => {
+                      const tickers = Array.isArray(data) ? data : [];
+                      const priceMap = {};
+                      tickers.forEach(ticker => {
+                          const symbol = String(ticker.symbol || '').toUpperCase();
+                          // Only USDT pairs
+                          if (symbol.endsWith('USDT')) {
+                              const base = symbol.replace('USDT', '');
+                              const price = parseFloat(ticker.price || 0);
+                              if (price > 0) {
+                                  priceMap[base] = price;
+                              }
+                          }
+                      });
+                      return priceMap;
+                  };
+                  break;
+
+              case 'KUCOIN':
+                  // KuCoin API - Get all tickers
+                  url = 'https://api.kucoin.com/api/v1/market/allTickers';
+                  parseResponse = (data) => {
+                      const tickers = data?.data?.ticker || [];
+                      const priceMap = {};
+                      tickers.forEach(ticker => {
+                          const symbol = String(ticker.symbol || '').toUpperCase();
+                          // Format: BTC-USDT
+                          if (symbol.endsWith('-USDT')) {
+                              const base = symbol.replace('-USDT', '');
+                              const price = parseFloat(ticker.last || 0);
+                              if (price > 0) {
+                                  priceMap[base] = price;
+                              }
+                          }
+                      });
+                      return priceMap;
+                  };
+                  break;
+
+              case 'BITGET':
+                  // Bitget V2 API - Get all spot tickers
+                  url = 'https://api.bitget.com/api/v2/spot/market/tickers';
+                  parseResponse = (data) => {
+                      const tickers = data?.data || [];
+                      const priceMap = {};
+                      tickers.forEach(ticker => {
+                          const symbol = String(ticker.symbol || '').toUpperCase();
+                          // Only USDT pairs
+                          if (symbol.endsWith('USDT')) {
+                              const base = symbol.replace('USDT', '');
+                              const price = parseFloat(ticker.lastPr || 0);
+                              if (price > 0) {
+                                  priceMap[base] = price;
+                              }
+                          }
+                      });
+                      return priceMap;
+                  };
+                  break;
+
+              case 'INDODAX':
+                  // Indodax API - Get all tickers (IDR pairs)
+                  url = 'https://indodax.com/api/ticker_all';
+                  parseResponse = (data) => {
+                      const tickers = data?.tickers || {};
+                      const priceMap = {};
+                      Object.keys(tickers).forEach(key => {
+                          const ticker = tickers[key];
+                          const pair = String(key || '').toUpperCase();
+                          // Format: btcidr
+                          if (pair.endsWith('IDR')) {
+                              const base = pair.replace('IDR', '');
+                              const price = parseFloat(ticker?.last || 0);
+                              if (price > 0) {
+                                  // Convert IDR to USD (approximate: 1 USD = 15000 IDR)
+                                  priceMap[base] = price / 15000;
+                              }
+                          }
+                      });
+                      return priceMap;
+                  };
+                  break;
+
+              case 'LBANK':
+                  // LBank API - Get all tickers
+                  url = 'https://api.lbkex.com/v2/ticker/24hr.do';
+                  parseResponse = (data) => {
+                      const tickers = data?.data || [];
+                      const priceMap = {};
+                      tickers.forEach(ticker => {
+                          const symbol = String(ticker.symbol || '').toUpperCase();
+                          // Format: btc_usdt
+                          if (symbol.endsWith('_USDT')) {
+                              const base = symbol.replace('_USDT', '');
+                              const price = parseFloat(ticker.ticker?.latest || 0);
+                              if (price > 0) {
+                                  priceMap[base] = price;
+                              }
+                          }
+                      });
+                      return priceMap;
+                  };
+                  break;
+
+              default:
+                  throw new Error(`CEX ${cexUpper} not supported for bulk price fetch`);
+          }
+
+          // Fetch data with jQuery Ajax
+          const data = await $.ajax({ url, method: 'GET', timeout: 10000 });
+
+          // Parse response
+          const priceMap = parseResponse(data);
+          const count = Object.keys(priceMap).length;
+
+          console.log(`[fetchAllCEXPrices] ✅ ${cexUpper}: Fetched ${count} prices`);
+
+          return priceMap;
+
+      } catch (error) {
+          console.error(`[fetchAllCEXPrices] ❌ ${cexUpper} failed:`, error.message || error);
+          throw error;
+      }
+  }
+
   // Register to App namespace
   if (typeof App.register === 'function') {
     App.register('Services', { CEX: {
@@ -837,7 +1065,8 @@
       getPriceCEX,
       fetchWalletStatus,
       applyWalletStatusToTokenList,
-      checkAllCEXWallets
+      checkAllCEXWallets,
+      fetchAllCEXPrices
     }});
   }
 })(typeof window !== 'undefined' ? window : this);

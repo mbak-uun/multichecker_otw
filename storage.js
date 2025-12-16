@@ -865,6 +865,9 @@
                 } else {
                     alert(`Format file CSV tidak valid: ${error.message}`);
                 }
+            } finally {
+                // Reset file input to allow re-selecting the same file
+                try { event.target.value = ''; } catch(_) {}
             }
         };
         reader.readAsText(file);

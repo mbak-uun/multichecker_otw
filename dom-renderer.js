@@ -925,7 +925,7 @@ function DisplayPNL(data) {
   const upper = s => String(s || '').toUpperCase();
 
   // ============================================================
-  // MULTI-DEX RENDERING (DZAP, LIFI) - tampilan 3 provider dengan format lengkap seperti KYBER
+  // MULTI-DEX RENDERING (DZAP, LIFI) - tampilan provider dengan format lengkap seperti KYBER
   // ============================================================
   if (isMultiDex && Array.isArray(subResults) && subResults.length > 0) {
     try {
@@ -934,6 +934,10 @@ function DisplayPNL(data) {
       const dexConfig = (typeof window !== 'undefined' && window.CONFIG_DEXS) ? window.CONFIG_DEXS[dexKey] : null;
       const dexColor = dexConfig?.warna || '#ff6b35';
       const dexLabel = dexConfig?.label || String(dextype).toUpperCase();
+
+      // ⚠️ READ maxProviders from config (default: 3, LIFI: 2)
+      const maxProviders = dexConfig?.maxProviders || 3;
+      console.log(`[Multi-DEX Render] ${dexLabel}: Display max ${maxProviders} providers`);
 
       // Base calculation values
       const baseModal = n(Modal);
@@ -959,13 +963,14 @@ function DisplayPNL(data) {
         : (cexUrls?.tradePair || cexUrls?.tradeUrl || '#');
       const dexLink = linkDEX || '#';
 
-      // Build 3 sub-columns HTML dengan format SAMA seperti single-DEX (KYBER style)
+      // Build sub-columns HTML dengan format SAMA seperti single-DEX (KYBER style)
+      // Limit jumlah provider sesuai maxProviders dari config
       // Ambil amount_in dari data (Modal / buyTokenCEX untuk tokentopair)
       const amtIn = direction === 'tokentopair'
         ? (buyTokenCEX > 0 ? baseModal / buyTokenCEX : 0)  // Jumlah token yang dibeli
         : baseModal;  // Jumlah pair yang digunakan
 
-      const subColsHtml = subResults.slice(0, 3).map((subRes, idx) => {
+      const subColsHtml = subResults.slice(0, maxProviders).map((subRes, idx) => {
         const amtOut = n(subRes.amount_out || subRes.amountOut);
         const feeSwap = n(subRes.FeeSwap || subRes.fee);
 
@@ -1012,7 +1017,8 @@ function DisplayPNL(data) {
         const pnlColor = subPnl >= 0 ? '#28a745' : '#dc3545';
         const providerName = String(subRes.dexTitle || subRes.dexName || subRes.provider || subRes.dexId || '').toUpperCase();
         const displayName = providerName.length > 10 ? providerName.substring(0, 10) : providerName;
-        const borderRight = idx < 2 ? 'border-right: 1px solid #dee2e6;' : '';
+        // ⚠️ Dynamic border: hanya tampilkan border jika bukan kolom terakhir
+        const borderRight = idx < (maxProviders - 1) ? 'border-right: 1px solid #dee2e6;' : '';
 
         // Tooltips (format sama seperti single-DEX)
         const tipBuy = direction === 'tokentopair'
@@ -1043,11 +1049,11 @@ function DisplayPNL(data) {
         `;
       }).join('');
 
-      // Build cell HTML dengan 3 sub-kolom format lengkap
+      // Build cell HTML dengan sub-kolom format lengkap (maxProviders: LIFI=2, DZAP=3)
       const cellHtml = `
         <div style="text-align: center; line-height: 1.2;">
           <div style="font-size: 1.05em; font-weight: bold; color: ${dexColor}; border-bottom: 2px solid ${dexColor}; padding-bottom: 2px; margin-bottom: 3px;">
-            ${dexLabel} [$${baseModal.toFixed(0)}]
+            ${dexLabel} [$${baseModal.toFixed(0)}] (Top ${maxProviders})
           </div>
           <div style="display: flex; justify-content: space-between; gap: 1px;">
             ${subColsHtml}

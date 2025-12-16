@@ -31,6 +31,7 @@
   const ready = new Promise((res) => (readyResolve = res));
   const nativeKeysAtInit = [];
   const pendingWrites = new Set(); // Track pending write operations
+  const pendingPromises = new Map(); // Track pending write promises
 
   function openDB() {
     return new Promise((resolve, reject) => {
@@ -70,30 +71,42 @@
   }
 
   function idbSet(key, value) {
-    if (!db) return;
-    try {
-      pendingWrites.add(key);
-      const req = tx(STORE_NAME, 'readwrite').put({ key, value });
-      req.onsuccess = function() {
+    if (!db) return Promise.resolve();
+
+    const promise = new Promise((resolve, reject) => {
+      try {
+        pendingWrites.add(key);
+        const req = tx(STORE_NAME, 'readwrite').put({ key, value });
+        req.onsuccess = function() {
+          pendingWrites.delete(key);
+          pendingPromises.delete(key);
+          // console.log('[IDB] ✅ Saved:', key);
+          resolve();
+        };
+        req.onerror = function(e) {
+          pendingWrites.delete(key);
+          pendingPromises.delete(key);
+          console.error('[IDB] ❌ Failed to save key:', key, e.target.error);
+          // Fallback: keep in cache even if IDB write fails
+          if (!cache.has(key)) {
+            cache.set(key, String(value));
+          }
+          reject(e.target.error);
+        };
+      } catch (e) {
         pendingWrites.delete(key);
-        // console.log('[IDB] ✅ Saved:', key);
-      };
-      req.onerror = function(e) {
-        pendingWrites.delete(key);
-        console.error('[IDB] ❌ Failed to save key:', key, e.target.error);
-        // Fallback: keep in cache even if IDB write fails
+        pendingPromises.delete(key);
+        console.error('[IDB] Exception during idbSet:', key, e);
+        // Fallback: keep in cache
         if (!cache.has(key)) {
           cache.set(key, String(value));
         }
-      };
-    } catch (e) {
-      pendingWrites.delete(key);
-      console.error('[IDB] Exception during idbSet:', key, e);
-      // Fallback: keep in cache
-      if (!cache.has(key)) {
-        cache.set(key, String(value));
+        reject(e);
       }
-    }
+    });
+
+    pendingPromises.set(key, promise);
+    return promise;
   }
 
   function idbRemove(key) {
@@ -210,6 +223,25 @@
     idbClear();
   };
 
+  // Flush all pending writes to IndexedDB
+  async function flushPendingWrites() {
+    if (pendingPromises.size === 0) {
+      console.log('[IDB] ✅ No pending writes to flush');
+      return Promise.resolve();
+    }
+
+    console.log(`[IDB] 🔄 Flushing ${pendingPromises.size} pending writes...`);
+    const promises = Array.from(pendingPromises.values());
+
+    try {
+      await Promise.all(promises);
+      console.log('[IDB] ✅ All pending writes flushed successfully');
+    } catch (e) {
+      console.error('[IDB] ❌ Some writes failed during flush:', e);
+      throw e;
+    }
+  }
+
   // Warn user if they try to close/refresh while writes are pending
   window.addEventListener('beforeunload', function(e) {
     if (pendingWrites.size > 0) {
@@ -225,4 +257,6 @@
   window.__IDB_LOCALSTORAGE_READY__ = ready;
   // Expose pending writes for debugging
   window.__IDB_PENDING_WRITES__ = pendingWrites;
+  // Expose flush function for explicit save operations
+  window.__IDB_FLUSH_PENDING__ = flushPendingWrites;
 })();

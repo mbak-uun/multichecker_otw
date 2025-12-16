@@ -397,6 +397,13 @@ async function checkAllCEXWallets() {
   }
 }
 
+async function fetchAllCEXPrices(cex) {
+  if (window.App && window.App.Services && window.App.Services.CEX && typeof window.App.Services.CEX.fetchAllCEXPrices === 'function') {
+    return window.App.Services.CEX.fetchAllCEXPrices(cex);
+  }
+  return Promise.reject(new Error('fetchAllCEXPrices not available'));
+}
+
 // =================================================================================
 // DEX Shims (final override to delegate to services)
 // =================================================================================

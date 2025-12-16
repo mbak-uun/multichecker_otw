@@ -1812,14 +1812,13 @@ $("#startSCAN").click(function () {
     });
 
     // Token Management Form Handlers
-    // Export/Import (delegated)
+    // Export handler (delegated)
     $(document).on('click', '#btnExportTokens', function(){
         try { downloadTokenScannerCSV(); } catch(e) { console.error(e); }
     });
-    $(document).on('click', '#btnImportTokens', function(){
-        const $inp = $('#uploadJSON');
-        if ($inp.length) $inp.trigger('click');
-    });
+    // ❌ REMOVED DUPLICATE HANDLER (main.js:1819-1822)
+    // Import handler is registered in core/handlers/token-handlers.js:177-180
+    // Removed to fix double-click issue when uploading CSV file
     $(document).on('submit', '#multiTokenForm', function (e) {
         e.preventDefault();
         const id = $('#multiTokenIndex').val();
@@ -3339,12 +3338,130 @@ async function loadSyncTokensFromSnapshot(chainKey, silent = false) {
         updateSyncSelectedCount();
     });
 
-    // Handler untuk Price Filter radio button change - Re-render table
-    $(document).on('change', 'input[name="sync-price-filter"]', function() {
+    // Handler untuk Price Filter radio button change - Fetch harga jika "Berharga"
+    $(document).on('change', 'input[name="sync-price-filter"]', async function() {
         if (!activeSingleChainKey) return;
 
         const filterValue = $(this).val();
         console.log('[Price Filter] Changed to:', filterValue);
+
+        // ✅ OPTIMIZED: Fetch harga dari CEX menggunakan BULK ticker API (1 request, bukan per-koin!)
+        if (filterValue === 'with-price') {
+            const $modal = $('#sync-modal');
+            const selectedCexs = $('#sync-filter-cex input:checked').map(function() {
+                return $(this).val().toUpperCase();
+            }).get();
+
+            if (selectedCexs.length === 0) {
+                if (typeof toast !== 'undefined' && toast.warning) {
+                    toast.warning('Pilih minimal 1 CEX untuk melihat koin dengan harga');
+                }
+                // Reset ke "Semua"
+                $('input[name="sync-price-filter"][value="all"]').prop('checked', true);
+                return;
+            }
+
+            // Show loading indicator
+            const overlayId = window.AppOverlay ? window.AppOverlay.show({
+                id: 'sync-fetch-prices',
+                title: 'Mengambil Harga dari CEX',
+                message: 'Mohon tunggu, sedang fetch harga dari exchanger...',
+                spinner: true,
+                freezeScreen: false
+            }) : null;
+
+            try {
+                // Get raw data
+                const raw = $modal.data('remote-raw') || [];
+
+                if (raw.length === 0) {
+                    if (typeof toast !== 'undefined' && toast.warning) {
+                        toast.warning('Tidak ada data koin. Klik "SNAPSHOT [UPDATE KOIN]" terlebih dahulu.');
+                    }
+                    $('input[name="sync-price-filter"][value="all"]').prop('checked', true);
+                    if (overlayId && window.AppOverlay) window.AppOverlay.hide(overlayId);
+                    return;
+                }
+
+                console.log(`[Price Filter] Fetching ALL prices from ${selectedCexs.length} CEX(s):`, selectedCexs);
+
+                // ========== BULK FETCH: Get ALL prices from each CEX in 1 request ==========
+                // This is MUCH faster than fetching orderbook per-coin (1 request vs hundreds!)
+                let totalUpdated = 0;
+                let totalFetched = 0;
+
+                for (const cex of selectedCexs) {
+                    try {
+                        // Update progress message
+                        if (overlayId && window.AppOverlay) {
+                            window.AppOverlay.updateMessage(overlayId, `Fetching prices from ${cex}...`);
+                        }
+
+                        // Fetch ALL prices from CEX in 1 request using ticker API
+                        if (window.App && window.App.Services && window.App.Services.CEX && typeof window.App.Services.CEX.fetchAllCEXPrices === 'function') {
+                            const priceMap = await window.App.Services.CEX.fetchAllCEXPrices(cex);
+                            const fetchedCount = Object.keys(priceMap).length;
+                            totalFetched += fetchedCount;
+
+                            console.log(`[Price Filter] ✅ ${cex}: Fetched ${fetchedCount} prices via ticker API`);
+
+                            // Update current_price untuk token yang match
+                            let updatedForThisCex = 0;
+                            raw.forEach(token => {
+                                const tokenCex = String(token.cex || '').toUpperCase();
+                                if (tokenCex !== cex) return; // Skip token dari CEX lain
+
+                                const symbol = String(token.symbol_in || token.symbol || '').toUpperCase();
+                                if (!symbol) return;
+
+                                // Check if price exists in priceMap
+                                if (priceMap[symbol] !== undefined) {
+                                    const price = priceMap[symbol];
+                                    if (price > 0) {
+                                        token.current_price = price;
+                                        updatedForThisCex++;
+                                        totalUpdated++;
+                                    }
+                                }
+                            });
+
+                            console.log(`[Price Filter] 📝 ${cex}: Updated ${updatedForThisCex} tokens with prices`);
+                        }
+                    } catch (error) {
+                        console.error(`[Price Filter] ❌ ${cex} failed:`, error.message || error);
+                        if (typeof toast !== 'undefined' && toast.warning) {
+                            toast.warning(`Gagal fetch harga dari ${cex}: ${error.message}`);
+                        }
+                    }
+                }
+
+                console.log(`[Price Filter] ✅ SUMMARY: Fetched ${totalFetched} total prices, updated ${totalUpdated} tokens`);
+
+                if (totalUpdated === 0) {
+                    if (typeof toast !== 'undefined' && toast.warning) {
+                        toast.warning('Tidak ada koin dengan harga ditemukan. Coba exchanger lain.');
+                    }
+                } else {
+                    if (typeof toast !== 'undefined' && toast.success) {
+                        toast.success(`✅ ${totalUpdated} koin berhasil mendapatkan harga dari ${selectedCexs.join(', ')}`);
+                    }
+                }
+
+                // Update data di modal
+                $modal.data('remote-raw', raw);
+
+            } catch (error) {
+                console.error('[Price Filter] Error fetching prices:', error);
+                if (typeof toast !== 'undefined' && toast.error) {
+                    toast.error('Gagal mengambil harga dari CEX');
+                }
+            } finally {
+                // Hide loading indicator
+                if (overlayId && window.AppOverlay) {
+                    window.AppOverlay.hide(overlayId);
+                }
+            }
+        }
 
         // Re-render table with price filter
         renderSyncTable(activeSingleChainKey);
@@ -5261,47 +5378,9 @@ $(document).on('click', '#histClearAll', async function(){
             try { setLastAction('BACKUP DATABASE', 'error', { error: String(e && e.message || e) }); } catch(_) {}
         }
     });
-    $(document).on('click', '#btnRestoreDb', function(){ $('#restoreFileInput').trigger('click'); });
-    $(document).on('change', '#restoreFileInput', function(ev){
-        const file = ev.target.files && ev.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = async function(e){
-            try{
-                const text = String(e.target.result||'').trim();
-                const json = JSON.parse(text);
-                // Validasi dasar payload backup
-                if (!json || typeof json !== 'object' || json.schema !== 'kv-v1' || !Array.isArray(json.items)) {
-                    if (typeof toast !== 'undefined' && toast.error) toast.error('File backup tidak valid atau schema tidak dikenali.');
-                    return;
-                }
-                // Info jika DB/Store berbeda (tetap lanjut restore)
-                try {
-                    if (json.db && String(json.db) !== String(PRIMARY_DB_NAME)) {
-                        if (typeof toast !== 'undefined' && toast.warning) toast.warning(`Nama database berbeda: ${json.db}`);
-                    }
-                    if (json.store && String(json.store) !== String(PRIMARY_KV_STORE)) {
-                        if (typeof toast !== 'undefined' && toast.warning) toast.warning(`Nama store berbeda: ${json.store}`);
-                    }
-                } catch(_) {}
-                const res = await (window.restoreIDB ? window.restoreIDB(json) : Promise.resolve({ ok:0, fail:0 }));
-                try { setLastAction('RESTORE DATABASE'); } catch(_) {}
-                const msg = `Restore selesai. OK: ${res.ok}, Fail: ${res.fail}`;
-                try { if (typeof toast !== 'undefined' && toast.success) toast.success(`✅ ${msg}`); } catch(_) {}
-                try { $('#backupSummary').text(`Restore OK: ${res.ok}, Fail: ${res.fail}`); } catch(_) {}
-                // Tampilkan alert sukses dan reload halaman agar data hasil restore terpakai penuh
-                try { alert(`✅ ${msg}\nHalaman akan di-reload untuk menerapkan perubahan.`); } catch(_) {}
-                try { location.reload(); } catch(_) {}
-            } catch(err){
-                // console.error('Restore parse error:', err);
-                if (typeof toast !== 'undefined' && toast.error) toast.error('File tidak valid. Pastikan format JSON benar.');
-                try { setLastAction('RESTORE DATABASE', 'error', { error: String(err && err.message || err) }); } catch(_) {}
-            } finally {
-                try { ev.target.value = ''; } catch(_) {}
-            }
-        };
-        reader.readAsText(file);
-    });
+    // ❌ REMOVED DUPLICATE HANDLERS (main.js:5264-5304)
+    // Backup/Restore handlers are registered in core/handlers/ui-handlers.js:150-239
+    // Removed to fix double-click issue when uploading restore file
 
 // =================================================================================
 // BULK MODAL EDITOR - Edit modal DEX untuk semua token sekaligus (Single Chain Only)
@@ -5667,6 +5746,21 @@ $(document).on('click', '#histClearAll', async function(){
         const newIndex = existingIndex >= 0 ? existingIndex : profiles.length - 1;
         saveLastProfileIndex(chainKey, newIndex);
 
+        // 🔒 CRITICAL: Flush pending writes to ensure data is persisted to IndexedDB
+        console.log('[Bulk Modal] 🔄 Flushing pending writes to IndexedDB...');
+        try {
+            if (window.__IDB_FLUSH_PENDING__) {
+                await window.__IDB_FLUSH_PENDING__();
+                console.log('[Bulk Modal] ✅ All data successfully persisted to IndexedDB');
+            }
+        } catch (e) {
+            console.error('[Bulk Modal] ❌ Failed to flush pending writes:', e);
+            if (typeof toast !== 'undefined' && toast.error) {
+                toast.error('Gagal menyimpan profil ke database permanen');
+            }
+            return;
+        }
+
         await populateProfileSelect();
 
         // Force verification after save
@@ -5705,6 +5799,17 @@ $(document).on('click', '#histClearAll', async function(){
 
         // 🚀 Clear last profile index since we deleted it
         saveLastProfileIndex(chainKey, -1);
+
+        // 🔒 Flush pending writes to ensure deletion is persisted
+        console.log('[Bulk Modal] 🔄 Flushing delete operation to IndexedDB...');
+        try {
+            if (window.__IDB_FLUSH_PENDING__) {
+                await window.__IDB_FLUSH_PENDING__();
+                console.log('[Bulk Modal] ✅ Profile deletion persisted to IndexedDB');
+            }
+        } catch (e) {
+            console.error('[Bulk Modal] ❌ Failed to flush delete operation:', e);
+        }
 
         await populateProfileSelect();
         $('#profile-select').val('');
@@ -5831,6 +5936,17 @@ $(document).on('click', '#histClearAll', async function(){
 
             // Save updated tokens
             setTokensChain(chainKey, allTokens);
+
+            // 🔒 Flush pending writes before closing modal
+            console.log('[Bulk Modal] 🔄 Flushing changes to IndexedDB before closing modal...');
+            try {
+                if (window.__IDB_FLUSH_PENDING__) {
+                    await window.__IDB_FLUSH_PENDING__();
+                    console.log('[Bulk Modal] ✅ All changes persisted to IndexedDB');
+                }
+            } catch (e) {
+                console.error('[Bulk Modal] ❌ Failed to flush changes:', e);
+            }
 
             // Close modal
             UIkit.modal('#bulk-modal-editor').hide();
