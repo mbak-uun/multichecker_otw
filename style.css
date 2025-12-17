@@ -1657,6 +1657,12 @@ body.dark-mode .db-table-title .uk-badge {
     color: white !important;
 }
 
+/* Rango badge color */
+.bg-rango {
+    background-color: #00d4ff !important;
+    color: white !important;
+}
+
 /* 1inch badge color */
 .bg-1inch {
     background-color: #06109b !important;

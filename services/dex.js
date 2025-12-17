@@ -858,6 +858,261 @@
   };
 
   // =============================
+  // RANGO Strategy - Multi-Chain DEX Aggregator (Top 3 Routes)
+  // =============================
+  dexStrategies.rango = {
+    useProxy: true, // ✅ Enable CORS proxy to avoid CORS errors
+    buildRequest: ({ chainName, sc_input_in, sc_output_in, amount_in_big, des_input, symbol_in, symbol_out, SavedSettingData }) => {
+      // Rango API - Multi-chain aggregator dengan 70+ DEXs & bridges
+      // Reference: https://docs.rango.exchange/api-integration/main-api-multi-step/api-reference/get-best-route
+
+      // Map chain names to Rango blockchain identifiers
+      const rangoChainMap = {
+        'ethereum': 'ETH',
+        'bsc': 'BSC',
+        'polygon': 'POLYGON',
+        'avalanche': 'AVAX_CCHAIN',
+        'arbitrum': 'ARBITRUM',
+        'optimism': 'OPTIMISM',
+        'base': 'BASE',
+        'solana': 'SOLANA',
+        'fantom': 'FANTOM',
+        'moonbeam': 'MOONBEAM',
+        'moonriver': 'MOONRIVER',
+        'gnosis': 'GNOSIS',
+        'celo': 'CELO',
+        'harmony': 'HARMONY'
+      };
+
+      const rangoChain = rangoChainMap[String(chainName || '').toLowerCase()] || 'ETH';
+
+      // Validate chain is supported
+      if (!rangoChain || rangoChain === 'UNDEFINED') {
+        throw new Error(`Unsupported chain for Rango: ${chainName}`);
+      }
+
+      // Convert amount from wei/lamports to token units with decimals
+      // IMPORTANT: Rango expects amount as string in token units (same as Rubic/LIFI)
+      let amountInTokens;
+      try {
+        const amountNum = parseFloat(amount_in_big) / Math.pow(10, des_input);
+
+        // Validate numeric value
+        if (!Number.isFinite(amountNum) || amountNum <= 0) {
+          throw new Error(`Invalid numeric amount: ${amountNum}`);
+        }
+
+        // Format to avoid scientific notation and excessive decimals
+        const precision = Math.min(des_input, 18); // Max 18 decimal places
+        amountInTokens = amountNum.toFixed(precision).replace(/\.?0+$/, '');
+
+        // Ensure we have at least some value
+        if (parseFloat(amountInTokens) <= 0) {
+          throw new Error(`Amount too small: ${amountInTokens}`);
+        }
+      } catch (e) {
+        throw new Error(`Amount conversion failed: ${e.message} (input: ${amount_in_big}, decimals: ${des_input})`);
+      }
+
+      // ✅ NATIVE TOKEN DETECTION: Use address:null for native tokens (BNB, ETH, SOL, etc)
+      // Native tokens identified by special addresses
+      const nativeAddresses = [
+        '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', // Common native token placeholder
+        '0x0000000000000000000000000000000000000000', // Zero address
+        '0x', // Empty address
+        ''    // Empty string
+      ];
+
+      const isSolana = rangoChain === 'SOLANA';
+      let srcToken = isSolana ? sc_input_in : String(sc_input_in).toLowerCase().trim();
+      let dstToken = isSolana ? sc_output_in : String(sc_output_in).toLowerCase().trim();
+
+      // Check if source token is native
+      if (nativeAddresses.includes(srcToken.toLowerCase())) {
+        srcToken = null; // ✅ Rango uses null for native tokens
+      }
+
+      // Check if destination token is native
+      if (nativeAddresses.includes(dstToken.toLowerCase())) {
+        dstToken = null; // ✅ Rango uses null for native tokens
+      }
+
+      // Get symbols (fallback to empty if not provided)
+      const srcSymbol = String(symbol_in || '').toUpperCase();
+      const dstSymbol = String(symbol_out || '').toUpperCase();
+
+      // ✅ Build request body following Rango App format
+      const requestBody = {
+        amount: amountInTokens,
+        from: {
+          address: srcToken,
+          blockchain: rangoChain,
+          symbol: srcSymbol
+        },
+        to: {
+          address: dstToken,
+          blockchain: rangoChain,
+          symbol: dstSymbol
+        },
+        connectedWallets: [],
+        selectedWallets: {},
+        slippage: "1", // 1% slippage (Rango uses "1" not "1.0")
+        contractCall: false,
+        swapperGroups: [
+          "Across","AllBridge","Arbitrum Bridge","Bridgers","Chainflip",
+          "Circle","Circle V2","DeBridge","Garden","Hyperliquid","IBC",
+          "Layer Zero","Maya Protocol","Mayan","NearIntent","Optimism Bridge",
+          "Orbiter","Pluton","Rainbow Bridge","RelayProtocol","SWFT",
+          "Satellite","Shimmer Bridge","Stargate","Stargate Economy",
+          "Symbiosis","TeleSwap","ThorChain","XO Swap","XY Finance","Zuno"
+        ],
+        swappersGroupsExclude: true, // Exclude bridges, focus on DEXs
+        enableCentralizedSwappers: true // Enable CEX routes if available
+      };
+
+      // ✅ Get API key from secrets.js
+      const apiKey = (typeof getRandomApiKeyRango === 'function') ? getRandomApiKeyRango() : '4a624ab5-16ff-4f96-90b7-ab00ddfc342c';
+
+      // ✅ Use api-edge.rango.exchange (faster endpoint) with API key as query parameter
+      let apiUrl = `https://api-edge.rango.exchange/routing/bests?apiKey=${apiKey}`;
+
+      // Apply CORS proxy if needed
+      try {
+        const proxyPrefix = (window.CONFIG_PROXY && window.CONFIG_PROXY.PREFIX) || '';
+        if (proxyPrefix && !apiUrl.startsWith('http://') && !apiUrl.startsWith(proxyPrefix)) {
+          apiUrl = proxyPrefix + apiUrl;
+        }
+      } catch (e) {
+        console.warn('[Rango] Failed to apply proxy:', e.message);
+      }
+
+      // ✅ Return format same as LIFI/Rubic (NOT ajaxConfig wrapper!)
+      return {
+        url: apiUrl,
+        method: 'POST',
+        data: JSON.stringify(requestBody),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      };
+    },
+
+    parseResponse: (response, { des_output, chainName }) => {
+      // ✅ Signature same as LIFI/Rubic: (response, { des_output, chainName })
+      // Parse Rango response and extract multiple routes
+      // Response format: { from, to, requestAmount, routeId, results: [...], error }
+
+      // ✅ Same validation pattern as LIFI/Rubic
+      if (!response) {
+        throw new Error('Empty response from Rango API');
+      }
+
+      // Check for API errors
+      if (response.error) {
+        const errorMsg = response.error.message || response.error || 'Unknown error from Rango';
+        throw new Error(`Rango API error: ${errorMsg}`);
+      }
+
+      // Validate routes array
+      if (!Array.isArray(response.results)) {
+        throw new Error('Invalid Rango response: results not found');
+      }
+
+      const results = response.results;
+
+      if (results.length === 0) {
+        throw new Error('No routes available for this trade pair');
+      }
+
+      console.log(`[RANGO] Found ${results.length} routes`);
+
+      // Parse each route and build subResults (same pattern as LIFI)
+      const subResults = [];
+      for (const route of results) {
+        try {
+          if (!route || !route.outputAmount) continue;
+
+          // ✅ Extract output amount (already in decimal format from Rango)
+          // Rango returns outputAmount as string with decimals included (e.g., "431.585062830799060992")
+          const amount_out = parseFloat(route.outputAmount);
+
+          if (!Number.isFinite(amount_out) || amount_out <= 0) {
+            console.warn('[RANGO] Invalid output amount:', route.outputAmount);
+            continue;
+          }
+
+          // ✅ Calculate total fee from fee[] array
+          // Rango returns fee as array of objects with { asset, expenseType, amount, name, price }
+          let totalFeeUSD = 0;
+          if (Array.isArray(route.swaps) && route.swaps.length > 0) {
+            route.swaps.forEach(swap => {
+              if (Array.isArray(swap.fee)) {
+                swap.fee.forEach(feeItem => {
+                  // Calculate fee in USD: amount * price
+                  const feeAmount = parseFloat(feeItem.amount || 0);
+                  const feePrice = parseFloat(feeItem.price || 0);
+                  const feeUSD = feeAmount * feePrice;
+
+                  if (Number.isFinite(feeUSD) && feeUSD > 0) {
+                    totalFeeUSD += feeUSD;
+                  }
+                });
+              }
+            });
+          }
+
+          // Fallback to default fee if no fee info
+          const FeeSwap = (Number.isFinite(totalFeeUSD) && totalFeeUSD > 0)
+            ? totalFeeUSD
+            : getFeeSwap(chainName);
+
+          // ✅ Get provider name from first swap (same pattern as LIFI)
+          let providerName = 'RANGO';
+          try {
+            if (route.swaps && route.swaps.length > 0) {
+              const firstSwap = route.swaps[0];
+              providerName = firstSwap.swapperId || firstSwap.swapperTitle || 'RANGO';
+            }
+          } catch(_) {}
+
+          // Format same as LIFI result
+          subResults.push({
+            amount_out: amount_out,
+            FeeSwap: FeeSwap,
+            dexTitle: providerName.toUpperCase()
+          });
+
+        } catch(e) {
+          console.warn('[RANGO] Error parsing route:', e);
+          continue;
+        }
+      }
+
+      if (subResults.length === 0) {
+        throw new Error("No valid Rango routes found");
+      }
+
+      // Sort by amount_out (descending) dan ambil top N sesuai config
+      // ⚠️ LIMIT: Rango tampilkan 3 routes (sesuai maxProviders di config.js)
+      const maxProviders = (typeof window !== 'undefined' && window.CONFIG_DEXS?.rango?.maxProviders) || 3;
+      subResults.sort((a, b) => b.amount_out - a.amount_out);
+      const topN = subResults.slice(0, maxProviders);
+
+      console.log(`[RANGO] Returning top ${maxProviders} routes from ${subResults.length} available routes`);
+
+      // ✅ Return format same as LIFI/Rubic
+      return {
+        amount_out: topN[0].amount_out,
+        FeeSwap: topN[0].FeeSwap,
+        dexTitle: 'RANGO',
+        subResults: topN,
+        isMultiDex: true
+      };
+    }
+  };
+
+  // =============================
   // JUPITER Ultra Strategy - Solana DEX Aggregator
   // =============================
   // Jupiter Ultra API Keys (rotasi untuk rate limiting)

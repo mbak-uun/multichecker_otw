@@ -933,8 +933,18 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                         const amtIn  = Number(isKiri ? amount_in_token : amount_in_pair) || 0;
                                         const outAmt = Number(finalDexRes.amount_out)||0;
                                         const feeSwap = Number(finalDexRes.FeeSwap||0);
-                                        const feeWD   = Number(isKiri ? DataCEX.feeWDToken : DataCEX.feeWDPair) || 0;
+
+                                        // ✅ FIX: Fee calculation berbeda per arah
+                                        // CEX to DEX (isKiri=true): withdraw fee dari CEX
+                                        // DEX to CEX (isKiri=false): transfer/deposit fee ke CEX wallet (gas fee)
+                                        const feeWD = isKiri ? Number(DataCEX.feeWDToken || 0) : 0;
+
+                                        // ✅ FIX: Untuk DEX to CEX, tambahkan gas transfer fee
+                                        // Estimate: transfer gas ~50% dari swap gas (karena transfer lebih simple)
+                                        const feeTransfer = !isKiri ? (feeSwap * 0.5) : 0;
+
                                         const feeTrade = 0.0014 * modal;
+
                                         // Harga efektif DEX (USDT/token)
                                         let effDexPerToken = 0;
                                         if (isKiri) {
@@ -949,7 +959,9 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                           ? outAmt * Number(DataCEX.priceSellPair||0)
                                           : outAmt * Number(DataCEX.priceSellToken||0);
                                         const bruto = totalValue - modal;
-                                        const totalFee = feeSwap + feeWD + feeTrade;
+
+                                        // ✅ FIX: Total fee include transfer fee untuk DEX to CEX
+                                        const totalFee = feeSwap + feeWD + feeTransfer + feeTrade;
                                         const profitLoss = totalValue - (modal + totalFee);
                                         const pnlPct = modal>0 ? (bruto/modal)*100 : 0;
                                         const toIDR = (v)=>{ try{ return (typeof formatIDRfromUSDT==='function')? formatIDRfromUSDT(Number(v)||0):'';}catch(_){return '';} };
@@ -1019,6 +1031,19 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                             return ''; // Tidak ada info sumber jika bukan fallback
                                         })();
 
+                                        // ✅ FIX: Fee breakdown berbeda per arah
+                                        const feeBreakdown = isKiri
+                                            ? [
+                                                `    🏦 Fee WD (CEX): $${feeWD.toFixed(4)}`,
+                                                `    🛒 Fee Swap (DEX): $${feeSwap.toFixed(4)}`,
+                                                `    💼 Fee Trade (CEX): $${feeTrade.toFixed(4)}`,
+                                            ]
+                                            : [
+                                                `    🛒 Fee Swap (DEX): $${feeSwap.toFixed(4)}`,
+                                                `    📤 Fee Transfer (Gas): $${feeTransfer.toFixed(4)}`,
+                                                `    💼 Fee Trade (CEX): $${feeTrade.toFixed(4)}`,
+                                            ];
+
                                         const lines = [
                                             headerBlock,
                                             sourceInfo, // Tambahkan info sumber di bawah header
@@ -1033,9 +1058,8 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                             `    - Hasil: $${Number(totalValue||0).toFixed(6)}`,
                                             sellIdrLine,
                                             '',
-                                            `    💸 Fee WD: $${feeWD.toFixed(2)}`,
-                                            `    🛒 Fee Swap: $${feeSwap.toFixed(2)}`,
-                                            `    🧾 Total Fee: ~$${totalFee.toFixed(2)}`,
+                                            ...feeBreakdown,
+                                            `    🧾 Total Fee: ~$${totalFee.toFixed(4)}`,
                                             '',
                                             `    📈 PNL: ${bruto>=0?'+':''}${bruto.toFixed(2)} USDT (${pnlPct.toFixed(2)}%)`,
                                             `    🚀 PROFIT : ${profitLoss>=0?'+':''}${profitLoss.toFixed(2)} USDT`,

@@ -1005,8 +1005,13 @@ function DisplayPNL(data) {
           sellLink = cexTradeLink;
         }
 
-        // Calculate PNL for this provider (sama seperti single-DEX)
-        const subTotalFee = feeSwap + baseFeeWD + baseFeeTrade;
+        // ✅ FIX: Calculate PNL dengan fee yang benar per arah
+        // CEX to DEX (tokentopair): WD fee
+        // DEX to CEX (pairtotoken): Transfer fee (gas)
+        const subFeeTransfer = direction === 'pairtotoken' ? (feeSwap * 0.5) : 0;
+        const subFeeWD = direction === 'tokentopair' ? baseFeeWD : 0;
+
+        const subTotalFee = feeSwap + subFeeWD + subFeeTransfer + baseFeeTrade;
         const subBruto = subTotalValue - baseModal;
         const subPnl = subBruto - subTotalFee;
 
@@ -1035,13 +1040,19 @@ function DisplayPNL(data) {
         const isSubProfit = subPnl > 0;
         const subBgStyle = isSubProfit ? 'background-color: rgba(188, 233, 97, 0.9); border-radius: 4px;' : '';
 
+        // ✅ FIX: Display fee yang relevan per direction
+        const feeLabel1 = direction === 'tokentopair' ? `🈳WD:${subFeeWD.toFixed(4)}$` : `📤TX:${subFeeTransfer.toFixed(4)}$`;
+        const feeTooltip = direction === 'tokentopair'
+          ? `Fee WD: $${subFeeWD.toFixed(4)}\nFee SW: $${feeSwap.toFixed(4)}`
+          : `Fee SW: $${feeSwap.toFixed(4)}\nFee Transfer (Gas): $${subFeeTransfer.toFixed(4)}`;
+
         return `
           <div class="multi-sub" style="flex: 1; padding: 1px 2px; ${borderRight} text-align: center; line-height: 1.2; white-space: nowrap; ${subBgStyle}"
-               title="${providerName}\nAmount Out: ${amtOut.toFixed(6)}\nFee SW: $${feeSwap.toFixed(4)}\nFee WD: $${baseFeeWD.toFixed(4)}\nBruto: $${subBruto.toFixed(2)}\nTotal Fee: $${subTotalFee.toFixed(2)}\nPNL: $${subPnl.toFixed(2)}">
+               title="${providerName}\nAmount Out: ${amtOut.toFixed(6)}\n${feeTooltip}\nBruto: $${subBruto.toFixed(2)}\nTotal Fee: $${subTotalFee.toFixed(2)}\nPNL: $${subPnl.toFixed(2)}">
             <div style="font-size: 1em; font-weight: bold; color: ${dexColor};">${displayName}</div>
             <a class="uk-text-success" href="${buyLink}" target="_blank" rel="noopener" title="${tipBuy}" style="text-decoration: none; display: block;">⬆ ${fmtUSD(buyPrice)}</a>
             <a class="uk-text-danger" href="${sellLink}" target="_blank" rel="noopener" title="${tipSell}" style="text-decoration: none; display: block;">⬇ ${fmtUSD(sellPrice)}</a>
-            <div class="uk-text-primary" style="font-size: 0.95em;">🈳WD:${baseFeeWD.toFixed(4)}$</div>
+            <div class="uk-text-primary" style="font-size: 0.95em;">${feeLabel1}</div>
             <div class="uk-text-muted" style="font-size: 0.95em;">💸SW:${feeSwap.toFixed(4)}$</div>
             <div class="uk-text-danger" style="font-size: 0.95em;">[${subBruto.toFixed(2)}~${subTotalFee.toFixed(2)}]</div>
             <div class="${pnlClass}" style="font-weight: bold;">💰PNL:${subPnl.toFixed(2)}</div>
@@ -1091,7 +1102,12 @@ function DisplayPNL(data) {
         // Hitung total fee untuk best provider
         const bestSubRes = subResults[0]; // Provider terbaik (sudah di-sort)
         const bestFeeSwap = n(bestSubRes?.FeeSwap || bestSubRes?.fee || 0);
-        const bestTotalFee = bestFeeSwap + baseFeeWD + baseFeeTrade;
+
+        // ✅ FIX: Best provider fee calculation sesuai direction
+        const bestFeeTransfer = direction === 'pairtotoken' ? (bestFeeSwap * 0.5) : 0;
+        const bestFeeWD = direction === 'tokentopair' ? baseFeeWD : 0;
+        const bestTotalFee = bestFeeSwap + bestFeeWD + bestFeeTransfer + baseFeeTrade;
+
         const bestProfitPercent = baseModal > 0 ? ((bestPnl / baseModal) * 100) : 0;
 
         // FIX: Jika hanya 1 provider di subResults, kirim sinyal ke card provider tersebut
@@ -1524,8 +1540,18 @@ function calculateResult(baseId, tableBodyId, amount_out, FeeSwap, sc_input, sc_
     const rateTokentoPair = (amount_in > 0) ? (amount_out / amount_in) : 0;
     const ratePairtoToken = (amount_out > 0) ? (amount_in / amount_out) : 0;
 
-    const totalModal = Modal + FeeSwap + FeeWD + FeeTrade;
-    const totalFee = FeeSwap + FeeWD + FeeTrade;
+    // ✅ FIX: Fee calculation berbeda per arah (sama dengan scanner.js)
+    // CEX to DEX (TokentoPair): withdraw fee dari CEX
+    // DEX to CEX (PairtoToken): transfer/deposit fee (gas) ke CEX wallet
+    const feeTransfer = (trx === "PairtoToken") ? (FeeSwap * 0.5) : 0;
+
+    const totalModal = (trx === "TokentoPair")
+        ? Modal + FeeSwap + FeeWD + FeeTrade
+        : Modal + FeeSwap + feeTransfer + FeeTrade;
+
+    const totalFee = (trx === "TokentoPair")
+        ? FeeSwap + FeeWD + FeeTrade
+        : FeeSwap + feeTransfer + FeeTrade;
 
     let totalValue = 0;
     if (trx === "TokentoPair") {
