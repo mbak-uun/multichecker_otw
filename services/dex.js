@@ -970,16 +970,17 @@
         enableCentralizedSwappers: true // Enable CEX routes if available
       };
 
-      // ✅ Get API key from secrets.js
-      const apiKey = (typeof getRandomApiKeyRango === 'function') ? getRandomApiKeyRango() : '4a624ab5-16ff-4f96-90b7-ab00ddfc342c';
+      // ✅ Get API key from secrets.js (using official Rango test key)
+      const apiKey = (typeof getRandomApiKeyRango === 'function') ? getRandomApiKeyRango() : 'c6381a79-2817-4602-83bf-6a641a409e32';
 
       // ✅ Use api-edge.rango.exchange (faster endpoint) with API key as query parameter
       let apiUrl = `https://api-edge.rango.exchange/routing/bests?apiKey=${apiKey}`;
 
-      // Apply CORS proxy if needed
+      // ✅ CRITICAL: ALWAYS apply CORS proxy for browser requests (same as Rubic)
       try {
         const proxyPrefix = (window.CONFIG_PROXY && window.CONFIG_PROXY.PREFIX) || '';
-        if (proxyPrefix && !apiUrl.startsWith('http://') && !apiUrl.startsWith(proxyPrefix)) {
+
+        if (proxyPrefix && !apiUrl.startsWith(proxyPrefix)) {
           apiUrl = proxyPrefix + apiUrl;
         }
       } catch (e) {
@@ -1726,6 +1727,21 @@
     return new Promise((resolve, reject) => {
       const sc_input = sc_input_in.toLowerCase();
       const sc_output = sc_output_in.toLowerCase();
+
+      // ========== CHECK IF DEX IS DISABLED ==========
+      // Check if this DEX is disabled in config before processing
+      try {
+        const dexConfig = (root.CONFIG_DEXS && root.CONFIG_DEXS[String(dexType).toLowerCase()]) || null;
+        if (dexConfig && dexConfig.disabled === true) {
+          console.warn(`[DEX DISABLED] ${String(dexType).toUpperCase()} is disabled in config - skipping request`);
+          reject({
+            statusCode: 0,
+            pesanDEX: `${String(dexType).toUpperCase()} is currently disabled`,
+            isDisabled: true
+          });
+          return;
+        }
+      } catch(_) {}
 
       // ========== CACHE KEY GENERATION ==========
       // Generate unique cache key based on request parameters

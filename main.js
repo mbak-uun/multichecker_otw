@@ -5546,15 +5546,34 @@ $(document).on('click', '#histClearAll', async function(){
             const storageKey = getProfileStorageKey(chainKey);
             console.log(`[Bulk Modal] 🔑 Loading profiles with key: ${storageKey}`);
 
-            const stored = localStorage.getItem(storageKey);
-            console.log(`[Bulk Modal] 📦 Raw data from storage:`, stored);
+            // Debug: Check if key exists in IndexedDB cache
+            if (window.localStorage && typeof window.localStorage.getItem === 'function') {
+                const stored = localStorage.getItem(storageKey);
+                console.log(`[Bulk Modal] 📦 Raw data from storage:`, stored);
+                console.log(`[Bulk Modal] 📊 Data type:`, typeof stored, '| Length:', stored ? stored.length : 0);
 
-            const profiles = stored ? JSON.parse(stored) : [];
-            console.log(`[Bulk Modal] ✅ Loaded ${profiles.length} profiles for chain: ${chainKey}`, profiles);
+                if (stored === null) {
+                    console.warn(`[Bulk Modal] ⚠️ No data found for key "${storageKey}"`);
+                    console.warn('[Bulk Modal] 💡 This means either:');
+                    console.warn('[Bulk Modal]    1. Profile belum pernah dibuat untuk chain ini');
+                    console.warn('[Bulk Modal]    2. IndexedDB cleared/reset');
+                    console.warn('[Bulk Modal]    3. Data belum sempat di-flush ke IndexedDB');
+                }
 
-            return profiles;
+                const profiles = stored ? JSON.parse(stored) : [];
+                console.log(`[Bulk Modal] ✅ Loaded ${profiles.length} profiles for chain: ${chainKey}`);
+                if (profiles.length > 0) {
+                    console.log('[Bulk Modal] 📋 Profile names:', profiles.map(p => p.name).join(', '));
+                }
+
+                return profiles;
+            } else {
+                console.error('[Bulk Modal] ❌ localStorage not available!');
+                return [];
+            }
         } catch(e) {
             console.error('[Bulk Modal] ❌ Error loading profiles:', e);
+            console.error('[Bulk Modal] Stack trace:', e.stack);
             if (typeof toast !== 'undefined' && toast.error) {
                 toast.error(`Gagal memuat profil: ${e.message}`);
             }
@@ -5748,10 +5767,13 @@ $(document).on('click', '#histClearAll', async function(){
 
         // 🔒 CRITICAL: Flush pending writes to ensure data is persisted to IndexedDB
         console.log('[Bulk Modal] 🔄 Flushing pending writes to IndexedDB...');
+        console.log('[Bulk Modal] 📊 Pending writes before flush:', window.__IDB_PENDING_WRITES__ ? window.__IDB_PENDING_WRITES__.size : 0);
+
         try {
             if (window.__IDB_FLUSH_PENDING__) {
                 await window.__IDB_FLUSH_PENDING__();
                 console.log('[Bulk Modal] ✅ All data successfully persisted to IndexedDB');
+                console.log('[Bulk Modal] 📊 Pending writes after flush:', window.__IDB_PENDING_WRITES__ ? window.__IDB_PENDING_WRITES__.size : 0);
             }
         } catch (e) {
             console.error('[Bulk Modal] ❌ Failed to flush pending writes:', e);
@@ -5761,12 +5783,27 @@ $(document).on('click', '#histClearAll', async function(){
             return;
         }
 
-        await populateProfileSelect();
+        // 🔍 CRITICAL: Verify data was actually saved to IndexedDB
+        console.log('[Bulk Modal] 🔍 Verifying profiles saved to IndexedDB...');
 
-        // Force verification after save
-        console.log('[Bulk Modal] 🔍 Verifying saved profiles...');
+        // Wait a bit for IndexedDB to fully commit
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        // Force reload from IndexedDB to verify persistence
         const verifyProfiles = await loadProfiles(chainKey);
-        console.log(`[Bulk Modal] ✅ Verification: ${verifyProfiles.length} profiles found in storage`);
+        console.log(`[Bulk Modal] 📦 Verification: ${verifyProfiles.length} profiles found in storage`);
+
+        if (verifyProfiles.length !== profiles.length) {
+            console.error('[Bulk Modal] ❌ VERIFICATION FAILED: Profile count mismatch!');
+            console.error(`[Bulk Modal] Expected: ${profiles.length}, Got: ${verifyProfiles.length}`);
+            if (typeof toast !== 'undefined' && toast.error) {
+                toast.error('⚠️ Verifikasi gagal! Profile mungkin tidak tersimpan dengan benar.');
+            }
+        } else {
+            console.log(`[Bulk Modal] ✅ VERIFICATION SUCCESS: All ${verifyProfiles.length} profiles persisted correctly`);
+        }
+
+        await populateProfileSelect();
     });
 
     // Handle delete profile button
