@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MANAJEMEN ASSET</title>
+    <title>PORTOFOLIO ASSET v8.0</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.6.22/dist/css/uikit.min.css" />
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.0/dist/ethers.umd.min.js"></script>
@@ -848,7 +848,7 @@ img:hover {
         <!-- Main Header with Description -->
         <div class="main-header uk-text-center">
             <h3 class="uk-margin-remove-bottom modal-title">
-                <span>MANAJEMEN ASSET</span>
+                <span>PORTOFOLIO ASSET v8.0</span>
             </h3>
             <p class="header-description">
                 Track aset crypto secara berkala di exchange & wallet dengan PNL monitoring
@@ -1557,6 +1557,21 @@ img:hover {
             DAI: 1
         };
 
+        // ⭐ WHITELIST: Hanya token ini yang akan dihitung rate USDT-nya
+        // Token lain akan di-skip dan tidak ditampilkan
+        const ALLOWED_TOKENS = new Set([
+            // Stablecoins
+            'USDT', 'USDC', 'BUSD', 'TUSD', 'USDP', 'FDUSD', 'DAI',
+            // Major tokens
+            'BTC', 'ETH', 'BNB', 'WBTC', 'WETH',
+            // Gas tokens untuk setiap chain
+            'POL', 'MATIC', // Polygon
+            'SOL',          // Solana
+            'AVAX',         // Avalanche
+            'ARB',          // Arbitrum
+            'OP'            // Optimism
+        ]);
+
         // Changed to 1.0 to show only assets with value above $1
         const MIN_DISPLAY_USDT = 1.0;
 
@@ -1748,6 +1763,12 @@ img:hover {
 
             const assetsWithValues = [];
             for (const asset of aggregated) {
+                // ⭐ FILTER: Skip token yang tidak ada di whitelist
+                if (!ALLOWED_TOKENS.has(asset.symbol.toUpperCase())) {
+                    console.log(`[${exchangeId}] ⏭️ Skipped ${asset.symbol} (not in whitelist)`);
+                    continue;
+                }
+
                 const overrideRate = overrides[asset.symbol];
                 let rate = typeof overrideRate === "number" ? overrideRate : await getUsdtRate(asset.symbol);
                 if (!isFinite(rate) || rate < 0) rate = 0;
@@ -1764,14 +1785,12 @@ img:hover {
             assetsWithValues.sort((a, b) => (b.usdtValue || 0) - (a.usdtValue || 0));
 
             // Debug: log all assets before filtering
-            console.log(`[${exchangeId}] Total assets from API:`, aggregated.length);
-            console.log(`[${exchangeId}] Assets with rates:`, assetsWithValues.filter(a => a.rate > 0).length);
-            console.log(`[${exchangeId}] Assets without rates:`, assetsWithValues.filter(a => !a.rate).length);
-            assetsWithValues.forEach(a => {
-                if (!a.rate) {
-                    console.log(`[${exchangeId}] No rate found for:`, a.symbol, 'amount:', a.amount);
-                }
-            });
+            const skippedCount = aggregated.length - assetsWithValues.length;
+            console.log(`[${exchangeId}] 📊 Total assets from API:`, aggregated.length);
+            console.log(`[${exchangeId}] ⏭️ Skipped (not in whitelist):`, skippedCount);
+            console.log(`[${exchangeId}] ✅ Allowed assets processed:`, assetsWithValues.length);
+            console.log(`[${exchangeId}] 💰 Assets with rates:`, assetsWithValues.filter(a => a.rate > 0).length);
+            console.log(`[${exchangeId}] ❌ Assets without rates:`, assetsWithValues.filter(a => !a.rate).length);
 
             // Filter: only show assets with valid rate AND value >= MIN_DISPLAY_USDT ($1)
             const visibleAssets = assetsWithValues.filter(item => {
@@ -1801,7 +1820,8 @@ img:hover {
             const hiddenCount = assetsWithValues.length - visibleAssets.length;
             const detail = {
                 total: parseFloat(totalUsdt.toFixed(2)),
-                hiddenCount, // Track how many assets are hidden (no rate or below $1)
+                hiddenCount, // Track how many allowed tokens are hidden (no rate or below $1)
+                skippedCount, // Track how many tokens skipped (not in whitelist)
                 assets: visibleAssets.map(item => ({
                     symbol: item.symbol,
                     amount: parseFloat(item.amount.toFixed(8)),
@@ -1835,11 +1855,22 @@ img:hover {
             }).join("");
 
             const totalText = formatUsdtValue(parseFloat(detail.total || 0));
-            const hiddenWarning = (detail.hiddenCount && detail.hiddenCount > 0)
+
+            // Build warning messages
+            let warnings = [];
+            if (detail.skippedCount && detail.skippedCount > 0) {
+                warnings.push(`${detail.skippedCount} token tidak dihitung (bukan major token/gas fee)`);
+            }
+            if (detail.hiddenCount && detail.hiddenCount > 0) {
+                warnings.push(`${detail.hiddenCount} token disembunyikan (< $1)`);
+            }
+
+            const hiddenWarning = warnings.length > 0
                 ? `<div class="uk-text-muted uk-text-small" style="margin-top: 4px;">
-                     <span uk-icon="icon: info; ratio: 0.6"></span> ${detail.hiddenCount} asset(s) disembunyikan (< $1 atau tanpa rate)
+                     <span uk-icon="icon: info; ratio: 0.6"></span> ${warnings.join(' • ')}
                    </div>`
                 : '';
+
             return `
                 ${assetLines}
                 <hr class="uk-margin-small-top uk-margin-small-bottom">

@@ -561,6 +561,7 @@
         const selectedApiKey = getRandomApiKeyOKX(apiKeysOKXDEX);
         const timestamp = new Date().toISOString();
         const path = "/api/v6/dex/aggregator/quote";
+        //https://web3.okx.com/priapi/v6/dx/trade/multi/quote?
         const queryParams = `amount=${amount_in_big}&chainIndex=${codeChain}&fromTokenAddress=${sc_input_in}&toTokenAddress=${sc_output_in}`;
         const dataToSign = timestamp + "GET" + path + "?" + queryParams;
         const signature = calculateSignature("OKX", selectedApiKey.secretKeyOKX, dataToSign);
@@ -1719,6 +1720,9 @@
   // Cache untuk menyimpan ongoing requests (mencegah duplicate concurrent requests)
   const DEX_INFLIGHT_REQUESTS = new Map();
 
+  // Throttle dedup logs (only log first occurrence per cache key)
+  const DEX_DEDUP_LOG_TRACKER = new Map();
+
   /**
    * Quote swap output from a DEX aggregator.
    * Builds request by strategy, applies timeout, and returns parsed amounts.
@@ -1768,7 +1772,13 @@
       // Check if there's already an ongoing request for this exact same parameters
       if (DEX_INFLIGHT_REQUESTS.has(cacheKey)) {
         // Request deduplication - attach to existing request
-        console.log(`[DEX DEDUP] ${dexType.toUpperCase()} - Duplicate request prevented!`);
+        // Only log first occurrence to reduce console spam
+        if (!DEX_DEDUP_LOG_TRACKER.has(cacheKey)) {
+          console.log(`[DEX DEDUP] ${dexType.toUpperCase()} - Duplicate request prevented!`);
+          DEX_DEDUP_LOG_TRACKER.set(cacheKey, true);
+          // Auto-cleanup after 5 seconds
+          setTimeout(() => DEX_DEDUP_LOG_TRACKER.delete(cacheKey), 5000);
+        }
         const existingRequest = DEX_INFLIGHT_REQUESTS.get(cacheKey);
         existingRequest.then(resolve).catch(reject);
         return;

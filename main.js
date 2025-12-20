@@ -5409,6 +5409,19 @@ $(document).on('click', '#histClearAll', async function(){
         await initBulkEditor();
     });
 
+    // 🔒 CRITICAL: Flush data when modal is closed (X button, ESC, click outside)
+    UIkit.util.on('#bulk-modal-editor', 'hidden', async function() {
+        console.log('[Bulk Modal] 🔄 Modal closing - flushing all pending writes to IndexedDB...');
+        try {
+            if (window.__IDB_FLUSH_PENDING__) {
+                await window.__IDB_FLUSH_PENDING__();
+                console.log('[Bulk Modal] ✅ All pending writes flushed successfully on modal close');
+            }
+        } catch (e) {
+            console.error('[Bulk Modal] ❌ Failed to flush on modal close:', e);
+        }
+    });
+
     async function initBulkEditor() {
         const chainKey = bulkState.chain;
         if (!chainKey) return;
@@ -5507,10 +5520,16 @@ $(document).on('click', '#histClearAll', async function(){
     }
 
     // Save last selected profile index for a chain
-    function saveLastProfileIndex(chainKey, index) {
+    async function saveLastProfileIndex(chainKey, index) {
         try {
             const storageKey = getLastProfileKey(chainKey);
             localStorage.setItem(storageKey, String(index));
+
+            // Flush to IndexedDB immediately
+            if (window.__IDB_FLUSH_PENDING__) {
+                await window.__IDB_FLUSH_PENDING__();
+            }
+
             console.log(`[Bulk Modal] Saved last profile index ${index} for chain: ${chainKey}`);
         } catch(e) {
             console.error('Error saving last profile index:', e);
@@ -5582,7 +5601,7 @@ $(document).on('click', '#histClearAll', async function(){
     }
 
     // Save profiles to IndexedDB (chain-specific)
-    function saveProfiles(chainKey, profiles) {
+    async function saveProfiles(chainKey, profiles) {
         try {
             const storageKey = getProfileStorageKey(chainKey);
             const dataToSave = JSON.stringify(profiles);
@@ -5593,7 +5612,16 @@ $(document).on('click', '#histClearAll', async function(){
 
             localStorage.setItem(storageKey, dataToSave);
 
-            // Verify save was successful
+            // 🔒 CRITICAL: Flush to IndexedDB immediately after setItem
+            console.log('[Bulk Modal] 🔄 Flushing to IndexedDB...');
+            if (window.__IDB_FLUSH_PENDING__) {
+                await window.__IDB_FLUSH_PENDING__();
+                console.log('[Bulk Modal] ✅ Data flushed to IndexedDB');
+            } else {
+                console.warn('[Bulk Modal] ⚠️ Flush function not available, data may not persist!');
+            }
+
+            // Verify save was successful (after flush)
             const verification = localStorage.getItem(storageKey);
             if (verification === dataToSave) {
                 console.log(`[Bulk Modal] ✅ Save VERIFIED for ${storageKey}`);
@@ -5682,7 +5710,7 @@ $(document).on('click', '#histClearAll', async function(){
             // Clear last profile when user selects "-- Pilih Profil --"
             const chainKey = bulkState.chain;
             if (chainKey) {
-                saveLastProfileIndex(chainKey, -1);
+                await saveLastProfileIndex(chainKey, -1);
             }
             return;
         }
@@ -5695,7 +5723,7 @@ $(document).on('click', '#histClearAll', async function(){
         if (profile) {
             applyProfileValues(profile);
             // 🚀 Save this as the last selected profile for this chain
-            saveLastProfileIndex(chainKey, parseInt(selectedIndex));
+            await saveLastProfileIndex(chainKey, parseInt(selectedIndex));
             if (typeof toast !== 'undefined' && toast.info) {
                 toast.info(`Profil "${profile.name}" diterapkan (Chain: ${chainKey.toUpperCase()})`);
             }
@@ -5751,7 +5779,7 @@ $(document).on('click', '#histClearAll', async function(){
             }
         }
 
-        const saveSuccess = saveProfiles(chainKey, profiles);
+        const saveSuccess = await saveProfiles(chainKey, profiles);
 
         if (!saveSuccess) {
             console.error('[Bulk Modal] ❌ Failed to save profile - aborting');
@@ -5763,27 +5791,9 @@ $(document).on('click', '#histClearAll', async function(){
 
         // 🚀 Save this profile index as last selected
         const newIndex = existingIndex >= 0 ? existingIndex : profiles.length - 1;
-        saveLastProfileIndex(chainKey, newIndex);
+        await saveLastProfileIndex(chainKey, newIndex);
 
-        // 🔒 CRITICAL: Flush pending writes to ensure data is persisted to IndexedDB
-        console.log('[Bulk Modal] 🔄 Flushing pending writes to IndexedDB...');
-        console.log('[Bulk Modal] 📊 Pending writes before flush:', window.__IDB_PENDING_WRITES__ ? window.__IDB_PENDING_WRITES__.size : 0);
-
-        try {
-            if (window.__IDB_FLUSH_PENDING__) {
-                await window.__IDB_FLUSH_PENDING__();
-                console.log('[Bulk Modal] ✅ All data successfully persisted to IndexedDB');
-                console.log('[Bulk Modal] 📊 Pending writes after flush:', window.__IDB_PENDING_WRITES__ ? window.__IDB_PENDING_WRITES__.size : 0);
-            }
-        } catch (e) {
-            console.error('[Bulk Modal] ❌ Failed to flush pending writes:', e);
-            if (typeof toast !== 'undefined' && toast.error) {
-                toast.error('Gagal menyimpan profil ke database permanen');
-            }
-            return;
-        }
-
-        // 🔍 CRITICAL: Verify data was actually saved to IndexedDB
+        // 🔍 Verify data was actually saved to IndexedDB
         console.log('[Bulk Modal] 🔍 Verifying profiles saved to IndexedDB...');
 
         // Wait a bit for IndexedDB to fully commit
@@ -5832,21 +5842,10 @@ $(document).on('click', '#histClearAll', async function(){
         if (!confirm) return;
 
         profiles.splice(parseInt(selectedIndex), 1);
-        saveProfiles(chainKey, profiles);
+        await saveProfiles(chainKey, profiles);
 
         // 🚀 Clear last profile index since we deleted it
-        saveLastProfileIndex(chainKey, -1);
-
-        // 🔒 Flush pending writes to ensure deletion is persisted
-        console.log('[Bulk Modal] 🔄 Flushing delete operation to IndexedDB...');
-        try {
-            if (window.__IDB_FLUSH_PENDING__) {
-                await window.__IDB_FLUSH_PENDING__();
-                console.log('[Bulk Modal] ✅ Profile deletion persisted to IndexedDB');
-            }
-        } catch (e) {
-            console.error('[Bulk Modal] ❌ Failed to flush delete operation:', e);
-        }
+        await saveLastProfileIndex(chainKey, -1);
 
         await populateProfileSelect();
         $('#profile-select').val('');

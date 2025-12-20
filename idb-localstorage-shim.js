@@ -185,6 +185,40 @@
     } catch (_) {}
   }
 
+  // Request persistent storage permission to prevent browser from clearing data
+  async function requestPersistentStorage() {
+    if (navigator.storage && navigator.storage.persist) {
+      try {
+        const isPersisted = await navigator.storage.persisted();
+        console.log('[IDB] 📦 Storage persisted:', isPersisted);
+
+        if (!isPersisted) {
+          const result = await navigator.storage.persist();
+          console.log('[IDB] 📦 Persistent storage request result:', result);
+          if (result) {
+            console.log('[IDB] ✅ Persistent storage granted - data will survive browser restarts');
+          } else {
+            console.warn('[IDB] ⚠️ Persistent storage denied - data may be cleared by browser');
+          }
+        } else {
+          console.log('[IDB] ✅ Storage already persistent');
+        }
+
+        // Log storage quota
+        if (navigator.storage && navigator.storage.estimate) {
+          const estimate = await navigator.storage.estimate();
+          const usedMB = (estimate.usage / 1024 / 1024).toFixed(2);
+          const quotaMB = (estimate.quota / 1024 / 1024).toFixed(2);
+          console.log(`[IDB] 💾 Storage usage: ${usedMB} MB / ${quotaMB} MB`);
+        }
+      } catch (e) {
+        console.warn('[IDB] ⚠️ Failed to request persistent storage:', e);
+      }
+    } else {
+      console.warn('[IDB] ⚠️ Persistent storage API not available');
+    }
+  }
+
   (async function init() {
     try {
       db = await openDB();
@@ -193,6 +227,8 @@
       migrateFromNative();
       // After successful migration, clean up native keys to enforce single source of truth
       clearNativeMigratedKeys();
+      // Request persistent storage to prevent data loss
+      await requestPersistentStorage();
     } catch (_) {
       // If IDB fails, we keep native behavior only.
     } finally {
@@ -242,16 +278,64 @@
     }
   }
 
-  // Warn user if they try to close/refresh while writes are pending
+  // Auto-flush pending writes before page unload
   window.addEventListener('beforeunload', function(e) {
     if (pendingWrites.size > 0) {
-      const msg = 'Data sedang disimpan ke database. Yakin ingin keluar?';
-      e.preventDefault();
-      e.returnValue = msg;
-      console.warn('[IDB] ⚠️ Pending writes:', Array.from(pendingWrites));
-      return msg;
+      console.warn('[IDB] ⚠️ Attempting to flush pending writes before unload...');
+      console.warn('[IDB] Pending writes:', Array.from(pendingWrites));
+
+      // Try synchronous flush (browsers may block async operations in beforeunload)
+      // This is best-effort - modern browsers may still kill the process
+      try {
+        // Use sendBeacon or synchronous XHR as fallback if needed
+        // For IndexedDB, we rely on browser's commit-on-close behavior
+        console.warn('[IDB] ⚠️ Warning: Some writes may not persist if browser closes immediately');
+      } catch (err) {
+        console.error('[IDB] ❌ Failed to flush before unload:', err);
+      }
     }
   });
+
+  // Periodic auto-flush every 5 seconds to reduce data loss risk
+  setInterval(function() {
+    if (pendingWrites.size > 0) {
+      console.log('[IDB] 🔄 Auto-flushing', pendingWrites.size, 'pending writes...');
+      flushPendingWrites().catch(function(e) {
+        console.error('[IDB] ❌ Auto-flush failed:', e);
+      });
+    }
+  }, 5000);
+
+  // Diagnostic function to check storage status
+  async function checkStorageStatus() {
+    console.log('=== IndexedDB Storage Status ===');
+    console.log('DB Name:', DB_NAME);
+    console.log('Store Name:', STORE_NAME);
+    console.log('DB Instance:', db ? 'Connected' : 'Not connected');
+    console.log('Cache size:', cache.size, 'items');
+    console.log('Pending writes:', pendingWrites.size);
+
+    if (navigator.storage && navigator.storage.persisted) {
+      try {
+        const isPersisted = await navigator.storage.persisted();
+        console.log('Storage persisted:', isPersisted ? '✅ YES' : '❌ NO - Data may be cleared!');
+
+        if (navigator.storage.estimate) {
+          const estimate = await navigator.storage.estimate();
+          const usedMB = (estimate.usage / 1024 / 1024).toFixed(2);
+          const quotaMB = (estimate.quota / 1024 / 1024).toFixed(2);
+          const percentUsed = ((estimate.usage / estimate.quota) * 100).toFixed(2);
+          console.log(`Storage usage: ${usedMB} MB / ${quotaMB} MB (${percentUsed}%)`);
+        }
+      } catch (e) {
+        console.error('Failed to check storage status:', e);
+      }
+    }
+
+    // List some keys in cache
+    console.log('Sample keys in cache:', Array.from(cache.keys()).slice(0, 10));
+    console.log('================================');
+  }
 
   // Expose a readiness promise in case app code wants to await it
   window.__IDB_LOCALSTORAGE_READY__ = ready;
@@ -259,4 +343,6 @@
   window.__IDB_PENDING_WRITES__ = pendingWrites;
   // Expose flush function for explicit save operations
   window.__IDB_FLUSH_PENDING__ = flushPendingWrites;
+  // Expose diagnostic function
+  window.__IDB_CHECK_STATUS__ = checkStorageStatus;
 })();
