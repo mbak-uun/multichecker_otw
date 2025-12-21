@@ -22,7 +22,7 @@
  * @module core/handlers/scanner-handlers
  */
 
-(function() {
+(function () {
     'use strict';
 
     /**
@@ -30,8 +30,8 @@
      * Per-tab reload: do NOT broadcast run=NO; only mark local flag
      */
     $("#reload").click(function () {
-        try { sessionStorage.setItem('APP_FORCE_RUN_NO', '1'); } catch(_) {}
-        try { location.reload(); } catch(_) {}
+        try { sessionStorage.setItem('APP_FORCE_RUN_NO', '1'); } catch (_) { }
+        try { location.reload(); } catch (_) { }
     });
 
     /**
@@ -63,11 +63,11 @@
             window.AUTORUN_FEATURE_DISABLED = false;
 
             // Register change handler only if feature is enabled
-            $(document).on('change', '#autoRunToggle', function(){
+            $(document).on('change', '#autoRunToggle', function () {
                 window.AUTORUN_ENABLED = $(this).is(':checked');
                 if (!window.AUTORUN_ENABLED) {
                     // cancel any pending autorun countdown
-                    try { clearInterval(window.__autoRunInterval); } catch(_) {}
+                    try { clearInterval(window.__autoRunInterval); } catch (_) { }
                     window.__autoRunInterval = null;
                     // clear countdown label
                     $('#autoRunCountdown').text('');
@@ -78,11 +78,31 @@
                         $("#LoadDataBtn, #SettingModal, #MasterData,#UpdateWalletCEX,#chain-links-container,.sort-toggle, .edit-token-button").css("pointer-events", "auto").css("opacity", "1");
                         if (typeof setScanUIGating === 'function') setScanUIGating(false);
                         $('.header-card a, .header-card .icon').css({ pointerEvents: 'auto', opacity: 1 });
-                    } catch(_) {}
+                    } catch (_) { }
                 }
             });
         }
-    } catch(_) {}
+    } catch (_) { }
+
+    /**
+     * Auto Volume toggle initialization and handler
+     * Controlled by CONFIG_APP.APP.AUTO_VOLUME
+     */
+    try {
+        const autoVolEnabled = (window.CONFIG_APP?.APP?.AUTO_VOLUME !== false);
+
+        if (!autoVolEnabled) {
+            $('#autoVolToggle').closest('label').hide();
+            $('#autoVolLevelInput').hide();
+        } else {
+            $('#autoVolToggle').closest('label').show();
+
+            // Toggle level input visibility
+            $('#autoVolToggle').on('change', function () {
+                $('#autoVolLevelInput').toggle($(this).is(':checked'));
+            });
+        }
+    } catch (_) { }
 
     /**
      * Start scan button handler
@@ -93,7 +113,7 @@
         try {
             const dexList = (window.computeActiveDexList ? window.computeActiveDexList() : Object.keys(window.CONFIG_DEXS || {}));
             if (window.renderMonitoringHeader) window.renderMonitoringHeader(dexList);
-        } catch(_) {}
+        } catch (_) { }
 
         // === GLOBAL SCAN LOCK CHECK ===
         try {
@@ -121,7 +141,7 @@
 
                 return; // Exit early - don't start scan
             }
-        } catch(e) {
+        } catch (e) {
             // console.error('[START BUTTON] Error checking global scan lock:', e);
             // On error checking lock, allow scan to proceed
         }
@@ -130,12 +150,12 @@
         try {
             const stClick = getAppState();
             if (stClick && stClick.run === 'YES') {
-                $('#startSCAN').prop('disabled', true).attr('aria-busy','true').text('Running...').addClass('uk-button-disabled');
+                $('#startSCAN').prop('disabled', true).attr('aria-busy', 'true').text('Running...').addClass('uk-button-disabled');
                 $('#stopSCAN').show().prop('disabled', false);
-                try { if (typeof setScanUIGating === 'function') setScanUIGating(true); } catch(_) {}
+                try { if (typeof setScanUIGating === 'function') setScanUIGating(true); } catch (_) { }
                 return; // do not start twice
             }
-        } catch(_) {}
+        } catch (_) { }
 
         const settings = getFromLocalStorage('SETTING_SCANNER', {}) || {};
 
@@ -149,36 +169,36 @@
             try {
                 const rawSaved = getFromLocalStorage(`FILTER_${String(chainKey).toUpperCase()}`, null);
                 const filters = getFilterChain(chainKey);
-                const selCex = (filters.cex || []).map(x=>String(x).toUpperCase());
-                const selPair = (filters.pair || []).map(x=>String(x).toUpperCase());
+                const selCex = (filters.cex || []).map(x => String(x).toUpperCase());
+                const selPair = (filters.pair || []).map(x => String(x).toUpperCase());
                 if (!rawSaved) {
                     // No saved filter yet: scan all tokens for this chain
                 } else if (selCex.length > 0 && selPair.length > 0) {
                     flatTokens = flatTokens.filter(t => selCex.includes(String(t.cex).toUpperCase()));
                     flatTokens = flatTokens.filter(t => {
-                        const chainCfg = CONFIG_CHAINS[(t.chain||'').toLowerCase()]||{};
-                        const pairDefs = chainCfg.PAIRDEXS||{};
-                        const p = String(t.symbol_out||'').toUpperCase();
-                        const mapped = pairDefs[p]?p:'NON';
+                        const chainCfg = CONFIG_CHAINS[(t.chain || '').toLowerCase()] || {};
+                        const pairDefs = chainCfg.PAIRDEXS || {};
+                        const p = String(t.symbol_out || '').toUpperCase();
+                        const mapped = pairDefs[p] ? p : 'NON';
                         return selPair.includes(mapped);
                     });
                 } else {
                     flatTokens = [];
                 }
-            } catch(_) {}
+            } catch (_) { }
 
             // Apply single-chain sort preference to scanning order (from FILTER_<CHAIN>.sort)
             try {
                 const rawSavedSort = getFromLocalStorage(`FILTER_${String(chainKey).toUpperCase()}`, null);
                 const sortPref = (rawSavedSort && (rawSavedSort.sort === 'A' || rawSavedSort.sort === 'Z')) ? rawSavedSort.sort : 'A';
-                flatTokens = flatTokens.sort((a,b) => {
-                    const A = (a.symbol_in||'').toUpperCase();
-                    const B = (b.symbol_in||'').toUpperCase();
+                flatTokens = flatTokens.sort((a, b) => {
+                    const A = (a.symbol_in || '').toUpperCase();
+                    const B = (b.symbol_in || '').toUpperCase();
                     if (A < B) return sortPref === 'A' ? -1 : 1;
-                    if (A > B) return sortPref === 'A' ?  1 : -1;
+                    if (A > B) return sortPref === 'A' ? 1 : -1;
                     return 0;
                 });
-            } catch(_) {}
+            } catch (_) { }
 
             // If user searched, limit scan to visible (search-filtered) tokens
             try {
@@ -187,7 +207,7 @@
                     const cand = Array.isArray(window.scanCandidateTokens) ? window.scanCandidateTokens : [];
                     flatTokens = cand;
                 }
-            } catch(_) {}
+            } catch (_) { }
 
             if (!Array.isArray(flatTokens) || flatTokens.length === 0) {
                 if (typeof toast !== 'undefined' && toast.info) toast.info('Tidak ada token pada filter per‑chain untuk dipindai.');
@@ -197,7 +217,7 @@
             try {
                 loadKointoTable(flatTokens, 'dataTableBody');
                 // console.log('[START] Table skeleton rendered, waiting for DOM to settle...');
-            } catch(e) {
+            } catch (e) {
                 // console.error('[START] Failed to render table:', e);
             }
             // Wait for DOM to settle before starting scanner (increased to 250ms for safety)
@@ -215,7 +235,7 @@
             if (q) {
                 toScan = Array.isArray(window.scanCandidateTokens) ? window.scanCandidateTokens : [];
             }
-        } catch(_) {}
+        } catch (_) { }
         if (!Array.isArray(toScan) || toScan.length === 0) {
             if (typeof toast !== 'undefined' && toast.info) toast.info('Tidak ada token yang cocok dengan hasil pencarian/fitur filter untuk dipindai.');
             return;
@@ -224,7 +244,7 @@
         try {
             loadKointoTable(toScan, 'dataTableBody');
             // console.log('[START] Table skeleton rendered, waiting for DOM to settle...');
-        } catch(e) {
+        } catch (e) {
             // console.error('[START] Failed to render table:', e);
         }
         // Wait for DOM to settle before starting scanner (increased to 250ms for safety)

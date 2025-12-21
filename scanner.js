@@ -39,7 +39,7 @@ function ensureDexStatusSpan(cell) {
  */
 function setDexErrorBackground(cell) {
     if (!cell) return;
-    try { cell.classList.add('dex-error'); } catch(_) {}
+    try { cell.classList.add('dex-error'); } catch (_) { }
 }
 
 // REMOVED: Watchdog functions removed as per user request
@@ -49,7 +49,7 @@ function setDexErrorBackground(cell) {
  * yang terkait dengan sebuah sel DEX.
  * @param {string} id - ID dari sel DEX.
  */
-function clearDexTickerById(id){
+function clearDexTickerById(id) {
     try {
         window._DEX_TICKERS = window._DEX_TICKERS || new Map();
         const key = String(id) + ':ticker';
@@ -58,7 +58,7 @@ function clearDexTickerById(id){
             clearInterval(window._DEX_TICKERS.get(key));
             window._DEX_TICKERS.delete(key);
         }
-    } catch(_) {}
+    } catch (_) { }
 }
 
 // Variabel global untuk mengelola state pemindaian.
@@ -88,13 +88,13 @@ function isThisTabScanning() {
         }
 
         return false;
-    } catch(e) {
+    } catch (e) {
         return isScanRunning;
     }
 }
 
 function markDexRequestStart() {
-    try { activeDexRequests += 1; } catch(_) { activeDexRequests = 1; }
+    try { activeDexRequests += 1; } catch (_) { activeDexRequests = 1; }
 }
 
 function markDexRequestEnd() {
@@ -104,10 +104,10 @@ function markDexRequestEnd() {
             const waiters = dexRequestWaiters.slice();
             dexRequestWaiters.length = 0;
             waiters.forEach(fn => {
-                try { fn(); } catch(_) {}
+                try { fn(); } catch (_) { }
             });
         }
-    } catch(_) {}
+    } catch (_) { }
 }
 
 function waitForPendingDexRequests(timeoutMs = 8000) {
@@ -119,7 +119,7 @@ function waitForPendingDexRequests(timeoutMs = 8000) {
             settled = true;
             resolve();
         };
-        try { dexRequestWaiters.push(done); } catch(_) { dexRequestWaiters = [done]; }
+        try { dexRequestWaiters.push(done); } catch (_) { dexRequestWaiters = [done]; }
         if (timeoutMs > 0) {
             setTimeout(() => {
                 if (settled) return;
@@ -127,7 +127,7 @@ function waitForPendingDexRequests(timeoutMs = 8000) {
                 try {
                     const idx = dexRequestWaiters.indexOf(done);
                     if (idx !== -1) dexRequestWaiters.splice(idx, 1);
-                } catch(_) {}
+                } catch (_) { }
                 resolve();
             }, timeoutMs);
         }
@@ -139,10 +139,10 @@ function waitForPendingDexRequests(timeoutMs = 8000) {
  * Ini hanya berlaku untuk mode single-chain untuk memberikan feedback visual yang jelas.
  * @param {boolean} running - True jika pemindaian sedang berjalan.
  */
-function setPageTitleForRun(running){
+function setPageTitleForRun(running) {
     try {
         const m = (typeof getAppMode === 'function') ? getAppMode() : { type: 'multi' };
-        if (String(m.type||'').toLowerCase() !== 'single') return; // only affect per-chain pages
+        if (String(m.type || '').toLowerCase() !== 'single') return; // only affect per-chain pages
         if (running) {
             if (!window.__ORIG_TITLE) window.__ORIG_TITLE = document.title;
             document.title = 'SCANNING..';
@@ -150,7 +150,7 @@ function setPageTitleForRun(running){
             if (window.__ORIG_TITLE) { document.title = window.__ORIG_TITLE; }
             window.__ORIG_TITLE = null;
         }
-    } catch(_) {}
+    } catch (_) { }
 }
 
 /**
@@ -163,33 +163,33 @@ function setPageTitleForRun(running){
  * @param {HTMLElement} cell - Elemen sel.
  * @param {string} text - Teks tooltip yang akan diatur.
  */
-function setCellTitleByEl(cell, text){
+function setCellTitleByEl(cell, text) {
     try {
         cell.dataset.titleLog = String(text || '');
         cell.setAttribute('title', cell.dataset.titleLog);
         // Juga terapkan pada span status di dalamnya agar tooltip konsisten.
         const span = cell.querySelector('.dex-status');
         if (span) span.setAttribute('title', cell.dataset.titleLog);
-    } catch(_) {}
+    } catch (_) { }
 }
 /**
  * Menambahkan baris baru ke teks tooltip yang sudah ada pada sebuah elemen sel.
  * @param {HTMLElement} cell - Elemen sel.
  * @param {string} line - Baris teks baru yang akan ditambahkan.
  */
-function appendCellTitleByEl(cell, line){
+function appendCellTitleByEl(cell, line) {
     try {
         const prev = cell.dataset && cell.dataset.titleLog ? String(cell.dataset.titleLog) : '';
-        const next = prev ? (prev + '\n' + String(line||'')) : String(line||'');
+        const next = prev ? (prev + '\n' + String(line || '')) : String(line || '');
         setCellTitleByEl(cell, next);
-    } catch(_) {}
+    } catch (_) { }
 }
 /**
  * Menambahkan baris baru ke teks tooltip berdasarkan ID sel.
  * @param {string} id - ID elemen sel.
  * @param {string} line - Baris teks baru.
  */
-function appendCellTitleById(id, line){
+function appendCellTitleById(id, line) {
     const cell = document.getElementById(id);
     if (!cell) return;
     appendCellTitleByEl(cell, line);
@@ -200,7 +200,7 @@ function appendCellTitleById(id, line){
  * @param {string} id - ID elemen sel.
  * @param {string} text - Teks tooltip yang akan diatur.
  */
-function setCellTitleById(id, text){
+function setCellTitleById(id, text) {
     const cell = document.getElementById(id);
     if (!cell) return;
     setCellTitleByEl(cell, text);
@@ -256,8 +256,8 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
     // Tentukan daftar DEX yang aktif dan "kunci" daftar ini selama proses scan.
     // Ini memastikan struktur kolom tabel tidak berubah di tengah jalan.
     let allowedDexs = [];
-    try { allowedDexs = (typeof window.resolveActiveDexList === 'function') ? window.resolveActiveDexList() : []; } catch(_) { allowedDexs = []; }
-    try { if (typeof window !== 'undefined') window.__LOCKED_DEX_LIST = (allowedDexs || []).slice(); } catch(_) {}
+    try { allowedDexs = (typeof window.resolveActiveDexList === 'function') ? window.resolveActiveDexList() : []; } catch (_) { allowedDexs = []; }
+    try { if (typeof window !== 'undefined') window.__LOCKED_DEX_LIST = (allowedDexs || []).slice(); } catch (_) { }
 
     // Filter daftar token yang akan dipindai:
     // 1. Token harus berada di salah satu chain yang diizinkan.
@@ -265,7 +265,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
     const flatTokens = tokensToScan
         .filter(t => allowedChains.includes(String(t.chain).toLowerCase()))
         .filter(t => {
-            try { return (Array.isArray(t.dexs) && t.dexs.some(d => allowedDexs.includes(String(d.dex||'').toLowerCase()))); } catch(_) { return true; }
+            try { return (Array.isArray(t.dexs) && t.dexs.some(d => allowedDexs.includes(String(d.dex || '').toLowerCase()))); } catch (_) { return true; }
         });
 
     // Jika tidak ada token yang lolos filter, hentikan proses dan beri notifikasi.
@@ -283,7 +283,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
         } else if (typeof window.renderMonitoringHeader === 'function' && typeof window.computeActiveDexList === 'function') {
             window.renderMonitoringHeader(window.computeActiveDexList());
         }
-    } catch(_) {}
+    } catch (_) { }
 
     // --- PERSIAPAN STATE & UI SEBELUM SCAN ---
 
@@ -315,7 +315,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
             $('#startSCAN').prop('disabled', false).text('START').removeClass('uk-button-disabled');
             return; // Exit early - don't start scan
         }
-    } catch(e) {
+    } catch (e) {
         // console.error('[SCANNER] Error checking global scan lock:', e);
         // On error checking lock, allow scan to proceed
     }
@@ -357,7 +357,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
             window.TabManager.notifyScanStart(chainLabel);
             // console.log(`[SCANNER] Tab ${window.getTabId()} started scanning: ${chainLabel}`);
         }
-    } catch(e) {
+    } catch (e) {
         // console.error('[SCANNER] Error setting scan start state:', e);
     }
 
@@ -366,9 +366,9 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
     setPageTitleForRun(true);
     try {
         if (typeof window.updateRunStateCache === 'function') {
-            try { window.updateRunStateCache(getActiveFilterKey(), { run: 'YES' }); } catch(_) {}
+            try { window.updateRunStateCache(getActiveFilterKey(), { run: 'YES' }); } catch (_) { }
             // Mark each allowed chain as running to isolate per-chain state
-            try { (allowedChains || []).forEach(c => window.updateRunStateCache(`FILTER_${String(c).toUpperCase()}`, { run: 'YES' })); } catch(_) {}
+            try { (allowedChains || []).forEach(c => window.updateRunStateCache(`FILTER_${String(c).toUpperCase()}`, { run: 'YES' })); } catch (_) { }
         }
         if (typeof window.updateRunningChainsBanner === 'function') {
             const m = getAppMode();
@@ -376,7 +376,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
             window.updateRunningChainsBanner(preListed);
         }
         if (typeof window.updateToolbarRunIndicators === 'function') window.updateToolbarRunIndicators();
-    } catch(_){}
+    } catch (_) { }
 
     // Update tampilan tombol dan banner.
     $('#startSCAN').prop('disabled', true).text('Running...').addClass('uk-button-disabled');
@@ -438,23 +438,23 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
     try {
         if (typeof window !== 'undefined' && !window.__UI_VIS_LISTENER_SET__) {
             document.addEventListener('visibilitychange', () => {
-                try { if (!document.hidden) processUiUpdates(); } catch(_) {}
+                try { if (!document.hidden) processUiUpdates(); } catch (_) { }
             });
             window.__UI_VIS_LISTENER_SET__ = true;
         }
-    } catch(_) {}
+    } catch (_) { }
 
     // Jeda auto-scroll sementara jika pengguna berinteraksi dengan halaman
     // (scroll, klik, dll.) agar tidak mengganggu.
     try {
         if (typeof window !== 'undefined' && !window.__AUTO_SCROLL_SUSPENDER_SET__) {
-            const suspend = () => { try { window.__AUTO_SCROLL_SUSPEND_UNTIL = Date.now() + 4000; } catch(_) {} };
-            ['wheel','touchstart','mousedown','keydown'].forEach(ev => {
-                try { window.addEventListener(ev, suspend, { passive: true }); } catch(_) {}
+            const suspend = () => { try { window.__AUTO_SCROLL_SUSPEND_UNTIL = Date.now() + 4000; } catch (_) { } };
+            ['wheel', 'touchstart', 'mousedown', 'keydown'].forEach(ev => {
+                try { window.addEventListener(ev, suspend, { passive: true }); } catch (_) { }
             });
             window.__AUTO_SCROLL_SUSPENDER_SET__ = true;
         }
-    } catch(_) {}
+    } catch (_) { }
 
     /**
      * Mengambil data order book dari CEX dengan mekanisme coba ulang (retry).
@@ -533,7 +533,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                             hasPendingUpdate = uiUpdateQueue.some(item =>
                                 item && (item.id === cellId || item.resultId === cellId)
                             );
-                        } catch(_) {}
+                        } catch (_) { }
 
                         // Skip timeout if update is pending in queue
                         if (hasPendingUpdate) {
@@ -542,9 +542,9 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
 
                         const dexName = (cell.dataset.dex || '').toUpperCase() || 'DEX';
                         // stop any lingering ticker for this cell
-                        try { clearDexTickerById(cell.id); } catch(_) {}
+                        try { clearDexTickerById(cell.id); } catch (_) { }
                         // Paksa finalisasi ke status TIMEOUT.
-                        try { cell.classList.add('dex-error'); } catch(_) {}
+                        try { cell.classList.add('dex-error'); } catch (_) { }
 
                         // Standard cell timeout handling (multi-aggregator now uses the same UI)
                         const span = ensureDexStatusSpan(cell);
@@ -553,13 +553,13 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                             span.classList.add('uk-text-danger');
                             span.innerHTML = `<span class=\"uk-label uk-label-warning\">TIMEOUT</span>`;
                             span.title = `${dexName}: Request Timeout`;
-                        } catch(_) {}
+                        } catch (_) { }
 
-                        try { cell.dataset.final = '1'; delete cell.dataset.checking; delete cell.dataset.deadline; } catch(_) {}
+                        try { cell.dataset.final = '1'; delete cell.dataset.checking; delete cell.dataset.deadline; } catch (_) { }
                     }
-                } catch(_) {}
+                } catch (_) { }
             });
-        } catch(_) {}
+        } catch (_) { }
 
         // Proses item dari antrian selama masih ada dan budget waktu belum habis.
         if (uiUpdateQueue.length > 0) {
@@ -568,7 +568,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
         while (uiUpdateQueue.length) {
             const updateData = uiUpdateQueue.shift();
             if (updateData) {
-               // console.log(`[PROCESS ITEM]`, { type: updateData?.type, id: updateData?.id || updateData?.idPrefix + updateData?.baseId });
+                // console.log(`[PROCESS ITEM]`, { type: updateData?.type, id: updateData?.id || updateData?.idPrefix + updateData?.baseId });
             }
             // Jika item adalah error, update sel dengan pesan error.
             if (updateData && updateData.type === 'error') {
@@ -581,10 +581,10 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                             processed++;
                             continue;
                         }
-                    } catch(_) {}
+                    } catch (_) { }
                     // finalize error: stop ticker, mark final, clear checking/deadline
-                    try { clearDexTickerById(id); } catch(_) {}
-                    try { cell.dataset.final = '1'; delete cell.dataset.checking; delete cell.dataset.deadline; } catch(_) {}
+                    try { clearDexTickerById(id); } catch (_) { }
+                    try { cell.dataset.final = '1'; delete cell.dataset.checking; delete cell.dataset.deadline; } catch (_) { }
                     setDexErrorBackground(cell);
                     let statusSpan = ensureDexStatusSpan(cell);
                     if (statusSpan) statusSpan.className = 'dex-status uk-text-danger';
@@ -593,7 +593,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                     statusSpan.textContent = swapMessage || '[ERROR]';
                     statusSpan.title = message || '';
                 }
-            // Jika item adalah hasil sukses, panggil DisplayPNL untuk merender hasilnya.
+                // Jika item adalah hasil sukses, panggil DisplayPNL untuk merender hasilnya.
             } else if (updateData) {
                 DisplayPNL(updateData);
             }
@@ -631,7 +631,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                 stillExists = Array.isArray(list) && list.some(t => String(t.id) === String(token.id));
             }
             if (!stillExists) return; // token removed; do not fetch
-        } catch(_) {}
+        } catch (_) { }
         try {
             // 1. Ambil data harga dari CEX dengan mekanisme retry.
             const cexResult = await fetchCEXWithRetry(token, tableBodyId, { maxAttempts: 3, delayMs: 450 });
@@ -650,536 +650,628 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                 console.warn(`[AUTO SKIP] CEX ${token.cex} failed for ${token.symbol_in}, continuing to DEX...`);
             }
 
+            // ===== AUTO VOLUME: Fetch Orderbook =====
+            // Check if Auto Volume is enabled
+            const autoVolSettings = {
+                enabled: $('#autoVolToggle').is(':checked'),
+                levels: parseInt($('#autoVolLevels').val()) || 3
+            };
+
+            if (autoVolSettings.enabled && cexResult.ok) {
+                try {
+                    const cexUpper = String(token.cex).toUpperCase();
+                    const cexConfig = CONFIG_CEX[cexUpper];
+
+                    if (cexConfig && cexConfig.ORDERBOOK) {
+                        const symbol = String(token.symbol_in || '').toUpperCase();
+                        const url = (typeof cexConfig.ORDERBOOK.urlTpl === 'function')
+                            ? cexConfig.ORDERBOOK.urlTpl({ symbol })
+                            : '';
+
+                        if (url) {
+                            const orderbookResponse = await $.getJSON(url);
+                            DataCEX.orderbook = (typeof parseOrderbook === 'function')
+                                ? parseOrderbook(cexUpper, orderbookResponse)
+                                : { asks: [], bids: [] };
+                        }
+                    }
+                } catch (err) {
+                    console.warn('[Auto Vol] Failed to fetch orderbook:', err);
+                    // Silently fallback to fixed modal
+                }
+            }
+
             // 2. Lanjut ke DEX tanpa jeda CEX terkonfigurasi (fitur dihapus)
 
             if (token.dexs && Array.isArray(token.dexs)) {
                 // 3. Loop untuk setiap DEX yang terkonfigurasi untuk token ini.
                 token.dexs.forEach((dexData) => {
-                            // Skip DEX not included in active selection
-                            try { if (!allowedDexs.includes(String(dexData.dex||'').toLowerCase())) return; } catch(_) {}
-                            // Normalize DEX name to handle aliases (kyberswap->kyber, matcha->0x, etc)
-                            let dex = String(dexData.dex || '').toLowerCase();
-                            try {
-                                if (typeof window !== 'undefined' && window.DEX && typeof window.DEX.normalize === 'function') {
-                                    dex = window.DEX.normalize(dex);
-                                }
-                            } catch(_) {}
-                            const modalKiri = dexData.left;
-                            const modalKanan = dexData.right;
+                    // Skip DEX not included in active selection
+                    try { if (!allowedDexs.includes(String(dexData.dex || '').toLowerCase())) return; } catch (_) { }
+                    // Normalize DEX name to handle aliases (kyberswap->kyber, matcha->0x, etc)
+                    let dex = String(dexData.dex || '').toLowerCase();
+                    try {
+                        if (typeof window !== 'undefined' && window.DEX && typeof window.DEX.normalize === 'function') {
+                            dex = window.DEX.normalize(dex);
+                        }
+                    } catch (_) { }
+                    const modalKiri = dexData.left;
+                    const modalKanan = dexData.right;
 
-                            // ===== AUTO SKIP FEATURE =====
-                            // Jika CEX gagal, gunakan nilai default untuk amount_in
-                            // Default: 100 USD worth untuk testing DEX quotes
-                            const DEFAULT_AMOUNT = 100;
-                            let amount_in_token, amount_in_pair;
+                    // ===== AUTO SKIP FEATURE =====
+                    // Jika CEX gagal, gunakan nilai default untuk amount_in
+                    // Default: 100 USD worth untuk testing DEX quotes
+                    const DEFAULT_AMOUNT = 100;
+                    let amount_in_token, amount_in_pair;
 
-                            if (cexResult.ok && DataCEX.priceBuyToken > 0 && DataCEX.priceBuyPair > 0) {
-                                // CEX berhasil, gunakan harga CEX untuk menghitung amount
-                                amount_in_token = parseFloat(modalKiri) / DataCEX.priceBuyToken;
-                                amount_in_pair = parseFloat(modalKanan) / DataCEX.priceBuyPair;
-                            } else {
-                                // CEX gagal, gunakan default amount untuk cek quote DEX
-                                amount_in_token = DEFAULT_AMOUNT;
-                                amount_in_pair = DEFAULT_AMOUNT;
-                                console.log(`[AUTO SKIP] Using default amount ${DEFAULT_AMOUNT} for DEX quote check`);
+                    if (cexResult.ok && DataCEX.priceBuyToken > 0 && DataCEX.priceBuyPair > 0) {
+                        // CEX berhasil, gunakan harga CEX untuk menghitung amount
+                        amount_in_token = parseFloat(modalKiri) / DataCEX.priceBuyToken;
+                        amount_in_pair = parseFloat(modalKanan) / DataCEX.priceBuyPair;
+                    } else {
+                        // CEX gagal, gunakan default amount untuk cek quote DEX
+                        amount_in_token = DEFAULT_AMOUNT;
+                        amount_in_pair = DEFAULT_AMOUNT;
+                        console.log(`[AUTO SKIP] Using default amount ${DEFAULT_AMOUNT} for DEX quote check`);
+                    }
+
+                    /**
+                     * Fungsi internal untuk memanggil API DEX untuk satu arah transaksi.
+                     * @param {string} direction - Arah transaksi ('TokentoPair' atau 'PairtoToken').
+                     */
+                    const callDex = (direction) => {
+                        const isKiri = direction === 'TokentoPair';
+                        // Periksa apakah posisi (KIRI/KANAN) diaktifkan di UI.
+                        if (isKiri && !isPosChecked('Actionkiri')) { return; }
+                        if (!isKiri && !isPosChecked('ActionKanan')) { return; }
+
+                        // ID generation: include token ID for uniqueness
+                        const sym1 = isKiri ? String(token.symbol_in || '').toUpperCase() : String(token.symbol_out || '').toUpperCase();
+                        const sym2 = isKiri ? String(token.symbol_out || '').toUpperCase() : String(token.symbol_in || '').toUpperCase();
+                        const tokenId = String(token.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+                        const baseIdRaw = `${String(token.cex).toUpperCase()}_${String(dex).toUpperCase()}_${sym1}_${sym2}_${String(token.chain).toUpperCase()}_${tokenId}`;
+                        const baseId = baseIdRaw.replace(/[^A-Z0-9_]/g, '');
+                        const idCELL = tableBodyId + '_' + baseId;
+                        let lastPrimaryError = null;
+
+                        // Normalisasi alamat kontrak dan desimal, terutama untuk pair 'NON'
+                        // agar menggunakan nilai default jika tidak ada.
+                        const chainCfgSafe = (window.CONFIG_CHAINS || {})[String(token.chain).toLowerCase()] || {};
+                        const pairDefsSafe = chainCfgSafe.PAIRDEXS || {};
+                        const nonDef = pairDefsSafe['NON'] || {};
+                        const isAddrInvalid = (addr) => !addr || String(addr).toLowerCase() === '0x' || String(addr).length < 6;
+                        let scInSafe = isKiri ? token.sc_in : token.sc_out;
+                        let scOutSafe = isKiri ? token.sc_out : token.sc_in;
+                        let desInSafe = isKiri ? Number(token.des_in) : Number(token.des_out);
+                        let desOutSafe = isKiri ? Number(token.des_out) : Number(token.des_in);
+                        const symOut = isKiri ? String(token.symbol_out || '') : String(token.symbol_in || '');
+                        if (String(symOut).toUpperCase() === 'NON' || isAddrInvalid(scOutSafe)) {
+                            if (nonDef && nonDef.scAddressPair) {
+                                scOutSafe = nonDef.scAddressPair;
+                                desOutSafe = Number(nonDef.desPair || desOutSafe || 18);
                             }
+                        }
 
-                            /**
-                             * Fungsi internal untuk memanggil API DEX untuk satu arah transaksi.
-                             * @param {string} direction - Arah transaksi ('TokentoPair' atau 'PairtoToken').
-                             */
-                            const callDex = (direction) => {
-                                const isKiri = direction === 'TokentoPair';
-                                // Periksa apakah posisi (KIRI/KANAN) diaktifkan di UI.
-                                if (isKiri && !isPosChecked('Actionkiri')) { return; }
-                                if (!isKiri && !isPosChecked('ActionKanan')) { return; }
+                        // ===== AUTO VOLUME: Calculate Modal & Amount =====
+                        let modal, amountIn, avgPriceCEX, autoVolResult = null;
 
-                                // ID generation: include token ID for uniqueness
-                                const sym1 = isKiri ? String(token.symbol_in||'').toUpperCase() : String(token.symbol_out||'').toUpperCase();
-                                const sym2 = isKiri ? String(token.symbol_out||'').toUpperCase() : String(token.symbol_in||'').toUpperCase();
-                                const tokenId = String(token.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-                                const baseIdRaw = `${String(token.cex).toUpperCase()}_${String(dex).toUpperCase()}_${sym1}_${sym2}_${String(token.chain).toUpperCase()}_${tokenId}`;
-                                const baseId = baseIdRaw.replace(/[^A-Z0-9_]/g,'');
-                                const idCELL = tableBodyId + '_' + baseId;
-                                let lastPrimaryError = null;
+                        if (autoVolSettings.enabled && DataCEX.orderbook && cexResult.ok) {
+                            // Use Auto Volume
+                            const side = isKiri ? 'asks' : 'bids';
+                            const maxModal = Number(isKiri ? modalKiri : modalKanan) || 0;
 
-                                // Normalisasi alamat kontrak dan desimal, terutama untuk pair 'NON'
-                                // agar menggunakan nilai default jika tidak ada.
-                                const chainCfgSafe = (window.CONFIG_CHAINS || {})[String(token.chain).toLowerCase()] || {};
-                                const pairDefsSafe = chainCfgSafe.PAIRDEXS || {};
-                                const nonDef = pairDefsSafe['NON'] || {};
-                                const isAddrInvalid = (addr) => !addr || String(addr).toLowerCase() === '0x' || String(addr).length < 6;
-                                let scInSafe  = isKiri ? token.sc_in  : token.sc_out;
-                                let scOutSafe = isKiri ? token.sc_out : token.sc_in;
-                                let desInSafe  = isKiri ? Number(token.des_in)  : Number(token.des_out);
-                                let desOutSafe = isKiri ? Number(token.des_out) : Number(token.des_in);
-                                const symOut = isKiri ? String(token.symbol_out||'') : String(token.symbol_in||'');
-                                if (String(symOut).toUpperCase() === 'NON' || isAddrInvalid(scOutSafe)) {
-                                    if (nonDef && nonDef.scAddressPair) {
-                                        scOutSafe = nonDef.scAddressPair;
-                                        desOutSafe = Number(nonDef.desPair || desOutSafe || 18);
+                            autoVolResult = (typeof calculateAutoVolume === 'function')
+                                ? calculateAutoVolume(DataCEX.orderbook, maxModal, autoVolSettings.levels, side)
+                                : null;
+
+                            if (autoVolResult && !autoVolResult.error && autoVolResult.totalCoins > 0) {
+                                // Auto Volume success
+                                modal = autoVolResult.actualModal;
+                                avgPriceCEX = autoVolResult.avgPrice;
+
+                                // ✅ FIX: Different amountIn per direction
+                                if (isKiri) {
+                                    // CEX→DEX (tokentopair): Use totalCoins (TOKEN amount to swap)
+                                    amountIn = autoVolResult.totalCoins;
+                                } else {
+                                    // DEX→CEX (pairtotoken): Convert actualModal to PAIR amount
+                                    // DEX API needs "how much PAIR to spend" not "how many TOKEN to get"
+                                    const pricePair = DataCEX.priceBuyPair || 1;
+                                    amountIn = autoVolResult.actualModal / pricePair;
+                                }
+                            } else {
+                                // Fallback to fixed modal
+                                modal = Number(isKiri ? modalKiri : modalKanan) || 0;
+                                amountIn = isKiri ? amount_in_token : amount_in_pair;
+                                avgPriceCEX = isKiri ? DataCEX.priceBuyToken : DataCEX.priceBuyPair;
+                                autoVolResult = null;
+                            }
+                        } else {
+                            // Fixed modal (existing behavior)
+                            modal = Number(isKiri ? modalKiri : modalKanan) || 0;
+                            amountIn = isKiri ? amount_in_token : amount_in_pair;
+                            avgPriceCEX = isKiri ? DataCEX.priceBuyToken : DataCEX.priceBuyPair;
+                        }
+
+                        /**
+                         * Memperbarui status visual sel DEX (misal: "Checking...", "ERROR").
+                         * @param {string} status - 'checking', 'fallback', 'error', 'failed', 'fallback_error'.
+                         * @param {string} dexName - Nama DEX.
+                         * @param {string} [message=''] - Pesan tambahan untuk tooltip.
+                         */
+                        const updateDexCellStatus = (status, dexName, message = '') => {
+                            const cell = document.getElementById(idCELL);
+                            if (!cell) return;
+                            // Do not overwrite if cell already finalized by a prior UPDATE/ERROR
+                            try {
+                                if (cell.dataset && cell.dataset.final === '1') {
+                                    // NEVER overwrite a finalized cell, regardless of new status
+                                    return;
+                                }
+                            } catch (_) { }
+
+                            // Standard single-DEX cell handling
+                            // Presentation only: spinner for checking, badge for error
+                            try { cell.classList.remove('dex-error'); } catch (_) { }
+                            let statusSpan = ensureDexStatusSpan(cell);
+                            statusSpan.removeAttribute('title');
+                            statusSpan.classList.remove('uk-text-muted', 'uk-text-warning', 'uk-text-danger');
+                            if (status === 'checking') {
+                                statusSpan.classList.add('uk-text-warning');
+                                statusSpan.innerHTML = `<span class=\"uk-margin-small-right\" uk-spinner=\"ratio: 0.5\"></span>${String(dexName || '').toUpperCase()}`;
+                                try { if (window.UIkit && UIkit.update) UIkit.update(cell); } catch (_) { }
+                                // Build rich header log like example
+                                try {
+                                    const chainCfg = (window.CONFIG_CHAINS || {})[String(token.chain).toLowerCase()] || {};
+                                    const chainName = (chainCfg.Nama_Chain || token.chain || '').toString().toUpperCase();
+                                    const nameIn = String(isKiri ? token.symbol_in : token.symbol_out).toUpperCase();
+                                    const nameOut = String(isKiri ? token.symbol_out : token.symbol_in).toUpperCase();
+                                    const ce = String(token.cex || '').toUpperCase();
+                                    const dx = String(dexName || dex || '').toUpperCase();
+                                    const proc = isKiri ? `${ce} → ${dx}` : `${dx} → ${ce}`;
+                                    const modal = Number(isKiri ? modalKiri : modalKanan) || 0;
+                                    const header = [
+                                        `✅ [LOG ${isKiri ? 'CEX → DEX' : 'DEX → CEX'}] ${nameIn} → ${nameOut} on ${chainName}`,
+                                        `    🔄 [${proc}]`,
+                                        '',
+                                        `    🪙 Modal: $${modal.toFixed(2)}`,
+                                        // message ? `    💹 CEX SUMMARY: ${message}` : ''
+                                    ].filter(Boolean).join('\n');
+                                    setCellTitleByEl(cell, header);
+                                } catch (_) { }
+                            } else if (status === 'fallback') {
+                                statusSpan.classList.add('uk-text-warning');
+                                statusSpan.innerHTML = `<span class=\"uk-margin-small-right\" uk-spinner=\"ratio: 0.5\"></span>SWOOP`;
+                                // REFACTORED: Tidak menampilkan error message dari primary DEX
+                                // Tooltip tetap menampilkan header info checking saja
+                                try { if (window.UIkit && UIkit.update) UIkit.update(cell); } catch (_) { }
+                            } else if (status === 'fallback_error') {
+                                setDexErrorBackground(cell);
+                                statusSpan.classList.remove('uk-text-warning');
+                                statusSpan.classList.add('uk-text-danger');
+                                statusSpan.innerHTML = `<span class=\"uk-label uk-label-warning\">TIMEOUT</span>`;
+                                // REFACTORED: Tooltip menampilkan error dari fallback saja (bukan primary)
+                                // Message berisi error dari alternatif DEX
+                                if (message) {
+                                    statusSpan.title = String(message);
+                                    setCellTitleByEl(cell, String(message));
+                                    try { const lab = statusSpan.querySelector('.uk-label'); if (lab) lab.setAttribute('title', String(message)); } catch (_) { }
+                                } else {
+                                    statusSpan.removeAttribute('title');
+                                }
+                                // Finalize regardless of tab visibility
+                                try { clearDexTickerById(idCELL); } catch (_) { }
+                                try { if (cell.dataset) { cell.dataset.final = '1'; delete cell.dataset.checking; delete cell.dataset.deadline; } } catch (_) { }
+                            } else if (status === 'failed') {
+                                // Validation failed before DEX call (e.g., modal/contract/chain code)
+                                setDexErrorBackground(cell);
+                                statusSpan.classList.remove('uk-text-warning');
+                                statusSpan.classList.add('uk-text-danger');
+                                statusSpan.innerHTML = `<span class=\"uk-label uk-label-failed\">FAILED</span>`;
+                                if (message) {
+                                    statusSpan.title = String(message);
+                                    setCellTitleByEl(cell, String(message));
+                                    try { const lab = statusSpan.querySelector('.uk-label'); if (lab) lab.setAttribute('title', String(message)); } catch (_) { }
+                                } else {
+                                    statusSpan.removeAttribute('title');
+                                }
+                                // Finalize regardless of tab visibility
+                                try { clearDexTickerById(idCELL); } catch (_) { }
+                                try { if (cell.dataset) { cell.dataset.final = '1'; delete cell.dataset.checking; delete cell.dataset.deadline; } } catch (_) { }
+                            } else if (status === 'error') {
+                                setDexErrorBackground(cell);
+                                statusSpan.classList.remove('uk-text-warning');
+                                statusSpan.classList.add('uk-text-danger');
+                                statusSpan.innerHTML = `<span class=\"uk-label uk-label-danger\">ERROR</span>`;
+                                if (message) {
+                                    statusSpan.title = String(message);
+                                    setCellTitleByEl(cell, String(message));
+                                    // Ensure the visible ERROR/TIMEOUT badge also shows the tooltip itself
+                                    try { const lab = statusSpan.querySelector('.uk-label'); if (lab) lab.setAttribute('title', String(message)); } catch (_) { }
+                                } else {
+                                    statusSpan.removeAttribute('title');
+                                }
+                                // Finalize regardless of tab visibility
+                                try { clearDexTickerById(idCELL); } catch (_) { }
+                                try { if (cell.dataset) { cell.dataset.final = '1'; delete cell.dataset.checking; delete cell.dataset.deadline; } } catch (_) { }
+                            }
+                        };
+
+                        /**
+                         * Validasi cepat sebelum memanggil API DEX untuk menghindari request yang tidak perlu.
+                         * @returns {{ok: boolean, reason?: string}}
+                         */
+                        const validateDexReadiness = () => {
+                            const modal = isKiri ? modalKiri : modalKanan;
+                            const amtIn = isKiri ? amount_in_token : amount_in_pair;
+                            const chainCfg = CONFIG_CHAINS[String(token.chain).toLowerCase()] || {};
+                            // Modal must be > 0
+                            if (!(Number(modal) > 0)) return { ok: false, reason: 'Modal tidak valid (<= 0)' };
+                            // Amount-in must be > 0
+                            if (!(Number(amtIn) > 0)) return { ok: false, reason: 'Amount input tidak valid (<= 0)' };
+                            // Chain code must exist (used by DEX link and queries)
+                            if (!chainCfg || !chainCfg.Kode_Chain) return { ok: false, reason: 'Kode chain tidak tersedia' };
+                            // Basic SC presence (after NON fallback sanitation)
+                            if (!scInSafe || !scOutSafe || String(scInSafe).length < 6 || String(scOutSafe).length < 6) return { ok: false, reason: 'Alamat kontrak tidak lengkap' };
+                            return { ok: true };
+                        };
+
+                        const ready = validateDexReadiness();
+                        if (!ready.ok) { updateDexCellStatus('failed', dex, ready.reason); return; }
+
+                        // REMOVED: Watchdog keys removed
+
+                        /**
+                         * Handler yang dijalankan jika panggilan API DEX (atau fallback-nya) berhasil.
+                         * @param {object} dexResponse - Respons dari `getPriceDEX` atau `getPriceAltDEX`.
+                         * @param {boolean} [isFallback=false] - True jika ini adalah hasil dari fallback.
+                         * @param {string} [fallbackSource=''] - Sumber fallback ('DZAP' atau 'SWOOP').
+                         */
+                        const handleSuccess = (dexResponse, isFallback = false, fallbackSource = '') => {
+                            try {
+                                // REMOVED: clearAllWatchdogs()
+                                // REFACTORED: Tambahkan info sumber alternatif ke dexResponse
+                                const finalDexRes = isFallback ? {
+                                    ...dexResponse,
+                                    dexTitle: (dexResponse.dexTitle || dex),
+                                    isFallback: true,  // Flag untuk DisplayPNL
+                                    fallbackSource: fallbackSource || 'UNKNOWN'
+                                } : dexResponse;
+                                // Panggil `calculateResult` untuk menghitung PNL dan data lainnya.
+                                // ✅ AUTO VOLUME: Separate display price from calculation price
+                                const cexBuyPriceCalc = (autoVolResult && !autoVolResult.error && isKiri)
+                                    ? autoVolResult.avgPrice  // PNL: use weighted average
+                                    : DataCEX.priceBuyToken;
+                                const cexSellPriceCalc = (autoVolResult && !autoVolResult.error && !isKiri)
+                                    ? autoVolResult.avgPrice
+                                    : DataCEX.priceSellToken;
+
+                                const update = calculateResult(
+                                    baseId, tableBodyId, finalDexRes.amount_out, finalDexRes.FeeSwap,
+                                    isKiri ? token.sc_in : token.sc_out, isKiri ? token.sc_out : token.sc_in,
+                                    token.cex, isKiri ? modalKiri : modalKanan,
+                                    isKiri ? amount_in_token : amount_in_pair,
+                                    cexBuyPriceCalc, cexSellPriceCalc, DataCEX.priceBuyPair, DataCEX.priceSellPair,
+                                    isKiri ? token.symbol_in : token.symbol_out, isKiri ? token.symbol_out : token.symbol_in,
+                                    isKiri ? DataCEX.feeWDToken : DataCEX.feeWDPair,
+                                    dex, token.chain, CONFIG_CHAINS[token.chain.toLowerCase()].Kode_Chain,
+                                    direction, 0, finalDexRes
+                                );
+
+                                // ✅ AUTO VOLUME: Inject display data
+                                if (autoVolResult && !autoVolResult.error) {
+                                    update.autoVolResult = autoVolResult;
+                                    update.maxModal = Number(isKiri ? modalKiri : modalKanan) || 0;
+                                    // Override CEX price for display with lastLevelPrice
+                                    if (isKiri) {
+                                        update.cexBuyPriceDisplay = autoVolResult.lastLevelPrice;
+                                    } else {
+                                        update.cexSellPriceDisplay = autoVolResult.lastLevelPrice;
                                     }
                                 }
 
-                                /**
-                                 * Memperbarui status visual sel DEX (misal: "Checking...", "ERROR").
-                                 * @param {string} status - 'checking', 'fallback', 'error', 'failed', 'fallback_error'.
-                                 * @param {string} dexName - Nama DEX.
-                                 * @param {string} [message=''] - Pesan tambahan untuk tooltip.
-                                 */
-                                const updateDexCellStatus = (status, dexName, message = '') => {
-                                    const cell = document.getElementById(idCELL);
-                                    if (!cell) return;
-                                    // Do not overwrite if cell already finalized by a prior UPDATE/ERROR
+                                // Note: Multi-DEX handling (DZAP, LIFI) is now done in DisplayPNL
+                                // The subResults are passed via calculateResult -> update -> DisplayPNL
+                                // Buat log ringkasan untuk console jika diaktifkan.
+                                // Console log summary for this successful check (cleaned)
                                 try {
-                                    if (cell.dataset && cell.dataset.final === '1') {
-                                        // NEVER overwrite a finalized cell, regardless of new status
-                                        return;
-                                    }
-                                } catch(_) {}
-
-                                    // Standard single-DEX cell handling
-                                    // Presentation only: spinner for checking, badge for error
-                                    try { cell.classList.remove('dex-error'); } catch(_) {}
-                                    let statusSpan = ensureDexStatusSpan(cell);
-                                    statusSpan.removeAttribute('title');
-                                    statusSpan.classList.remove('uk-text-muted', 'uk-text-warning', 'uk-text-danger');
-                                    if (status === 'checking') {
-                                        statusSpan.classList.add('uk-text-warning');
-                                        statusSpan.innerHTML = `<span class=\"uk-margin-small-right\" uk-spinner=\"ratio: 0.5\"></span>${String(dexName||'').toUpperCase()}`;
-                                        try { if (window.UIkit && UIkit.update) UIkit.update(cell); } catch(_) {}
-                                        // Build rich header log like example
-                                        try {
-                                            const chainCfg = (window.CONFIG_CHAINS||{})[String(token.chain).toLowerCase()] || {};
-                                            const chainName = (chainCfg.Nama_Chain || token.chain || '').toString().toUpperCase();
-                                            const nameIn  = String(isKiri ? token.symbol_in  : token.symbol_out).toUpperCase();
-                                            const nameOut = String(isKiri ? token.symbol_out : token.symbol_in ).toUpperCase();
-                                            const ce  = String(token.cex||'').toUpperCase();
-                                            const dx  = String(dexName||dex||'').toUpperCase();
-                                            const proc = isKiri ? `${ce} → ${dx}` : `${dx} → ${ce}`;
-                                            const modal = Number(isKiri ? modalKiri : modalKanan) || 0;
-                                            const header = [
-                                                `✅ [LOG ${isKiri? 'CEX → DEX':'DEX → CEX'}] ${nameIn} → ${nameOut} on ${chainName}`,
-                                                `    🔄 [${proc}]`,
-                                                '',
-                                                `    🪙 Modal: $${modal.toFixed(2)}`,
-                                               // message ? `    💹 CEX SUMMARY: ${message}` : ''
-                                            ].filter(Boolean).join('\n');
-                                            setCellTitleByEl(cell, header);
-                                        } catch(_) {}
-                                    } else if (status === 'fallback') {
-                                        statusSpan.classList.add('uk-text-warning');
-                                        statusSpan.innerHTML = `<span class=\"uk-margin-small-right\" uk-spinner=\"ratio: 0.5\"></span>SWOOP`;
-                                        // REFACTORED: Tidak menampilkan error message dari primary DEX
-                                        // Tooltip tetap menampilkan header info checking saja
-                                        try { if (window.UIkit && UIkit.update) UIkit.update(cell); } catch(_) {}
-                                    } else if (status === 'fallback_error') {
-                                        setDexErrorBackground(cell);
-                                        statusSpan.classList.remove('uk-text-warning');
-                                        statusSpan.classList.add('uk-text-danger');
-                                        statusSpan.innerHTML = `<span class=\"uk-label uk-label-warning\">TIMEOUT</span>`;
-                                        // REFACTORED: Tooltip menampilkan error dari fallback saja (bukan primary)
-                                        // Message berisi error dari alternatif DEX
-                                        if (message) {
-                                            statusSpan.title = String(message);
-                                            setCellTitleByEl(cell, String(message));
-                                            try { const lab = statusSpan.querySelector('.uk-label'); if (lab) lab.setAttribute('title', String(message)); } catch(_) {}
-                                        } else {
-                                            statusSpan.removeAttribute('title');
-                                        }
-                                        // Finalize regardless of tab visibility
-                                        try { clearDexTickerById(idCELL); } catch(_) {}
-                                        try { if (cell.dataset) { cell.dataset.final = '1'; delete cell.dataset.checking; delete cell.dataset.deadline; } } catch(_) {}
-                                    } else if (status === 'failed') {
-                                        // Validation failed before DEX call (e.g., modal/contract/chain code)
-                                        setDexErrorBackground(cell);
-                                        statusSpan.classList.remove('uk-text-warning');
-                                        statusSpan.classList.add('uk-text-danger');
-                                        statusSpan.innerHTML = `<span class=\"uk-label uk-label-failed\">FAILED</span>`;
-                                        if (message) {
-                                            statusSpan.title = String(message);
-                                            setCellTitleByEl(cell, String(message));
-                                            try { const lab = statusSpan.querySelector('.uk-label'); if (lab) lab.setAttribute('title', String(message)); } catch(_) {}
-                                        } else {
-                                            statusSpan.removeAttribute('title');
-                                        }
-                                        // Finalize regardless of tab visibility
-                                        try { clearDexTickerById(idCELL); } catch(_) {}
-                                        try { if (cell.dataset) { cell.dataset.final = '1'; delete cell.dataset.checking; delete cell.dataset.deadline; } } catch(_) {}
-                                    } else if (status === 'error') {
-                                        setDexErrorBackground(cell);
-                                        statusSpan.classList.remove('uk-text-warning');
-                                        statusSpan.classList.add('uk-text-danger');
-                                        statusSpan.innerHTML = `<span class=\"uk-label uk-label-danger\">ERROR</span>`;
-                                        if (message) {
-                                            statusSpan.title = String(message);
-                                            setCellTitleByEl(cell, String(message));
-                                            // Ensure the visible ERROR/TIMEOUT badge also shows the tooltip itself
-                                            try { const lab = statusSpan.querySelector('.uk-label'); if (lab) lab.setAttribute('title', String(message)); } catch(_) {}
-                                        } else {
-                                            statusSpan.removeAttribute('title');
-                                        }
-                                        // Finalize regardless of tab visibility
-                                        try { clearDexTickerById(idCELL); } catch(_) {}
-                                        try { if (cell.dataset) { cell.dataset.final = '1'; delete cell.dataset.checking; delete cell.dataset.deadline; } } catch(_) {}
-                                    }
-                                };
-
-                                /**
-                                 * Validasi cepat sebelum memanggil API DEX untuk menghindari request yang tidak perlu.
-                                 * @returns {{ok: boolean, reason?: string}}
-                                 */
-                                const validateDexReadiness = () => {
-                                    const modal = isKiri ? modalKiri : modalKanan;
+                                    // Compute DEX USD rate based on direction
                                     const amtIn = isKiri ? amount_in_token : amount_in_pair;
-                                    const chainCfg = CONFIG_CHAINS[String(token.chain).toLowerCase()] || {};
-                                    // Modal must be > 0
-                                    if (!(Number(modal) > 0)) return { ok:false, reason:'Modal tidak valid (<= 0)' };
-                                    // Amount-in must be > 0
-                                    if (!(Number(amtIn) > 0)) return { ok:false, reason:'Amount input tidak valid (<= 0)' };
-                                    // Chain code must exist (used by DEX link and queries)
-                                    if (!chainCfg || !chainCfg.Kode_Chain) return { ok:false, reason:'Kode chain tidak tersedia' };
-                                    // Basic SC presence (after NON fallback sanitation)
-                                    if (!scInSafe || !scOutSafe || String(scInSafe).length < 6 || String(scOutSafe).length < 6) return { ok:false, reason:'Alamat kontrak tidak lengkap' };
-                                    return { ok:true };
-                                };
-
-                                const ready = validateDexReadiness();
-                                if (!ready.ok) { updateDexCellStatus('failed', dex, ready.reason); return; }
-
-                                // REMOVED: Watchdog keys removed
-
-                                /**
-                                 * Handler yang dijalankan jika panggilan API DEX (atau fallback-nya) berhasil.
-                                 * @param {object} dexResponse - Respons dari `getPriceDEX` atau `getPriceAltDEX`.
-                                 * @param {boolean} [isFallback=false] - True jika ini adalah hasil dari fallback.
-                                 * @param {string} [fallbackSource=''] - Sumber fallback ('DZAP' atau 'SWOOP').
-                                 */
-                                const handleSuccess = (dexResponse, isFallback = false, fallbackSource = '') => {
+                                    const rate = (Number(finalDexRes.amount_out) || 0) / (Number(amtIn) || 1);
+                                    let dexUsd = null;
                                     try {
-                                    // REMOVED: clearAllWatchdogs()
-                                    // REFACTORED: Tambahkan info sumber alternatif ke dexResponse
-                                    const finalDexRes = isFallback ? {
-                                        ...dexResponse,
-                                        dexTitle: (dexResponse.dexTitle || dex),
-                                        isFallback: true,  // Flag untuk DisplayPNL
-                                        fallbackSource: fallbackSource || 'UNKNOWN'
-                                    } : dexResponse;
-                                    // Panggil `calculateResult` untuk menghitung PNL dan data lainnya.
-                                    const update = calculateResult(
-                                        baseId, tableBodyId, finalDexRes.amount_out, finalDexRes.FeeSwap,
-                                        isKiri ? token.sc_in : token.sc_out, isKiri ? token.sc_out : token.sc_in,
-                                        token.cex, isKiri ? modalKiri : modalKanan,
-                                        isKiri ? amount_in_token : amount_in_pair,
-                                        DataCEX.priceBuyToken, DataCEX.priceSellToken, DataCEX.priceBuyPair, DataCEX.priceSellPair,
-                                        isKiri ? token.symbol_in : token.symbol_out, isKiri ? token.symbol_out : token.symbol_in,
-                                        isKiri ? DataCEX.feeWDToken : DataCEX.feeWDPair,
-                                        dex, token.chain, CONFIG_CHAINS[token.chain.toLowerCase()].Kode_Chain,
-                                        direction, 0, finalDexRes
-                                    );
-
-                                    // Note: Multi-DEX handling (DZAP, LIFI) is now done in DisplayPNL
-                                    // The subResults are passed via calculateResult -> update -> DisplayPNL
-                                    // Buat log ringkasan untuk console jika diaktifkan.
-                                    // Console log summary for this successful check (cleaned)
-                                    try {
-                                        // Compute DEX USD rate based on direction
-                                        const amtIn = isKiri ? amount_in_token : amount_in_pair;
-                                        const rate = (Number(finalDexRes.amount_out)||0) / (Number(amtIn)||1);
-                                        let dexUsd = null;
-                                        try {
-                                            const stable = (typeof getStableSymbols === 'function') ? getStableSymbols() : ['USDT','USDC','DAI'];
-                                            const baseSym = (typeof getBaseTokenSymbol === 'function') ? getBaseTokenSymbol(token.chain) : '';
-                                            const baseUsd = (typeof getBaseTokenUSD === 'function') ? getBaseTokenUSD(token.chain) : 0;
-                                            const inSym  = String(isKiri ? token.symbol_in  : token.symbol_out).toUpperCase();
-                                            const outSym = String(isKiri ? token.symbol_out : token.symbol_in ).toUpperCase();
-                                            if (isKiri) {
-                                                // token -> pair: USD per 1 token
-                                                if (stable.includes(outSym)) dexUsd = rate;
-                                                else if (baseSym && outSym === baseSym && baseUsd > 0) dexUsd = rate * baseUsd;
-                                                else dexUsd = rate * (Number(DataCEX.priceBuyPair)||0); // fallback via CEX
-                                            } else {
-                                                // pair -> token: USD per 1 token
-                                                if (stable.includes(inSym) && rate > 0) dexUsd = 1 / rate;
-                                                else if (baseSym && inSym === baseSym && baseUsd > 0 && rate > 0) dexUsd = baseUsd / rate;
-                                                else dexUsd = Number(DataCEX.priceSellToken)||0; // fallback via CEX
-                                            }
-                                        } catch(_) { dexUsd = null; }
-
-                                        // refactor: removed unused local debug variables (buy/sell/pnl lines)
-                                        
-                                    } catch(_) {}
-                                    // Append success details (rich format)
-                                    try {
-                                        const chainCfg = (window.CONFIG_CHAINS||{})[String(token.chain).toLowerCase()] || {};
-                                        const chainName = (chainCfg.Nama_Chain || token.chain || '').toString().toUpperCase();
-                                        const ce  = String(token.cex||'').toUpperCase();
-                                        const dx  = String((finalDexRes?.dexTitle)||dex||'').toUpperCase();
-                                        // Sumber nilai: jika alternatif dipakai tampilkan 'via DZAP' atau 'via SWOOP'
-                                        const viaText = (function(){
-                                            try {
-                                                if (isFallback === true) {
-                                                    // Jika fallback DZAP (memiliki routeTool dari services), tampilkan via DZAP
-                                                    if (finalDexRes && typeof finalDexRes.routeTool !== 'undefined') return ' via DZAP';
-                                                    // Selain itu fallback dianggap SWOOP
-                                                    return ' via SWOOP';
-                                                }
-                                            } catch(_) {}
-                                            return '';
-                                        })();
-                                        const nameIn  = String(isKiri ? token.symbol_in  : token.symbol_out).toUpperCase();
-                                        const nameOut = String(isKiri ? token.symbol_out : token.symbol_in ).toUpperCase();
-                                        const modal = Number(isKiri ? modalKiri : modalKanan) || 0;
-                                        const amtIn  = Number(isKiri ? amount_in_token : amount_in_pair) || 0;
-                                        const outAmt = Number(finalDexRes.amount_out)||0;
-                                        const feeSwap = Number(finalDexRes.FeeSwap||0);
-
-                                        // ✅ FIX: Fee calculation berbeda per arah
-                                        // CEX to DEX (isKiri=true): withdraw fee dari CEX
-                                        // DEX to CEX (isKiri=false): transfer/deposit fee ke CEX wallet (gas fee)
-                                        const feeWD = isKiri ? Number(DataCEX.feeWDToken || 0) : 0;
-
-                                        // ✅ FIX: Untuk DEX to CEX, tambahkan gas transfer fee
-                                        // Estimate: transfer gas ~50% dari swap gas (karena transfer lebih simple)
-                                        const feeTransfer = !isKiri ? (feeSwap * 0.5) : 0;
-
-                                        const feeTrade = 0.0014 * modal;
-
-                                        // Harga efektif DEX (USDT/token)
-                                        let effDexPerToken = 0;
+                                        const stable = (typeof getStableSymbols === 'function') ? getStableSymbols() : ['USDT', 'USDC', 'DAI'];
+                                        const baseSym = (typeof getBaseTokenSymbol === 'function') ? getBaseTokenSymbol(token.chain) : '';
+                                        const baseUsd = (typeof getBaseTokenUSD === 'function') ? getBaseTokenUSD(token.chain) : 0;
+                                        const inSym = String(isKiri ? token.symbol_in : token.symbol_out).toUpperCase();
+                                        const outSym = String(isKiri ? token.symbol_out : token.symbol_in).toUpperCase();
                                         if (isKiri) {
-                                            if (nameOut === 'USDT') effDexPerToken = (amtIn>0)? (outAmt/amtIn) : 0;
-                                            else effDexPerToken = (amtIn>0)? (outAmt/amtIn) * Number(DataCEX.priceSellPair||0) : 0;
+                                            // token -> pair: USD per 1 token
+                                            if (stable.includes(outSym)) dexUsd = rate;
+                                            else if (baseSym && outSym === baseSym && baseUsd > 0) dexUsd = rate * baseUsd;
+                                            else dexUsd = rate * (Number(DataCEX.priceBuyPair) || 0); // fallback via CEX
                                         } else {
-                                            if (nameIn === 'USDT') effDexPerToken = (outAmt>0)? (amtIn/outAmt) : 0;
-                                            else effDexPerToken = (outAmt>0)? (amtIn/outAmt) * Number(DataCEX.priceBuyPair||0) : 0;
+                                            // pair -> token: USD per 1 token
+                                            if (stable.includes(inSym) && rate > 0) dexUsd = 1 / rate;
+                                            else if (baseSym && inSym === baseSym && baseUsd > 0 && rate > 0) dexUsd = baseUsd / rate;
+                                            else dexUsd = Number(DataCEX.priceSellToken) || 0; // fallback via CEX
                                         }
-                                        // Total value hasil (USDT)
-                                        const totalValue = isKiri
-                                          ? outAmt * Number(DataCEX.priceSellPair||0)
-                                          : outAmt * Number(DataCEX.priceSellToken||0);
-                                        const bruto = totalValue - modal;
+                                    } catch (_) { dexUsd = null; }
 
-                                        // ✅ FIX: Total fee include transfer fee untuk DEX to CEX
-                                        const totalFee = feeSwap + feeWD + feeTransfer + feeTrade;
-                                        const profitLoss = totalValue - (modal + totalFee);
-                                        const pnlPct = modal>0 ? (bruto/modal)*100 : 0;
-                                        const toIDR = (v)=>{ try{ return (typeof formatIDRfromUSDT==='function')? formatIDRfromUSDT(Number(v)||0):'';}catch(_){return '';} };
-                                        const buyPriceCEX = Number(DataCEX.priceBuyToken||0);
-                                        const buyLine = isKiri
-                                          ? `    🛒 Beli di ${ce} @ $${buyPriceCEX.toFixed(6)} → ${amtIn.toFixed(6)} ${nameIn}`
-                                          : `    🛒 Beli di ${dx} @ ~$${effDexPerToken.toFixed(6)} / ${nameOut}`;
-                                        const buyIdrLine = isKiri
-                                          ? `    💱 Harga Beli (${ce}) dalam IDR: ${toIDR(buyPriceCEX)}`
-                                          : `    💱 Harga Beli (${dx}) dalam IDR: ${toIDR(effDexPerToken)}`;
-                                        const sellIdrLine = isKiri
-                                          ? `    💱 Harga Jual (${dx}) dalam IDR: ${toIDR(effDexPerToken)}`
-                                          : `    💱 Harga Jual (${ce}) dalam IDR: ${toIDR(Number(DataCEX.priceSellToken||0))}`;
-                                        // Header block (selalu tampil di awal tooltip)
-                                        const nowStr = (new Date()).toLocaleTimeString();
-                                        const viaName = (function(){
-                                            try {
-                                                if (isFallback === true) {
-                                                    const routeTool = String(finalDexRes?.routeTool || '').toUpperCase();
-                                                    if (routeTool) {
-                                                        if (/DZAP|PARASWAP|1INCH|0X|KYBER/i.test(routeTool)) {
-                                                            return `DZAP (${routeTool})`;
-                                                        }
-                                                        return routeTool;
-                                                    }
-                                                    return 'SWOOP';
-                                                }
-                                            } catch(_) {}
-                                            return dx;
-                                        })();
-                                        const prosesLine = isKiri
-                                          ? `PROSES : ${ce} => ${dx} (VIA ${viaName})`
-                                          : `PROSES : ${dx} => ${ce} (VIA ${viaName})`;
-                                        // REFACTORED: Jika fallback berhasil, statusnya TETAP "OK"
-                                        // Tidak perlu menampilkan error dari primary DEX karena sudah berhasil via fallback
-                                        let statusLine = 'STATUS DEX : OK';
-                                        const headerBlock = [
-                                            '======================================',
-                                            `Time: ${nowStr}`,
-                                           // `ID CELL: ${idCELL}`,
-                                            `PROSES : ${isKiri ? `${ce} => ${dx}` : `${dx} => ${ce}`} (VIA ${viaName})`,
-                                            statusLine
-                                        ].join('\n');
-                                        // Token info untuk debugging
-                                        const tokenInInfo = isKiri
-                                            ? `    📥 Token IN  : ${nameIn} (${String(token.sc_in).substring(0,10)}...)`
-                                            : `    📥 Token IN  : ${nameIn} (${String(token.sc_out).substring(0,10)}...)`;
-                                        const tokenOutInfo = isKiri
-                                            ? `    📤 Token OUT : ${nameOut} (${String(token.sc_out).substring(0,10)}...)`
-                                            : `    📤 Token OUT : ${nameOut} (${String(token.sc_in).substring(0,10)}...)`;
-                                        // Info sumber alternatif untuk console log
-                                        const sourceInfo = (function(){
-                                            try {
-                                                if (isFallback === true) {
-                                                    const routeTool = String(finalDexRes?.routeTool || '').toUpperCase();
-                                                    if (routeTool) {
-                                                        // DZAP dengan provider spesifik
-                                                        if (/DZAP|PARASWAP|1INCH|0X|KYBER/i.test(routeTool)) {
-                                                            return `    🔄 SUMBER: DZAP (Provider: ${routeTool})`;
-                                                        }
-                                                        return `    🔄 SUMBER: ${routeTool}`;
-                                                    }
-                                                    // Default SWOOP
-                                                    return `    🔄 SUMBER: SWOOP`;
-                                                }
-                                            } catch(_) {}
-                                            return ''; // Tidak ada info sumber jika bukan fallback
-                                        })();
+                                    // refactor: removed unused local debug variables (buy/sell/pnl lines)
 
-                                        // ✅ FIX: Fee breakdown berbeda per arah
-                                        const feeBreakdown = isKiri
-                                            ? [
-                                                `    🏦 Fee WD (CEX): $${feeWD.toFixed(4)}`,
-                                                `    🛒 Fee Swap (DEX): $${feeSwap.toFixed(4)}`,
-                                                `    💼 Fee Trade (CEX): $${feeTrade.toFixed(4)}`,
-                                            ]
-                                            : [
-                                                `    🛒 Fee Swap (DEX): $${feeSwap.toFixed(4)}`,
-                                                `    📤 Fee Transfer (Gas): $${feeTransfer.toFixed(4)}`,
-                                                `    💼 Fee Trade (CEX): $${feeTrade.toFixed(4)}`,
-                                            ];
-
-                                        const lines = [
-                                            headerBlock,
-                                            sourceInfo, // Tambahkan info sumber di bawah header
-                                            tokenInInfo,
-                                            tokenOutInfo,
-                                            `    🪙 Modal: $${modal.toFixed(2)}`,
-                                            buyLine,
-                                            buyIdrLine,
-                                            '',
-                                            `    💰 Swap di ${dx}:`,
-                                            `    - Harga Swap Efektif: ~$${effDexPerToken.toFixed(6)} / ${nameIn}`,
-                                            `    - Hasil: $${Number(totalValue||0).toFixed(6)}`,
-                                            sellIdrLine,
-                                            '',
-                                            ...feeBreakdown,
-                                            `    🧾 Total Fee: ~$${totalFee.toFixed(4)}`,
-                                            '',
-                                            `    📈 PNL: ${bruto>=0?'+':''}${bruto.toFixed(2)} USDT (${pnlPct.toFixed(2)}%)`,
-                                            `    🚀 PROFIT : ${profitLoss>=0?'+':''}${profitLoss.toFixed(2)} USDT`,
-                                            `idCELL: ${idCELL}`,
-                                        ].filter(Boolean).join('\n'); // filter(Boolean) menghapus string kosong
-                                        // FIX: Gunakan setCellTitleById untuk replace (bukan append) agar tidak ada header [LOG...]
-                                        setCellTitleById(idCELL, lines);
-                                        try { if (window.SCAN_LOG_ENABLED) console.log(lines); } catch(_) {}
-                                    } catch(_) {}
-                                    // Masukkan hasil kalkulasi ke antrian pembaruan UI.
-                                   // console.log(`[PUSH TO QUEUE] Pushing update to uiUpdateQueue`, { idCELL, isFallback, type: update.type });
-                                    uiUpdateQueue.push(update);
-                                    if (!isScanRunning) {
+                                } catch (_) { }
+                                // Append success details (rich format)
+                                try {
+                                    const chainCfg = (window.CONFIG_CHAINS || {})[String(token.chain).toLowerCase()] || {};
+                                    const chainName = (chainCfg.Nama_Chain || token.chain || '').toString().toUpperCase();
+                                    const ce = String(token.cex || '').toUpperCase();
+                                    const dx = String((finalDexRes?.dexTitle) || dex || '').toUpperCase();
+                                    // Sumber nilai: jika alternatif dipakai tampilkan 'via DZAP' atau 'via SWOOP'
+                                    const viaText = (function () {
                                         try {
-                                            animationFrameId = requestAnimationFrame(processUiUpdates);
-                                        } catch(_) {
-                                            try { processUiUpdates(); } catch(_) {}
-                                        }
-                                    }
-                                    } finally {
-                                        markDexRequestEnd();
-                                    }
-                                };
-
-                                /**
-                                 * Handler yang dijalankan jika panggilan API DEX utama gagal.
-                                 * @param {object} initialError - Objek error dari `getPriceDEX`.
-                                 */
-                                const handleError = (initialError) => {
-                                    try { lastPrimaryError = initialError; } catch(_) {}
-                                    // REMOVED: clearAllWatchdogs()
-                                    // debug logs removed
-                                    const dexConfig = CONFIG_DEXS[dex.toLowerCase()];
-                                    // Build richer error title with HTTP status code only if not already present
-                                    let msg = (initialError && initialError.pesanDEX) ? String(initialError.pesanDEX) : 'Unknown Error';
-                                    const hasPrefix = /\[(HTTP \d{3}|XHR ERROR 200)\]/.test(msg);
-                                    try {
-                                        const code = Number(initialError && initialError.statusCode);
-                                        if (!hasPrefix && Number.isFinite(code) && code > 0) {
-                                            if (code === 200) msg = `[XHR ERROR 200] ${msg}`;
-                                            else msg = `[HTTP ${code}] ${msg}`;
-                                        }
-                                    } catch(_) {}
-                                    // Periksa apakah DEX ini dikonfigurasi untuk menggunakan fallback.
-                                    if (dexConfig && dexConfig.allowFallback) {
-                                        // REFACTORED: Tidak update UI dengan error dari primary DEX
-                                        // Langsung tampilkan status fallback (SWOOP) tanpa menampilkan error primary
-                                       // console.log(`[FALLBACK] Primary DEX ${dex.toUpperCase()} error, trying fallback...`, { idCELL, error: msg });
-                                        updateDexCellStatus('fallback', dex, '');
-                                        // Mulai countdown untuk SWOOP fallback (menggunakan speedScan dari setting user)
-                                        try {
-                                            // Hapus ticker lama dan mulai ticker baru untuk fallback.
-                                            clearDexTickerById(idCELL);
-                                            // FIXED: Gunakan speedScan dari user setting, bukan hardcoded 5000ms
-                                            const fallbackTimeout = Math.max(speedScan, 2000); // minimum 2 detik untuk fallback
-                                            const endAtFB = Date.now() + fallbackTimeout;
-                                            // Use shared ticker helper
-                                            const renderFB = (secs, cell) => {
-                                                const span = ensureDexStatusSpan(cell);
-                                                span.innerHTML = `<span class=\\"uk-margin-small-right\\" uk-spinner=\\"ratio: 0.5\\"></span>SWOOP (${secs}s)`;
-                                                try { if (window.UIkit && UIkit.update) UIkit.update(cell); } catch(_) {}
-                                            };
-                                            const onEndFB = () => {
-                                                // REFACTORED: Tidak menampilkan error dari primary, hanya info timeout fallback
-                                                const rawMsg = 'Fallback Timeout';
-                                                if (!(typeof document !== 'undefined' && document.hidden)) {
-                                                    try { updateDexCellStatus('fallback_error', dex, rawMsg); } catch(_) {}
-                                                }
-                                            };
-                                            // Define lightweight helper locally (no global pollution)
-                                            const startTicker = (endAt, render, onEnd) => {
-                                                try {
-                                                    window._DEX_TICKERS = window._DEX_TICKERS || new Map();
-                                                    const key = idCELL + ':ticker';
-                                                    if (window._DEX_TICKERS.has(key)) { clearInterval(window._DEX_TICKERS.get(key)); window._DEX_TICKERS.delete(key); }
-                                                    const tick = () => {
-                                                        const rem = endAt - Date.now();
-                                                        const secs = Math.max(0, Math.ceil(rem/1000));
-                                                        const cell = document.getElementById(idCELL);
-                                                        if (!cell) { clearDexTickerById(idCELL); return; }
-                                                        if (cell.dataset && cell.dataset.final === '1') { clearDexTickerById(idCELL); return; }
-                                                        render(secs, cell);
-                                                        if (rem <= 0) { clearDexTickerById(idCELL); /*if (typeof onEnd === 'function') onEnd();*/ }
-                                                    };
-                                                    const intId = setInterval(tick, 1000);
-                                                    window._DEX_TICKERS.set(key, intId);
-                                                    tick();
-                                                } catch(_) {}
-                                            };
-                                            startTicker(endAtFB, renderFB, onEndFB);
-                                        } catch(_) {}
-                                        // REMOVED: Watchdog for fallback removed
-                                        // Panggil API fallback.
-                                        getPriceAltDEX(
-                                            isKiri ? token.sc_in : token.sc_out, isKiri ? token.des_in : token.des_out,
-                                            isKiri ? token.sc_out : token.sc_in, isKiri ? token.des_out : token.des_in,
-                                            isKiri ? amount_in_token : amount_in_pair, DataCEX.priceBuyPair, dex,
-                                            isKiri ? token.symbol_in : token.symbol_out, isKiri ? token.symbol_out : token.symbol_in,
-                                            token.cex, token.chain, CONFIG_CHAINS[token.chain.toLowerCase()].Kode_Chain, direction
-                                        )
-                                        // Jika fallback berhasil, panggil `handleSuccess`.
-                                        .then((fallbackRes) => {
-                                            // REMOVED: clearDexWatchdog(wdKeyFallback)
-                                            try { clearDexTickerById(idCELL); } catch(_) {}
-                                            // REFACTORED: Deteksi sumber fallback dari response
-                                            const routeTool = String(fallbackRes?.routeTool || '').toUpperCase();
-                                            let source = 'SWOOP'; // Default
-                                            if (routeTool) {
-                                                if (/DZAP|PARASWAP|1INCH|0X|KYBER/i.test(routeTool)) {
-                                                    source = `DZAP (${routeTool})`;
-                                                } else {
-                                                    source = routeTool;
-                                                }
+                                            if (isFallback === true) {
+                                                // Jika fallback DZAP (memiliki routeTool dari services), tampilkan via DZAP
+                                                if (finalDexRes && typeof finalDexRes.routeTool !== 'undefined') return ' via DZAP';
+                                                // Selain itu fallback dianggap SWOOP
+                                                return ' via SWOOP';
                                             }
-                                           // console.log(`[FALLBACK SUCCESS] ${dex.toUpperCase()} fallback succeeded via ${source}`, { idCELL, amount_out: fallbackRes.amount_out });
-                                            handleSuccess(fallbackRes, true, source);
-                                        })
-                                        // Jika fallback juga gagal, tampilkan error final.
-                                        .catch((fallbackErr) => {
-                                            try {
+                                        } catch (_) { }
+                                        return '';
+                                    })();
+                                    const nameIn = String(isKiri ? token.symbol_in : token.symbol_out).toUpperCase();
+                                    const nameOut = String(isKiri ? token.symbol_out : token.symbol_in).toUpperCase();
+                                    const modal = Number(isKiri ? modalKiri : modalKanan) || 0;
+                                    const amtIn = Number(isKiri ? amount_in_token : amount_in_pair) || 0;
+                                    const outAmt = Number(finalDexRes.amount_out) || 0;
+                                    const feeSwap = Number(finalDexRes.FeeSwap || 0);
+
+                                    // ✅ FIX: Fee calculation berbeda per arah
+                                    // CEX to DEX (isKiri=true): withdraw fee dari CEX
+                                    // DEX to CEX (isKiri=false): transfer/deposit fee ke CEX wallet (gas fee)
+                                    const feeWD = isKiri ? Number(DataCEX.feeWDToken || 0) : 0;
+
+                                    // ✅ FIX: Untuk DEX to CEX, tambahkan gas transfer fee
+                                    // Estimate: transfer gas ~50% dari swap gas (karena transfer lebih simple)
+                                    const feeTransfer = !isKiri ? (feeSwap * 0.5) : 0;
+
+                                    const feeTrade = 0.0014 * modal;
+
+                                    // Harga efektif DEX (USDT/token)
+                                    let effDexPerToken = 0;
+                                    if (isKiri) {
+                                        if (nameOut === 'USDT') effDexPerToken = (amtIn > 0) ? (outAmt / amtIn) : 0;
+                                        else effDexPerToken = (amtIn > 0) ? (outAmt / amtIn) * Number(DataCEX.priceSellPair || 0) : 0;
+                                    } else {
+                                        if (nameIn === 'USDT') effDexPerToken = (outAmt > 0) ? (amtIn / outAmt) : 0;
+                                        else effDexPerToken = (outAmt > 0) ? (amtIn / outAmt) * Number(DataCEX.priceBuyPair || 0) : 0;
+                                    }
+                                    // Total value hasil (USDT)
+                                    const totalValue = isKiri
+                                        ? outAmt * Number(DataCEX.priceSellPair || 0)
+                                        : outAmt * Number(DataCEX.priceSellToken || 0);
+                                    const bruto = totalValue - modal;
+
+                                    // ✅ FIX: Total fee include transfer fee untuk DEX to CEX
+                                    const totalFee = feeSwap + feeWD + feeTransfer + feeTrade;
+                                    const profitLoss = totalValue - (modal + totalFee);
+                                    const pnlPct = modal > 0 ? (bruto / modal) * 100 : 0;
+                                    const toIDR = (v) => { try { return (typeof formatIDRfromUSDT === 'function') ? formatIDRfromUSDT(Number(v) || 0) : ''; } catch (_) { return ''; } };
+                                    const buyPriceCEX = Number(DataCEX.priceBuyToken || 0);
+                                    const buyLine = isKiri
+                                        ? `    🛒 Beli di ${ce} @ $${buyPriceCEX.toFixed(6)} → ${amtIn.toFixed(6)} ${nameIn}`
+                                        : `    🛒 Beli di ${dx} @ ~$${effDexPerToken.toFixed(6)} / ${nameOut}`;
+                                    const buyIdrLine = isKiri
+                                        ? `    💱 Harga Beli (${ce}) dalam IDR: ${toIDR(buyPriceCEX)}`
+                                        : `    💱 Harga Beli (${dx}) dalam IDR: ${toIDR(effDexPerToken)}`;
+                                    const sellIdrLine = isKiri
+                                        ? `    💱 Harga Jual (${dx}) dalam IDR: ${toIDR(effDexPerToken)}`
+                                        : `    💱 Harga Jual (${ce}) dalam IDR: ${toIDR(Number(DataCEX.priceSellToken || 0))}`;
+                                    // Header block (selalu tampil di awal tooltip)
+                                    const nowStr = (new Date()).toLocaleTimeString();
+                                    const viaName = (function () {
+                                        try {
+                                            if (isFallback === true) {
+                                                const routeTool = String(finalDexRes?.routeTool || '').toUpperCase();
+                                                if (routeTool) {
+                                                    if (/DZAP|PARASWAP|1INCH|0X|KYBER/i.test(routeTool)) {
+                                                        return `DZAP (${routeTool})`;
+                                                    }
+                                                    return routeTool;
+                                                }
+                                                return 'SWOOP';
+                                            }
+                                        } catch (_) { }
+                                        return dx;
+                                    })();
+                                    const prosesLine = isKiri
+                                        ? `PROSES : ${ce} => ${dx} (VIA ${viaName})`
+                                        : `PROSES : ${dx} => ${ce} (VIA ${viaName})`;
+                                    // REFACTORED: Jika fallback berhasil, statusnya TETAP "OK"
+                                    // Tidak perlu menampilkan error dari primary DEX karena sudah berhasil via fallback
+                                    let statusLine = 'STATUS DEX : OK';
+                                    const headerBlock = [
+                                        '======================================',
+                                        `Time: ${nowStr}`,
+                                        // `ID CELL: ${idCELL}`,
+                                        `PROSES : ${isKiri ? `${ce} => ${dx}` : `${dx} => ${ce}`} (VIA ${viaName})`,
+                                        statusLine
+                                    ].join('\n');
+                                    // Token info untuk debugging
+                                    const tokenInInfo = isKiri
+                                        ? `    📥 Token IN  : ${nameIn} (${String(token.sc_in).substring(0, 10)}...)`
+                                        : `    📥 Token IN  : ${nameIn} (${String(token.sc_out).substring(0, 10)}...)`;
+                                    const tokenOutInfo = isKiri
+                                        ? `    📤 Token OUT : ${nameOut} (${String(token.sc_out).substring(0, 10)}...)`
+                                        : `    📤 Token OUT : ${nameOut} (${String(token.sc_in).substring(0, 10)}...)`;
+                                    // Info sumber alternatif untuk console log
+                                    const sourceInfo = (function () {
+                                        try {
+                                            if (isFallback === true) {
+                                                const routeTool = String(finalDexRes?.routeTool || '').toUpperCase();
+                                                if (routeTool) {
+                                                    // DZAP dengan provider spesifik
+                                                    if (/DZAP|PARASWAP|1INCH|0X|KYBER/i.test(routeTool)) {
+                                                        return `    🔄 SUMBER: DZAP (Provider: ${routeTool})`;
+                                                    }
+                                                    return `    🔄 SUMBER: ${routeTool}`;
+                                                }
+                                                // Default SWOOP
+                                                return `    🔄 SUMBER: SWOOP`;
+                                            }
+                                        } catch (_) { }
+                                        return ''; // Tidak ada info sumber jika bukan fallback
+                                    })();
+
+                                    // ✅ FIX: Fee breakdown berbeda per arah
+                                    const feeBreakdown = isKiri
+                                        ? [
+                                            `    🏦 Fee WD (CEX): $${feeWD.toFixed(4)}`,
+                                            `    🛒 Fee Swap (DEX): $${feeSwap.toFixed(4)}`,
+                                            `    💼 Fee Trade (CEX): $${feeTrade.toFixed(4)}`,
+                                        ]
+                                        : [
+                                            `    🛒 Fee Swap (DEX): $${feeSwap.toFixed(4)}`,
+                                            `    📤 Fee Transfer (Gas): $${feeTransfer.toFixed(4)}`,
+                                            `    💼 Fee Trade (CEX): $${feeTrade.toFixed(4)}`,
+                                        ];
+
+                                    const lines = [
+                                        headerBlock,
+                                        sourceInfo, // Tambahkan info sumber di bawah header
+                                        tokenInInfo,
+                                        tokenOutInfo,
+                                        `    🪙 Modal: $${modal.toFixed(2)}`,
+                                        buyLine,
+                                        buyIdrLine,
+                                        '',
+                                        `    💰 Swap di ${dx}:`,
+                                        `    - Harga Swap Efektif: ~$${effDexPerToken.toFixed(6)} / ${nameIn}`,
+                                        `    - Hasil: $${Number(totalValue || 0).toFixed(6)}`,
+                                        sellIdrLine,
+                                        '',
+                                        ...feeBreakdown,
+                                        `    🧾 Total Fee: ~$${totalFee.toFixed(4)}`,
+                                        '',
+                                        `    📈 PNL: ${bruto >= 0 ? '+' : ''}${bruto.toFixed(2)} USDT (${pnlPct.toFixed(2)}%)`,
+                                        `    🚀 PROFIT : ${profitLoss >= 0 ? '+' : ''}${profitLoss.toFixed(2)} USDT`,
+                                        `idCELL: ${idCELL}`,
+                                    ].filter(Boolean).join('\n'); // filter(Boolean) menghapus string kosong
+                                    // FIX: Gunakan setCellTitleById untuk replace (bukan append) agar tidak ada header [LOG...]
+                                    setCellTitleById(idCELL, lines);
+                                    try { if (window.SCAN_LOG_ENABLED) console.log(lines); } catch (_) { }
+                                } catch (_) { }
+                                // Masukkan hasil kalkulasi ke antrian pembaruan UI.
+                                // console.log(`[PUSH TO QUEUE] Pushing update to uiUpdateQueue`, { idCELL, isFallback, type: update.type });
+                                uiUpdateQueue.push(update);
+                                if (!isScanRunning) {
+                                    try {
+                                        animationFrameId = requestAnimationFrame(processUiUpdates);
+                                    } catch (_) {
+                                        try { processUiUpdates(); } catch (_) { }
+                                    }
+                                }
+                            } finally {
+                                markDexRequestEnd();
+                            }
+                        };
+
+                        /**
+                         * Handler yang dijalankan jika panggilan API DEX utama gagal.
+                         * @param {object} initialError - Objek error dari `getPriceDEX`.
+                         */
+                        const handleError = (initialError) => {
+                            try { lastPrimaryError = initialError; } catch (_) { }
+                            // REMOVED: clearAllWatchdogs()
+                            // debug logs removed
+                            const dexConfig = CONFIG_DEXS[dex.toLowerCase()];
+                            // Build richer error title with HTTP status code only if not already present
+                            let msg = (initialError && initialError.pesanDEX) ? String(initialError.pesanDEX) : 'Unknown Error';
+                            const hasPrefix = /\[(HTTP \d{3}|XHR ERROR 200)\]/.test(msg);
+                            try {
+                                const code = Number(initialError && initialError.statusCode);
+                                if (!hasPrefix && Number.isFinite(code) && code > 0) {
+                                    if (code === 200) msg = `[XHR ERROR 200] ${msg}`;
+                                    else msg = `[HTTP ${code}] ${msg}`;
+                                }
+                            } catch (_) { }
+                            // Periksa apakah DEX ini dikonfigurasi untuk menggunakan fallback.
+                            if (dexConfig && dexConfig.allowFallback) {
+                                // REFACTORED: Tidak update UI dengan error dari primary DEX
+                                // Langsung tampilkan status fallback (SWOOP) tanpa menampilkan error primary
+                                // console.log(`[FALLBACK] Primary DEX ${dex.toUpperCase()} error, trying fallback...`, { idCELL, error: msg });
+                                updateDexCellStatus('fallback', dex, '');
+                                // Mulai countdown untuk SWOOP fallback (menggunakan speedScan dari setting user)
+                                try {
+                                    // Hapus ticker lama dan mulai ticker baru untuk fallback.
+                                    clearDexTickerById(idCELL);
+                                    // FIXED: Gunakan speedScan dari user setting, bukan hardcoded 5000ms
+                                    const fallbackTimeout = Math.max(speedScan, 2000); // minimum 2 detik untuk fallback
+                                    const endAtFB = Date.now() + fallbackTimeout;
+                                    // Use shared ticker helper
+                                    const renderFB = (secs, cell) => {
+                                        const span = ensureDexStatusSpan(cell);
+                                        span.innerHTML = `<span class=\\"uk-margin-small-right\\" uk-spinner=\\"ratio: 0.5\\"></span>SWOOP (${secs}s)`;
+                                        try { if (window.UIkit && UIkit.update) UIkit.update(cell); } catch (_) { }
+                                    };
+                                    const onEndFB = () => {
+                                        // REFACTORED: Tidak menampilkan error dari primary, hanya info timeout fallback
+                                        const rawMsg = 'Fallback Timeout';
+                                        if (!(typeof document !== 'undefined' && document.hidden)) {
+                                            try { updateDexCellStatus('fallback_error', dex, rawMsg); } catch (_) { }
+                                        }
+                                    };
+                                    // Define lightweight helper locally (no global pollution)
+                                    const startTicker = (endAt, render, onEnd) => {
+                                        try {
+                                            window._DEX_TICKERS = window._DEX_TICKERS || new Map();
+                                            const key = idCELL + ':ticker';
+                                            if (window._DEX_TICKERS.has(key)) { clearInterval(window._DEX_TICKERS.get(key)); window._DEX_TICKERS.delete(key); }
+                                            const tick = () => {
+                                                const rem = endAt - Date.now();
+                                                const secs = Math.max(0, Math.ceil(rem / 1000));
+                                                const cell = document.getElementById(idCELL);
+                                                if (!cell) { clearDexTickerById(idCELL); return; }
+                                                if (cell.dataset && cell.dataset.final === '1') { clearDexTickerById(idCELL); return; }
+                                                render(secs, cell);
+                                                if (rem <= 0) { clearDexTickerById(idCELL); /*if (typeof onEnd === 'function') onEnd();*/ }
+                                            };
+                                            const intId = setInterval(tick, 1000);
+                                            window._DEX_TICKERS.set(key, intId);
+                                            tick();
+                                        } catch (_) { }
+                                    };
+                                    startTicker(endAtFB, renderFB, onEndFB);
+                                } catch (_) { }
+                                // REMOVED: Watchdog for fallback removed
+                                // Panggil API fallback.
+                                getPriceAltDEX(
+                                    isKiri ? token.sc_in : token.sc_out, isKiri ? token.des_in : token.des_out,
+                                    isKiri ? token.sc_out : token.sc_in, isKiri ? token.des_out : token.des_in,
+                                    isKiri ? amount_in_token : amount_in_pair, DataCEX.priceBuyPair, dex,
+                                    isKiri ? token.symbol_in : token.symbol_out, isKiri ? token.symbol_out : token.symbol_in,
+                                    token.cex, token.chain, CONFIG_CHAINS[token.chain.toLowerCase()].Kode_Chain, direction
+                                )
+                                    // Jika fallback berhasil, panggil `handleSuccess`.
+                                    .then((fallbackRes) => {
+                                        // REMOVED: clearDexWatchdog(wdKeyFallback)
+                                        try { clearDexTickerById(idCELL); } catch (_) { }
+                                        // REFACTORED: Deteksi sumber fallback dari response
+                                        const routeTool = String(fallbackRes?.routeTool || '').toUpperCase();
+                                        let source = 'SWOOP'; // Default
+                                        if (routeTool) {
+                                            if (/DZAP|PARASWAP|1INCH|0X|KYBER/i.test(routeTool)) {
+                                                source = `DZAP (${routeTool})`;
+                                            } else {
+                                                source = routeTool;
+                                            }
+                                        }
+                                        // console.log(`[FALLBACK SUCCESS] ${dex.toUpperCase()} fallback succeeded via ${source}`, { idCELL, amount_out: fallbackRes.amount_out });
+                                        handleSuccess(fallbackRes, true, source);
+                                    })
+                                    // Jika fallback juga gagal, tampilkan error final.
+                                    .catch((fallbackErr) => {
+                                        try {
                                             // REMOVED: watchdog cleanup
                                             // REFACTORED: Gunakan error dari fallback, bukan dari primary
                                             let finalMessage = (fallbackErr && fallbackErr.pesanDEX) ? fallbackErr.pesanDEX : 'Fallback Error';
@@ -1190,197 +1282,197 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                                     // Only add prefix if not already present
                                                     if (finalMessage.indexOf(prefix) !== 0) finalMessage = prefix + finalMessage;
                                                 }
-                                            } catch(_) {}
-                                            try { clearDexTickerById(idCELL); } catch(_) {}
+                                            } catch (_) { }
+                                            try { clearDexTickerById(idCELL); } catch (_) { }
                                             // REFACTORED: Tampilkan error dari alternatif, bukan error dari primary
                                             //console.log(`[FALLBACK ERROR] ${dex.toUpperCase()} fallback also failed`, { idCELL, error: finalMessage });
                                             updateDexCellStatus('fallback_error', dex, finalMessage);
                                             try {
                                                 // Align console info with requested orderbook logic
                                                 const amtIn = isKiri ? amount_in_token : amount_in_pair;
-                                                const rate = Number(amtIn) ? (Number(fallbackRes?.amount_out||0) / Number(amtIn)) : 0;
+                                                const rate = Number(amtIn) ? (Number(fallbackRes?.amount_out || 0) / Number(amtIn)) : 0;
                                                 let dexUsd = null;
                                                 try {
-                                                    const stable = (typeof getStableSymbols === 'function') ? getStableSymbols() : ['USDT','USDC','DAI'];
+                                                    const stable = (typeof getStableSymbols === 'function') ? getStableSymbols() : ['USDT', 'USDC', 'DAI'];
                                                     const baseSym = (typeof getBaseTokenSymbol === 'function') ? getBaseTokenSymbol(token.chain) : '';
                                                     const baseUsd = (typeof getBaseTokenUSD === 'function') ? getBaseTokenUSD(token.chain) : 0;
-                                                    const inSym  = String(isKiri ? token.symbol_in  : token.symbol_out).toUpperCase();
-                                                    const outSym = String(isKiri ? token.symbol_out : token.symbol_in ).toUpperCase();
+                                                    const inSym = String(isKiri ? token.symbol_in : token.symbol_out).toUpperCase();
+                                                    const outSym = String(isKiri ? token.symbol_out : token.symbol_in).toUpperCase();
                                                     if (isKiri) {
-                                                        if (stable.includes(outSym)) dexUsd = rate; else if (baseSym && outSym === baseSym && baseUsd > 0) dexUsd = rate * baseUsd; else dexUsd = rate * (Number(DataCEX.priceBuyPair)||0);
+                                                        if (stable.includes(outSym)) dexUsd = rate; else if (baseSym && outSym === baseSym && baseUsd > 0) dexUsd = rate * baseUsd; else dexUsd = rate * (Number(DataCEX.priceBuyPair) || 0);
                                                     } else {
-                                                        if (stable.includes(inSym) && rate>0) dexUsd = 1 / rate; else if (baseSym && inSym === baseSym && baseUsd>0 && rate>0) dexUsd = baseUsd / rate; else dexUsd = Number(DataCEX.priceSellToken)||0;
+                                                        if (stable.includes(inSym) && rate > 0) dexUsd = 1 / rate; else if (baseSym && inSym === baseSym && baseUsd > 0 && rate > 0) dexUsd = baseUsd / rate; else dexUsd = Number(DataCEX.priceSellToken) || 0;
                                                     }
-                                                } catch(_) { dexUsd = null; }
+                                                } catch (_) { dexUsd = null; }
                                                 // refactor: removed unused local debug variables (buy/sell/pnl lines)
-                                                
-                                            } catch(_) {}
-                                            } finally {
-                                                markDexRequestEnd();
-                                            }
-                                        });
-                                    } else {
-                                        // Jika tidak ada fallback, langsung tampilkan error.
-                                        // Use formatted message with HTTP code when available (avoid duplicate prefix)
-                                        updateDexCellStatus('error', dex, msg);
-                                        // Tambahkan header block ke tooltip + console (jika Log ON)
-                                        try {
-                                            const nowStr = (new Date()).toLocaleTimeString();
-                                            const dxName = String(dex||'').toUpperCase();
-                                            const ceName = String(token.cex||'').toUpperCase();
-                                            // PROSES mengikuti arah
-                                            const prosesLine = (direction === 'TokentoPair')
-                                                ? `PROSES : ${ceName} => ${dxName} (VIA ${dxName})`
-                                                : `PROSES : ${dxName} => ${ceName} (VIA ${dxName})`;
-                                            // STATUS
-                                            let s = 'FAILED';
-                                            try {
-                                                const ts = String(initialError && initialError.textStatus || '').toLowerCase();
-                                                if (ts === 'timeout' || /timeout/i.test(String(initialError && initialError.pesanDEX||''))) s = 'TIMEOUT';
-                                            } catch(_) { s = 'FAILED'; }
-                                            const codeNum = Number(initialError && initialError.statusCode);
-                                            const statusLine = `STATUS DEX : ${s} (KODE ERROR : ${Number.isFinite(codeNum)?codeNum:'NA'})`;
-                                            const headerBlock = [
-                                                '======================================',
-                                                `Time: ${nowStr}`,
-                                               // `ID CELL: ${idCELL}`,
-                                                prosesLine,
-                                                statusLine
-                                            ].join('\n');
-                                            // FIX: Gunakan setCellTitleById untuk replace (bukan append) agar tidak ada header [LOG...]
-                                            setCellTitleById(idCELL, headerBlock);
-                                            try { if (window.SCAN_LOG_ENABLED) console.log(headerBlock); } catch(_) {}
-                                        } catch(_) {}
-                                        try {
-                                            // Align console info with requested orderbook logic (logs removed)
-                                        } catch(_) {}
-                                        markDexRequestEnd();
-                                    }
-                                };
 
-                                // Update UI ke status "Checking" sebelum memanggil API.
-                                // Include CEX summary in title while checking
-                                const fmt6 = v => (Number.isFinite(+v) ? (+v).toFixed(6) : String(v));
-                                const cexSummary = `CEX READY BT=${fmt6(DataCEX.priceBuyToken)} ST=${fmt6(DataCEX.priceSellToken)} BP=${fmt6(DataCEX.priceBuyPair)} SP=${fmt6(DataCEX.priceSellPair)}`;
-                                updateDexCellStatus('checking', dex, cexSummary);
-                                // REMOVED: Watchdog for primary DEX removed
-                                // Increased timeout window from 300ms to 2000ms for slower DEX APIs
-                                const dexTimeoutWindow = getJedaDex(dex) + Math.max(speedScan) + 2000;
-                                // Mulai ticker countdown untuk menampilkan sisa detik pada label "Checking".
+                                            } catch (_) { }
+                                        } finally {
+                                            markDexRequestEnd();
+                                        }
+                                    });
+                            } else {
+                                // Jika tidak ada fallback, langsung tampilkan error.
+                                // Use formatted message with HTTP code when available (avoid duplicate prefix)
+                                updateDexCellStatus('error', dex, msg);
+                                // Tambahkan header block ke tooltip + console (jika Log ON)
                                 try {
-                                    const endAt = Date.now() + dexTimeoutWindow;
-                                    // Stamp a deadline on the cell for a global safety sweeper
-                                    try { const c = document.getElementById(idCELL); if (c) { c.dataset.deadline = String(endAt); c.dataset.dex = String(dex); c.dataset.checking = '1'; } } catch(_) {}
-                                    const renderCheck = (secs, cell) => {
-                                        const span = ensureDexStatusSpan(cell);
-                                        span.innerHTML = `<span class=\"uk-margin-small-right\" uk-spinner=\"ratio: 0.5\"></span>${String(dex||'').toUpperCase()} (${secs}s)`;
-                                        try { if (window.UIkit && UIkit.update) UIkit.update(cell); } catch(_) {}
-                                    };
-                                    const onEndCheck = () => {
-                                        // REMOVED: Watchdog logic removed
-                                        // Timeout will be handled by ticker and safety sweeper in processUiUpdates
-                                    };
-                                    // Define lightweight helper locally (reused)
-                                    const startTicker = (endAt, render, onEnd) => {
-                                        try {
-                                            window._DEX_TICKERS = window._DEX_TICKERS || new Map();
-                                            const key = idCELL + ':ticker';
-                                            if (window._DEX_TICKERS.has(key)) { clearInterval(window._DEX_TICKERS.get(key)); window._DEX_TICKERS.delete(key); }
-                                            const tick = () => {
-                                                const rem = endAt - Date.now();
-                                                const secs = Math.max(0, Math.ceil(rem/1000));
-                                                const cell = document.getElementById(idCELL);
-                                                if (!cell) { clearDexTickerById(idCELL); return; }
-                                                if (cell.dataset && cell.dataset.final === '1') { clearDexTickerById(idCELL); return; }
-                                                render(secs, cell);
-                                                if (rem <= 0) { clearDexTickerById(idCELL); /*if (typeof onEnd === 'function') onEnd();*/ }
-                                            };
-                                            const intId = setInterval(tick, 1000);
-                                            window._DEX_TICKERS.set(key, intId);
-                                            tick();
-                                        } catch(_) {}
-                                    };
-                                    startTicker(endAt, renderCheck, onEndCheck);
-                                } catch(_) {}
+                                    const nowStr = (new Date()).toLocaleTimeString();
+                                    const dxName = String(dex || '').toUpperCase();
+                                    const ceName = String(token.cex || '').toUpperCase();
+                                    // PROSES mengikuti arah
+                                    const prosesLine = (direction === 'TokentoPair')
+                                        ? `PROSES : ${ceName} => ${dxName} (VIA ${dxName})`
+                                        : `PROSES : ${dxName} => ${ceName} (VIA ${dxName})`;
+                                    // STATUS
+                                    let s = 'FAILED';
+                                    try {
+                                        const ts = String(initialError && initialError.textStatus || '').toLowerCase();
+                                        if (ts === 'timeout' || /timeout/i.test(String(initialError && initialError.pesanDEX || ''))) s = 'TIMEOUT';
+                                    } catch (_) { s = 'FAILED'; }
+                                    const codeNum = Number(initialError && initialError.statusCode);
+                                    const statusLine = `STATUS DEX : ${s} (KODE ERROR : ${Number.isFinite(codeNum) ? codeNum : 'NA'})`;
+                                    const headerBlock = [
+                                        '======================================',
+                                        `Time: ${nowStr}`,
+                                        // `ID CELL: ${idCELL}`,
+                                        prosesLine,
+                                        statusLine
+                                    ].join('\n');
+                                    // FIX: Gunakan setCellTitleById untuk replace (bukan append) agar tidak ada header [LOG...]
+                                    setCellTitleById(idCELL, headerBlock);
+                                    try { if (window.SCAN_LOG_ENABLED) console.log(headerBlock); } catch (_) { }
+                                } catch (_) { }
+                                try {
+                                    // Align console info with requested orderbook logic (logs removed)
+                                } catch (_) { }
+                                markDexRequestEnd();
+                            }
+                        };
 
-                                // Panggil API DEX setelah jeda yang dikonfigurasi.
-                                setTimeout(() => {
-                                    markDexRequestStart();
-                                    if (!isScanRunning) {
-                                        markDexRequestEnd();
-                                        return;
-                                    }
-                                    getPriceDEX(
-                                        scInSafe, desInSafe,
-                                        scOutSafe, desOutSafe,
-                                        isKiri ? amount_in_token : amount_in_pair,
-                                        // ===== AUTO SKIP FEATURE =====
-                                        // Jika CEX gagal, gunakan default price pair (1 untuk simplicity)
-                                        (cexResult.ok && DataCEX.priceBuyPair > 0) ? DataCEX.priceBuyPair : 1,
-                                        dex,
-                                        isKiri ? token.symbol_in : token.symbol_out, isKiri ? token.symbol_out : token.symbol_in,
-                                        token.cex, token.chain, CONFIG_CHAINS[token.chain.toLowerCase()].Kode_Chain, direction, tableBodyId
-                                    )
-                                    // Panggil handler yang sesuai berdasarkan hasil promise.
-                                    .then((dexRes) => { /* REMOVED: clearAllWatchdogs() */ handleSuccess(dexRes); })
-                                    .catch((err) => { handleError(err); });
-                                }, getJedaDex(dex));
+                        // Update UI ke status "Checking" sebelum memanggil API.
+                        // Include CEX summary in title while checking
+                        const fmt6 = v => (Number.isFinite(+v) ? (+v).toFixed(6) : String(v));
+                        const cexSummary = `CEX READY BT=${fmt6(DataCEX.priceBuyToken)} ST=${fmt6(DataCEX.priceSellToken)} BP=${fmt6(DataCEX.priceBuyPair)} SP=${fmt6(DataCEX.priceSellPair)}`;
+                        updateDexCellStatus('checking', dex, cexSummary);
+                        // REMOVED: Watchdog for primary DEX removed
+                        // Increased timeout window from 300ms to 2000ms for slower DEX APIs
+                        const dexTimeoutWindow = getJedaDex(dex) + Math.max(speedScan) + 2000;
+                        // Mulai ticker countdown untuk menampilkan sisa detik pada label "Checking".
+                        try {
+                            const endAt = Date.now() + dexTimeoutWindow;
+                            // Stamp a deadline on the cell for a global safety sweeper
+                            try { const c = document.getElementById(idCELL); if (c) { c.dataset.deadline = String(endAt); c.dataset.dex = String(dex); c.dataset.checking = '1'; } } catch (_) { }
+                            const renderCheck = (secs, cell) => {
+                                const span = ensureDexStatusSpan(cell);
+                                span.innerHTML = `<span class=\"uk-margin-small-right\" uk-spinner=\"ratio: 0.5\"></span>${String(dex || '').toUpperCase()} (${secs}s)`;
+                                try { if (window.UIkit && UIkit.update) UIkit.update(cell); } catch (_) { }
                             };
-                            // Jalankan untuk kedua arah: CEX->DEX dan DEX->CEX.
-                            // OPTIMASI: Skip fetch jika checkbox Wallet CEX aktif dan status WD/DP off
-                            const isWalletCEXChecked = (typeof $ === 'function') ? $('#checkWalletCEX').is(':checked') : false;
+                            const onEndCheck = () => {
+                                // REMOVED: Watchdog logic removed
+                                // Timeout will be handled by ticker and safety sweeper in processUiUpdates
+                            };
+                            // Define lightweight helper locally (reused)
+                            const startTicker = (endAt, render, onEnd) => {
+                                try {
+                                    window._DEX_TICKERS = window._DEX_TICKERS || new Map();
+                                    const key = idCELL + ':ticker';
+                                    if (window._DEX_TICKERS.has(key)) { clearInterval(window._DEX_TICKERS.get(key)); window._DEX_TICKERS.delete(key); }
+                                    const tick = () => {
+                                        const rem = endAt - Date.now();
+                                        const secs = Math.max(0, Math.ceil(rem / 1000));
+                                        const cell = document.getElementById(idCELL);
+                                        if (!cell) { clearDexTickerById(idCELL); return; }
+                                        if (cell.dataset && cell.dataset.final === '1') { clearDexTickerById(idCELL); return; }
+                                        render(secs, cell);
+                                        if (rem <= 0) { clearDexTickerById(idCELL); /*if (typeof onEnd === 'function') onEnd();*/ }
+                                    };
+                                    const intId = setInterval(tick, 1000);
+                                    window._DEX_TICKERS.set(key, intId);
+                                    tick();
+                                } catch (_) { }
+                            };
+                            startTicker(endAt, renderCheck, onEndCheck);
+                        } catch (_) { }
 
-                            // CEX→DEX (TokentoPair): Perlu withdrawToken ON untuk bisa WD dari CEX
-                            const shouldSkipTokenToPair = isWalletCEXChecked && token.withdrawToken === false;
-                            if (!shouldSkipTokenToPair) {
-                                callDex('TokentoPair');
-                            } else {
-                                // Set status SKIP untuk sel yang di-skip (WD OFF)
-                                const sym1 = String(token.symbol_in||'').toUpperCase();
-                                const sym2 = String(token.symbol_out||'').toUpperCase();
-                                const tokenId = String(token.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-                                const baseIdRaw = `${String(token.cex).toUpperCase()}_${String(dex).toUpperCase()}_${sym1}_${sym2}_${String(token.chain).toUpperCase()}_${tokenId}`;
-                                const baseId = baseIdRaw.replace(/[^A-Z0-9_]/g,'');
-                                const idCELL = tableBodyId + '_' + baseId;
-                                const cell = document.getElementById(idCELL);
-                                if (cell) {
-                                    try { cell.classList.add('dex-skip'); } catch(_) {}
-                                    const span = ensureDexStatusSpan(cell);
-                                    span.className = 'dex-status uk-text-muted';
-                                    span.innerHTML = `<span class=\"uk-label uk-label-warning\"><< SKIP >></span>`;
-                                    span.title = 'Withdraw Token OFF - Fetch di-skip untuk optimasi';
-                                    try { if (cell.dataset) cell.dataset.final = '1'; } catch(_) {}
-                                }
+                        // Panggil API DEX setelah jeda yang dikonfigurasi.
+                        setTimeout(() => {
+                            markDexRequestStart();
+                            if (!isScanRunning) {
+                                markDexRequestEnd();
+                                return;
                             }
+                            getPriceDEX(
+                                scInSafe, desInSafe,
+                                scOutSafe, desOutSafe,
+                                amountIn,  // Use calculated amount from Auto Volume or fixed modal
+                                // ===== AUTO SKIP FEATURE =====
+                                // Jika CEX gagal, gunakan default price pair (1 untuk simplicity)
+                                (cexResult.ok && DataCEX.priceBuyPair > 0) ? DataCEX.priceBuyPair : 1,
+                                dex,
+                                isKiri ? token.symbol_in : token.symbol_out, isKiri ? token.symbol_out : token.symbol_in,
+                                token.cex, token.chain, CONFIG_CHAINS[token.chain.toLowerCase()].Kode_Chain, direction, tableBodyId
+                            )
+                                // Panggil handler yang sesuai berdasarkan hasil promise.
+                                .then((dexRes) => { /* REMOVED: clearAllWatchdogs() */ handleSuccess(dexRes); })
+                                .catch((err) => { handleError(err); });
+                        }, getJedaDex(dex));
+                    };
+                    // Jalankan untuk kedua arah: CEX->DEX dan DEX->CEX.
+                    // OPTIMASI: Skip fetch jika checkbox Wallet CEX aktif dan status WD/DP off
+                    const isWalletCEXChecked = (typeof $ === 'function') ? $('#checkWalletCEX').is(':checked') : false;
 
-                            // DEX→CEX (PairtoToken): Perlu depositToken ON untuk bisa DP ke CEX
-                            const shouldSkipPairToToken = isWalletCEXChecked && token.depositToken === false;
-                            if (!shouldSkipPairToToken) {
-                                (function(){
-                                    const gap = getJedaDex(dex) || 0;
-                                    if (gap > 0) setTimeout(() => { try { callDex('PairtoToken'); } catch(_) {} }, gap);
-                                    else callDex('PairtoToken');
-                                })();
-                            } else {
-                                // Set status SKIP untuk sel yang di-skip (DP OFF)
-                                const sym1 = String(token.symbol_out||'').toUpperCase();
-                                const sym2 = String(token.symbol_in||'').toUpperCase();
-                                const tokenId = String(token.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-                                const baseIdRaw = `${String(token.cex).toUpperCase()}_${String(dex).toUpperCase()}_${sym1}_${sym2}_${String(token.chain).toUpperCase()}_${tokenId}`;
-                                const baseId = baseIdRaw.replace(/[^A-Z0-9_]/g,'');
-                                const idCELL = tableBodyId + '_' + baseId;
-                                const cell = document.getElementById(idCELL);
-                                if (cell) {
-                                    try { cell.classList.add('dex-skip'); } catch(_) {}
-                                    const span = ensureDexStatusSpan(cell);
-                                    span.className = 'dex-status uk-text-muted';
-                                    span.innerHTML = `<span class=\"uk-label uk-label-warning\"><< SKIP >> </span>`;
-                                    span.title = 'Deposit Token OFF - Fetch di-skip untuk optimasi';
-                                    try { if (cell.dataset) cell.dataset.final = '1'; } catch(_) {}
-                                }
-                            }
-                        });
+                    // CEX→DEX (TokentoPair): Perlu withdrawToken ON untuk bisa WD dari CEX
+                    const shouldSkipTokenToPair = isWalletCEXChecked && token.withdrawToken === false;
+                    if (!shouldSkipTokenToPair) {
+                        callDex('TokentoPair');
+                    } else {
+                        // Set status SKIP untuk sel yang di-skip (WD OFF)
+                        const sym1 = String(token.symbol_in || '').toUpperCase();
+                        const sym2 = String(token.symbol_out || '').toUpperCase();
+                        const tokenId = String(token.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+                        const baseIdRaw = `${String(token.cex).toUpperCase()}_${String(dex).toUpperCase()}_${sym1}_${sym2}_${String(token.chain).toUpperCase()}_${tokenId}`;
+                        const baseId = baseIdRaw.replace(/[^A-Z0-9_]/g, '');
+                        const idCELL = tableBodyId + '_' + baseId;
+                        const cell = document.getElementById(idCELL);
+                        if (cell) {
+                            try { cell.classList.add('dex-skip'); } catch (_) { }
+                            const span = ensureDexStatusSpan(cell);
+                            span.className = 'dex-status uk-text-muted';
+                            span.innerHTML = `<span class=\"uk-label uk-label-warning\"><< SKIP >></span>`;
+                            span.title = 'Withdraw Token OFF - Fetch di-skip untuk optimasi';
+                            try { if (cell.dataset) cell.dataset.final = '1'; } catch (_) { }
+                        }
                     }
+
+                    // DEX→CEX (PairtoToken): Perlu depositToken ON untuk bisa DP ke CEX
+                    const shouldSkipPairToToken = isWalletCEXChecked && token.depositToken === false;
+                    if (!shouldSkipPairToToken) {
+                        (function () {
+                            const gap = getJedaDex(dex) || 0;
+                            if (gap > 0) setTimeout(() => { try { callDex('PairtoToken'); } catch (_) { } }, gap);
+                            else callDex('PairtoToken');
+                        })();
+                    } else {
+                        // Set status SKIP untuk sel yang di-skip (DP OFF)
+                        const sym1 = String(token.symbol_out || '').toUpperCase();
+                        const sym2 = String(token.symbol_in || '').toUpperCase();
+                        const tokenId = String(token.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+                        const baseIdRaw = `${String(token.cex).toUpperCase()}_${String(dex).toUpperCase()}_${sym1}_${sym2}_${String(token.chain).toUpperCase()}_${tokenId}`;
+                        const baseId = baseIdRaw.replace(/[^A-Z0-9_]/g, '');
+                        const idCELL = tableBodyId + '_' + baseId;
+                        const cell = document.getElementById(idCELL);
+                        if (cell) {
+                            try { cell.classList.add('dex-skip'); } catch (_) { }
+                            const span = ensureDexStatusSpan(cell);
+                            span.className = 'dex-status uk-text-muted';
+                            span.innerHTML = `<span class=\"uk-label uk-label-warning\"><< SKIP >> </span>`;
+                            span.title = 'Deposit Token OFF - Fetch di-skip untuk optimasi';
+                            try { if (cell.dataset) cell.dataset.final = '1'; } catch (_) { }
+                        }
+                    }
+                });
+            }
             // Beri jeda antar token dalam satu grup.
             await delay(jedaKoin);
         } catch (error) {
@@ -1406,16 +1498,16 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
 
         // 1. Ambil data harga gas dan kurs USDT/IDR sebelum memulai loop token.
         try {
-           
+
             $('#progress-bar').css('width', '5%');
             $('#progress-text').text('5%');
-        } catch(_) {}
+        } catch (_) { }
         await feeGasGwei();
         try {
             $('#progress').text('GAS / GWEI CHAINS READY');
             $('#progress-bar').css('width', '8%');
             $('#progress-text').text('8%');
-        } catch(_) {}
+        } catch (_) { }
         await getRateUSDT();
 
         // 2. Loop melalui setiap grup token.
@@ -1431,7 +1523,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                 const fullId = `${tableBodyId}_${suffix}`;
                 requestAnimationFrame(() => { // REFACTORED
                     // Respect user interaction: temporarily suspend auto-scroll
-                    try { if (window.__AUTO_SCROLL_SUSPEND_UNTIL && Date.now() < window.__AUTO_SCROLL_SUSPEND_UNTIL) return; } catch(_) {}
+                    try { if (window.__AUTO_SCROLL_SUSPEND_UNTIL && Date.now() < window.__AUTO_SCROLL_SUSPEND_UNTIL) return; } catch (_) { }
                     const $target = $('#' + fullId).length ? $('#' + fullId) : $(`[id$="${suffix}"]`).first();
                     if (!$target.length) return;
                     $target.addClass('auto-focus');
@@ -1461,9 +1553,9 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
             const jobs = groupTokens.map((token, tokenIndex) => (async () => {
                 if (!isScanRunning) return;
                 // Stagger start per token within the group
-                try { await delay(tokenIndex * Math.max(jedaKoin, 0)); } catch(_) {}
+                try { await delay(tokenIndex * Math.max(jedaKoin, 0)); } catch (_) { }
                 if (!isScanRunning) return;
-                try { await processRequest(token, tableBodyId); } catch(e) { console.error(`Err token ${token.symbol_in}_${token.symbol_out}`, e); }
+                try { await processRequest(token, tableBodyId); } catch (e) { console.error(`Err token ${token.symbol_in}_${token.symbol_out}`, e); }
                 // Update progress as each token finishes
                 processed += 1;
                 updateProgress(processed, tokensToProcess.length, startTime, `${token.symbol_in}_${token.symbol_out}`);
@@ -1481,17 +1573,17 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
         updateProgress(tokensToProcess.length, tokensToProcess.length, startTime, 'SELESAI');
 
         // REFACTORED: Tunggu semua request DEX (termasuk fallback) benar-benar selesai.
-       //('[FINAL] Waiting for pending DEX requests to settle...');
+        //('[FINAL] Waiting for pending DEX requests to settle...');
         await waitForPendingDexRequests(8000);
         if (activeDexRequests > 0) {
             // console.warn(`[FINAL] Continuing with ${activeDexRequests} pending DEX request(s) after timeout window.`);
         }
 
         // Trigger final processUiUpdates untuk memastikan semua item di queue diproses
-       // console.log(`[FINAL] Queue length before final processing: ${uiUpdateQueue.length}`);
+        // console.log(`[FINAL] Queue length before final processing: ${uiUpdateQueue.length}`);
 
         if (uiUpdateQueue.length > 0) {
-           // console.log(`[FINAL] Processing remaining ${uiUpdateQueue.length} items in queue...`);
+            // console.log(`[FINAL] Processing remaining ${uiUpdateQueue.length} items in queue...`);
 
             // Process semua item yang ada di queue
             while (uiUpdateQueue.length > 0) {
@@ -1505,33 +1597,33 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                             if (cell.dataset && cell.dataset.final === '1') {
                                 continue;
                             }
-                        } catch(_) {}
-                        try { clearDexTickerById(id); } catch(_) {}
-                        try { if (cell.dataset) { cell.dataset.final = '1'; delete cell.dataset.checking; delete cell.dataset.deadline; } } catch(_) {}
+                        } catch (_) { }
+                        try { clearDexTickerById(id); } catch (_) { }
+                        try { if (cell.dataset) { cell.dataset.final = '1'; delete cell.dataset.checking; delete cell.dataset.deadline; } } catch (_) { }
                         setDexErrorBackground(cell);
                         const statusSpan = ensureDexStatusSpan(cell);
                         if (statusSpan) {
-                            try { statusSpan.className = 'dex-status uk-text-danger'; } catch(_) {}
+                            try { statusSpan.className = 'dex-status uk-text-danger'; } catch (_) { }
                             try {
                                 statusSpan.classList.remove('uk-text-muted', 'uk-text-warning');
                                 statusSpan.classList.add('uk-text-danger');
-                            } catch(_) {}
+                            } catch (_) { }
                             statusSpan.textContent = swapMessage || '[ERROR]';
                             statusSpan.title = message || '';
                         }
                     }
                     continue;
                 }
-               // console.log(`[FINAL PROCESS]`, { idCELL: updateData.idPrefix + updateData.baseId });
+                // console.log(`[FINAL PROCESS]`, { idCELL: updateData.idPrefix + updateData.baseId });
                 try {
                     DisplayPNL(updateData);
-                } catch(e) {
+                } catch (e) {
                     // console.error('[FINAL PROCESS ERROR]', e);
                 }
             }
-           // console.log('[FINAL] All items processed.');
+            // console.log('[FINAL] All items processed.');
         } else {
-           // console.log('[FINAL] No items in queue to process.');
+            // console.log('[FINAL] No items in queue to process.');
         }
 
         // Set flag dan hentikan loop UI.
@@ -1561,7 +1653,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                 window.TabManager.notifyScanStop();
                 // console.log(`[SCANNER] Tab ${window.getTabId()} stopped scanning`);
             }
-        } catch(e) {
+        } catch (e) {
             // console.error('[SCANNER] Error releasing scan state:', e);
         }
 
@@ -1580,7 +1672,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
             if (typeof window.renderMonitoringHeader === 'function' && typeof window.computeActiveDexList === 'function') {
                 window.renderMonitoringHeader(window.computeActiveDexList());
             }
-        } catch(_) {}
+        } catch (_) { }
 
         // Jika auto-run aktif, mulai countdown untuk scan berikutnya.
         // GUARD: Check if autorun feature is enabled in config
@@ -1599,7 +1691,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                 const tick = () => {
                     // Double-check feature + user flags on each tick
                     const stillEnabled = (window.CONFIG_APP?.APP?.AUTORUN !== false) && window.AUTORUN_ENABLED;
-                    if (!stillEnabled) { clearInterval(window.__autoRunInterval); window.__autoRunInterval=null; return; }
+                    if (!stillEnabled) { clearInterval(window.__autoRunInterval); window.__autoRunInterval = null; return; }
                     $cd.text(`AutoRun ${remain}s`).css({ color: '#e53935', fontWeight: 'bold' }); // REFACTORED
                     remain -= 1;
                     if (remain < 0) {
@@ -1614,7 +1706,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                 window.__autoRunInterval = setInterval(tick, 1000);
                 tick();
             }
-        } catch(_) {}
+        } catch (_) { }
     }
 
     processTokens(flatTokens, tableBodyId);
@@ -1631,7 +1723,7 @@ async function stopScanner() {
     const wasScanning = isScanRunning; // Capture state sebelum di-set false
 
     isScanRunning = false;
-    try { cancelAnimationFrame(animationFrameId); } catch(_) {}
+    try { cancelAnimationFrame(animationFrameId); } catch (_) { }
     clearInterval(window.__autoRunInterval);
     window.__autoRunInterval = null;
     setPageTitleForRun(false);
@@ -1659,7 +1751,7 @@ async function stopScanner() {
             window.TabManager.notifyScanStop();
             // console.log(`[SCANNER] Tab ${window.getTabId()} stopped scanning (manual stop)`);
         }
-    } catch(e) {
+    } catch (e) {
         // console.error('[SCANNER] Error releasing scan state on manual stop:', e);
     }
 
@@ -1697,7 +1789,7 @@ async function stopScanner() {
  */
 function stopScannerSoft() {
     isScanRunning = false;
-    try { cancelAnimationFrame(animationFrameId); } catch(_) {}
+    try { cancelAnimationFrame(animationFrameId); } catch (_) { }
 
     // === RELEASE GLOBAL SCAN LOCK (SOFT STOP) ===
     try {
@@ -1720,12 +1812,12 @@ function stopScannerSoft() {
             window.TabManager.notifyScanStop();
             // console.log(`[SCANNER] Tab ${window.getTabId()} soft stopped scanning`);
         }
-    } catch(e) {
+    } catch (e) {
         // console.error('[SCANNER] Error releasing scan state on soft stop:', e);
     }
 
     // Simpan state 'run:NO' tanpa me-reload halaman.
-    try { (async()=>{ await persistRunStateNo(); })(); } catch(_) {}
+    try { (async () => { await persistRunStateNo(); })(); } catch (_) { }
     clearInterval(window.__autoRunInterval);
     window.__autoRunInterval = null;
     if (typeof form_on === 'function') form_on();
@@ -1746,17 +1838,17 @@ function updateRunningChainsBanner(seedChains) {
             return (cfg.Nama_Pendek || cfg.Nama_Chain || k).toString().toUpperCase();
         });
         // If multichain mode is running, prepend MULTICHAIN flag
-        try { if (cache.multichain) labels.unshift('MULTICHAIN'); } catch(_) {}
+        try { if (cache.multichain) labels.unshift('MULTICHAIN'); } catch (_) { }
         if (labels.length > 0) {
             $('#infoAPP').html(` RUN SCANNING: ${labels.join(' | ')}`).show();
         } else {
             // No running chains → clear banner
             $('#infoAPP').text('').hide();
         }
-    } catch(_) {}
+    } catch (_) { }
 }
 
-try { window.updateRunningChainsBanner = window.updateRunningChainsBanner || updateRunningChainsBanner; } catch(_){}
+try { window.updateRunningChainsBanner = window.updateRunningChainsBanner || updateRunningChainsBanner; } catch (_) { }
 
 /**
  * Helper terpusat untuk menyimpan state `run: 'NO'` ke storage,
@@ -1771,18 +1863,18 @@ async function persistRunStateNo() {
         } else {
             setAppState({ run: 'NO' });
         }
-        if (typeof window.updateRunStateCache === 'function') { try { window.updateRunStateCache(key, { run: 'NO' }); } catch(_) {} }
-    } catch(_) { try { setAppState({ run: 'NO' }); } catch(__) {} }
+        if (typeof window.updateRunStateCache === 'function') { try { window.updateRunStateCache(key, { run: 'NO' }); } catch (_) { } }
+    } catch (_) { try { setAppState({ run: 'NO' }); } catch (__) { } }
     try {
         if (typeof window.updateRunStateCache === 'function') {
-            try { window.updateRunStateCache(getActiveFilterKey(), { run: 'NO' }); } catch(_) {}
+            try { window.updateRunStateCache(getActiveFilterKey(), { run: 'NO' }); } catch (_) { }
         }
-        try { (window.CURRENT_CHAINS || []).forEach(c => window.updateRunStateCache(`FILTER_${String(c).toUpperCase()}`, { run: 'NO' })); } catch(_) {}
-    } catch(_){}
+        try { (window.CURRENT_CHAINS || []).forEach(c => window.updateRunStateCache(`FILTER_${String(c).toUpperCase()}`, { run: 'NO' })); } catch (_) { }
+    } catch (_) { }
     try {
         if (typeof window.updateRunningChainsBanner === 'function') window.updateRunningChainsBanner();
         if (typeof window.updateToolbarRunIndicators === 'function') window.updateToolbarRunIndicators();
-    } catch(_){}
+    } catch (_) { }
 }
 
 // =================================================================================
