@@ -343,7 +343,7 @@
 
           case 'GATE': {
               if (!hasKeys) throw new Error(`${cex} API Key/Secret not configured in CONFIG_CEX.`);
-              const host = "https://cors-anywhere.com/https://api.gateio.ws";
+              const host = "https://cors.gemul-putra.workers.dev/?https://api.gateio.ws";
               const prefix = "/api/v4";
               const ts = Math.floor(Date.now() / 1000);
 
@@ -748,7 +748,9 @@
                   status: 'warning', timeout: 7000
               });
           } catch(_) {
-              alert(`⚠️ ${now} GAGAL UPDATE EXCHANGER\n${linesText}`);
+              if (typeof toast !== 'undefined' && toast.warning) {
+                  toast.warning(`⚠️ ${now} GAGAL UPDATE EXCHANGER\n${linesText}`);
+              }
           }
       }
       // If absolutely nothing succeeded, continue after logging so meta/save still persisted above
@@ -790,7 +792,11 @@
 
       try {
           UIkit.notification({ message: '✅ BERHASIL UPDATE WALLET EXCHANGER', status: 'success' });
-      } catch(_) { alert('✅ SEBAGIAN BERHASIL UPDATE WALLET EXCHANGER,SILAKAN CEK STATUS DEPOSIT & WITHDRAW, EXCHANGER YANG GAGAL UPDATE'); }
+      } catch(_) {
+          if (typeof toast !== 'undefined' && toast.success) {
+              toast.success('✅ SEBAGIAN BERHASIL UPDATE WALLET EXCHANGER,SILAKAN CEK STATUS DEPOSIT & WITHDRAW, EXCHANGER YANG GAGAL UPDATE');
+          }
+      }
 
       // Hide AppOverlay
       AppOverlay.hide(overlayId);

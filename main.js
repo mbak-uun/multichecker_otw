@@ -634,7 +634,7 @@ function bootApp() {
         // Populate settings form when auto-shown and ensure it's enabled
         if (typeof renderSettingsForm === 'function') renderSettingsForm();
         $('#form-setting-app').show();
-        $('#filter-card, #scanner-config, #token-management, #iframe-container').hide();
+        $('#scanner-config, #token-management, #iframe-container').hide();
         try {
             if (window.SnapshotModule?.hide) window.SnapshotModule.hide();
         } catch(_) {}
@@ -647,7 +647,7 @@ function bootApp() {
         if (typeof toast !== 'undefined' && toast.warning) toast.warning('Nickname harus diisi (minimal 6 karakter)! Silakan perbarui di menu Setting.');
         if (typeof renderSettingsForm === 'function') renderSettingsForm();
         $('#form-setting-app').show();
-        $('#filter-card, #scanner-config, #token-management, #iframe-container').hide();
+        $('#scanner-config, #token-management, #iframe-container').hide();
         try { if (window.SnapshotModule?.hide) window.SnapshotModule.hide(); } catch(_) {}
         if ($('#dataTableBody').length) { $('#dataTableBody').closest('.uk-overflow-auto').hide(); }
         try { if ($('#form-setting-app')[0] && typeof $('#form-setting-app')[0].scrollIntoView === 'function') { $('#form-setting-app')[0].scrollIntoView({ behavior: 'smooth', block: 'start' }); } } catch(_) {}
@@ -937,22 +937,17 @@ async function deferredInit() {
             }
             $sum.text(`TOTAL KOIN: ${total}`);
             $right.append($sum);
-
-            // Add search input to the right of TOTAL KOIN badge (preserve existing value if any)
-            const existingSearchValue = $('#searchInput').val() || '';
-            const $searchInput = $(`<input id="searchInput" class="uk-input uk-form-small" type="text" placeholder="Cari koin..." style="width:160px;" value="${String(existingSearchValue).replace(/"/g, '&quot;')}">`);
-            $right.append($searchInput);
-
+            // Search input now in HTML (next to WALLET CEX checkbox)
             $wrap.append($right);
-            $wrap.off('change.multif').on('change.multif','label.fc-chain input, label.fc-cex input, label.fc-dex input',function(){
+            $('#modal-filter-sections').off('change.multif').on('change.multif','label.fc-chain input, label.fc-cex input, label.fc-dex input',function(){
                 const prev = getFilterMulti();
                 const prevChains = (prev.chains||[]).map(s=>String(s).toLowerCase());
                 const prevCex = (prev.cex||[]).map(s=>String(s).toUpperCase());
                 const prevDex = (prev.dex||[]).map(s=>String(s).toLowerCase());
 
-                const chains=$wrap.find('label.fc-chain input:checked').map(function(){return $(this).closest('label').attr('data-val').toLowerCase();}).get();
-                const cex=$wrap.find('label.fc-cex input:checked').map(function(){return $(this).closest('label').attr('data-val').toUpperCase();}).get();
-                const dex=$wrap.find('label.fc-dex input:checked').map(function(){return $(this).closest('label').attr('data-val').toLowerCase();}).get();
+                const chains=$('#modal-filter-sections').find('label.fc-chain input:checked').map(function(){return $(this).closest('label').attr('data-val').toLowerCase();}).get();
+                const cex=$('#modal-filter-sections').find('label.fc-cex input:checked').map(function(){return $(this).closest('label').attr('data-val').toUpperCase();}).get();
+                const dex=$('#modal-filter-sections').find('label.fc-dex input:checked').map(function(){return $(this).closest('label').attr('data-val').toLowerCase();}).get();
 
                 setFilterMulti({ chains, cex, dex });
 
@@ -1041,22 +1036,17 @@ async function deferredInit() {
             }
             $sum.text(`TOTAL KOIN: ${totalSingle}`);
             $right.append($sum);
-
-            // Add search input to the right of TOTAL KOIN badge (preserve existing value if any)
-            const existingSearchValue = $('#searchInput').val() || '';
-            const $searchInput = $(`<input id="searchInput" class="uk-input uk-form-small" type="text" placeholder="Cari koin..." style="width:160px;" value="${String(existingSearchValue).replace(/"/g, '&quot;')}">`);
-            $right.append($searchInput);
-
+            // Search input now in HTML (next to WALLET CEX checkbox)
             $wrap.append($right);
-            $wrap.off('change.scf').on('change.scf','label.sc-cex input, label.sc-pair input, label.sc-dex input',function(){
+            $('#modal-filter-sections').off('change.scf').on('change.scf','label.sc-cex input, label.sc-pair input, label.sc-dex input',function(){
                 const prev = getFilterChain(chain);
                 const prevC = (prev.cex||[]).map(String);
                 const prevP = (prev.pair||[]).map(x=>String(x).toUpperCase());
                 const prevD = (prev.dex||[]).map(x=>String(x).toLowerCase());
 
-                const c=$wrap.find('label.sc-cex input:checked').map(function(){return $(this).closest('label').attr('data-val');}).get();
-                const p=$wrap.find('label.sc-pair input:checked').map(function(){return $(this).closest('label').attr('data-val');}).get();
-                const d=$wrap.find('label.sc-dex input:checked').map(function(){return $(this).closest('label').attr('data-val').toLowerCase();}).get();
+                const c=$('#modal-filter-sections').find('label.sc-cex input:checked').map(function(){return $(this).closest('label').attr('data-val');}).get();
+                const p=$('#modal-filter-sections').find('label.sc-pair input:checked').map(function(){return $(this).closest('label').attr('data-val');}).get();
+                const d=$('#modal-filter-sections').find('label.sc-dex input:checked').map(function(){return $(this).closest('label').attr('data-val').toLowerCase();}).get();
                 setFilterChain(chain, { cex:c, pair:p, dex:d });
                 // Detailed toast
                 const cAdd = c.filter(x => !prevC.includes(x));
@@ -1101,12 +1091,7 @@ async function deferredInit() {
 
         // Enforce disabled state for filter controls if tokens are missing
         try {
-            const stateNow = computeAppReadiness();
-            if (stateNow === 'MISSING_TOKENS' || stateNow === 'MISSING_BOTH') {
-                const $fc = $('#filter-card');
-                $fc.find('input, button, select, textarea').prop('disabled', true);
-                $fc.find('label, .toggle-radio').css({ pointerEvents: 'none', opacity: 0.5 });
-            }
+            // Filter card removed - filters now in modal only
         } catch(_) {}
 
         // Apply dynamic colors from config to checked checkboxes (Opsi 4)
@@ -1195,6 +1180,306 @@ async function deferredInit() {
     }
 
     renderFilterCard();
+
+    // Render filter card to modal
+    function renderFilterCardToModal() {
+        const $wrap = $('#modal-filter-sections');
+        if(!$wrap.length) return;
+        $wrap.empty();
+
+        const m = getMode();
+
+        // Determine accent color based on mode
+        let accentColor = '#5c9514'; // Default for multi-chain
+        if (m.mode === 'single') {
+            const cfg = (CONFIG_CHAINS && CONFIG_CHAINS[m.chain]) ? CONFIG_CHAINS[m.chain] : null;
+            accentColor = cfg?.WARNA || '#333';
+        }
+
+        // Total badge
+        let $sum = $(`<span id="modal-total-koin-badge" class="uk-text-small" style="font-weight:bolder; color: white; background-color: ${accentColor}; padding: 2px 8px; border-radius: 4px;">TOTAL KOIN: 0</span>`);
+
+        if (m.mode === 'multi') {
+            const fmNow = getFilterMulti();
+            const chainsSel = fmNow.chains || [];
+            const cexSel = fmNow.cex || [];
+            const dexSel = (fmNow.dex || []).map(x=>String(x).toLowerCase());
+            const flat = flattenDataKoin(getTokensMulti()) || [];
+            const byChain = flat.reduce((a,t)=>{const k=String(t.chain||'').toLowerCase(); a[k]=(a[k]||0)+1; return a;},{});
+            const byCex = flat.filter(t=> (chainsSel.length === 0 || chainsSel.includes(String(t.chain||'').toLowerCase())))
+                               .reduce((a,t)=>{const k=String(t.cex||'').toUpperCase(); a[k]=(a[k]||0)+1; return a;},{});
+            const flatForDex = flat
+              .filter(t => (chainsSel.length === 0 || chainsSel.includes(String(t.chain||'').toLowerCase())))
+              .filter(t => (cexSel.length === 0 || cexSel.includes(String(t.cex||'').toUpperCase())));
+            const byDex = flatForDex.reduce((a,t)=>{
+                (t.dexs || []).forEach(d => { const k = String(d.dex||'').toLowerCase(); a[k] = (a[k]||0)+1; });
+                return a;
+            },{});
+
+            // Section 1: CHAIN
+            const $chainSection = $('<div style="margin-bottom:25px;"></div>');
+            $chainSection.append($('<h5 style="margin:0 0 12px 0; font-size:15px; font-weight:600; color:#333;"><span style="color:#999; margin-right:8px;">■</span>1. Chain</h5>'));
+            const $chainGrid = $('<div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:10px;"></div>');
+            Object.keys(CONFIG_CHAINS||{}).forEach(k=>{
+                const short=(CONFIG_CHAINS[k].Nama_Pendek||k.substr(0,3)).toUpperCase();
+                const id=`modal-fc-chain-${k}`; const cnt=byChain[k]||0;
+                if (cnt === 0) return;
+                const checked = chainsSel.includes(k.toLowerCase());
+                $chainGrid.append(chipHtml('fc-chain',id,short,CONFIG_CHAINS[k].WARNA,cnt,checked, k.toLowerCase(), false));
+            });
+            $chainSection.append($chainGrid);
+            $wrap.append($chainSection);
+
+            // Section 2: EXCHANGER
+            const $cexSection = $('<div style="margin-bottom:25px;"></div>');
+            $cexSection.append($('<h5 style="margin:0 0 12px 0; font-size:15px; font-weight:600; color:#333;"><span style="color:#999; margin-right:8px;">■</span>2. Exchanger</h5>'));
+            const $cexGrid = $('<div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:10px;"></div>');
+            Object.keys(CONFIG_CEX||{}).forEach(cx=>{
+                const id=`modal-fc-cex-${cx}`; const cnt=byCex[cx]||0; if (cnt===0) return; const checked=cexSel.includes(cx.toUpperCase());
+                $cexGrid.append(chipHtml('fc-cex',id,cx,CONFIG_CEX[cx].WARNA,cnt,checked, cx, false));
+            });
+            $cexSection.append($cexGrid);
+            $wrap.append($cexSection);
+
+            // Section 3: DEX
+            const $dexSection = $('<div style="margin-bottom:25px;"></div>');
+            $dexSection.append($('<h5 style="margin:0 0 12px 0; font-size:15px; font-weight:600; color:#333;"><span style="color:#999; margin-right:8px;">■</span>3. DEX</h5>'));
+            const $dexGrid = $('<div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:10px;"></div>');
+            Object.keys(CONFIG_DEXS||{}).forEach(dx=>{
+                const key = String(dx).toLowerCase();
+                const id=`modal-fc-dex-${key}`; const cnt=byDex[key]||0; if (cnt===0) return; const checked=dexSel.includes(key);
+                const col = (CONFIG_DEXS[key] && (CONFIG_DEXS[key].warna || CONFIG_DEXS[key].WARNA)) || '#333';
+                $dexGrid.append(chipHtml('fc-dex',id,dx.toUpperCase(),col,cnt,checked, key, false));
+            });
+            $dexSection.append($dexGrid);
+            $wrap.append($dexSection);
+
+            const saved = getFromLocalStorage('FILTER_MULTICHAIN', null);
+            let total = 0;
+            if (!saved) {
+                total = flat.length;
+            } else if (chainsSel.length > 0 && cexSel.length > 0 && ((fmNow.dex||[]).length > 0)) {
+                total = flat.filter(t => chainsSel.includes(String(t.chain||'').toLowerCase()))
+                            .filter(t => cexSel.includes(String(t.cex||'').toUpperCase()))
+                            .filter(t => (t.dexs||[]).some(d => (dexSel||[]).includes(String(d.dex||'').toLowerCase())))
+                            .length;
+            } else {
+                total = 0;
+            }
+            $sum.text(`TOTAL KOIN: ${total}`);
+
+            // Insert only summary badge (no search input in modal)
+            $('#modal-summary-bar').empty().append($sum);
+
+            $('#modal-filter-sections').off('change.multif').on('change.multif','label.fc-chain input, label.fc-cex input, label.fc-dex input',function(){
+                const prev = getFilterMulti();
+                const prevChains = (prev.chains||[]).map(s=>String(s).toLowerCase());
+                const prevCex = (prev.cex||[]).map(s=>String(s).toUpperCase());
+                const prevDex = (prev.dex||[]).map(s=>String(s).toLowerCase());
+
+                const chains=$('#modal-filter-sections').find('label.fc-chain input:checked').map(function(){return $(this).closest('label').attr('data-val').toLowerCase();}).get();
+                const cex=$('#modal-filter-sections').find('label.fc-cex input:checked').map(function(){return $(this).closest('label').attr('data-val').toUpperCase();}).get();
+                const dex=$('#modal-filter-sections').find('label.fc-dex input:checked').map(function(){return $(this).closest('label').attr('data-val').toLowerCase();}).get();
+
+                setFilterMulti({ chains, cex, dex });
+
+                const addChains = chains.filter(x => !prevChains.includes(x)).map(x=>x.toUpperCase());
+                const delChains = prevChains.filter(x => !chains.includes(x)).map(x=>x.toUpperCase());
+                const addCex = cex.filter(x => !prevCex.includes(x));
+                const delCex = prevCex.filter(x => !cex.includes(x));
+                const addDex = dex.filter(x => !prevDex.includes(x)).map(x=>x.toUpperCase());
+                const delDex = prevDex.filter(x => !dex.includes(x)).map(x=>x.toUpperCase());
+                const parts = [];
+                if (addChains.length) parts.push(`+CHAIN: ${addChains.join(', ')}`);
+                if (delChains.length) parts.push(`-CHAIN: ${delChains.join(', ')}`);
+                if (addCex.length) parts.push(`+CEX: ${addCex.join(', ')}`);
+                if (delCex.length) parts.push(`-CEX: ${delCex.join(', ')}`);
+                if (addDex.length) parts.push(`+DEX: ${addDex.join(', ')}`);
+                if (delDex.length) parts.push(`-DEX: ${delDex.join(', ')}`);
+                const msg = parts.length ? parts.join(' | ') : `Filter MULTI diperbarui: CHAIN=${chains.length}, CEX=${cex.length}`;
+                try { if (typeof toast !== 'undefined' && toast.info) toast.info(msg); } catch(_){ }
+
+                try { if (typeof window.clearSignalCards === 'function') window.clearSignalCards(); } catch(_) {}
+                refreshTokensTable();
+                try { renderTokenManagementList(); } catch(_) {}
+                renderFilterCard();
+                renderFilterCardToModal();
+            });
+        } else {
+            const chain=m.chain;
+            const saved = getFilterChain(chain);
+            const cexSel = saved.cex || [];
+            const pairSel = saved.pair || [];
+            const dexSel = (saved.dex || []).map(x=>String(x).toLowerCase());
+
+            const flat = flattenDataKoin(getTokensChain(chain))||[];
+            const byCex = flat.reduce((a,t)=>{const k=String(t.cex||'').toUpperCase(); a[k]=(a[k]||0)+1; return a;},{});
+            const pairDefs = (CONFIG_CHAINS[chain]||{}).PAIRDEXS||{};
+            const flatPair = (cexSel.length? flat.filter(t=>cexSel.includes(String(t.cex||'').toUpperCase())): flat);
+            const byPair = flatPair.reduce((a,t)=>{
+                const p = String(t.symbol_out||'').toUpperCase().trim();
+                const k = pairDefs[p] ? p : 'NON';
+                a[k] = (a[k]||0)+1;
+                return a;
+            },{});
+
+            // Section 1: EXCHANGER
+            const $cexSection = $('<div style="margin-bottom:25px;"></div>');
+            $cexSection.append($('<h5 style="margin:0 0 12px 0; font-size:15px; font-weight:600; color:#333;"><span style="color:#999; margin-right:8px;">■</span>1. Exchanger</h5>'));
+            const $cexGrid = $('<div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:10px;"></div>');
+            const relevantCexs = (CONFIG_CHAINS[chain] && CONFIG_CHAINS[chain].WALLET_CEX) ? Object.keys(CONFIG_CHAINS[chain].WALLET_CEX) : [];
+            relevantCexs.forEach(cx=>{
+                const id=`modal-sc-cex-${cx}`; const cnt=byCex[cx]||0;
+                if (cnt===0) return;
+                const checked=cexSel.includes(cx);
+                $cexGrid.append(chipHtml('sc-cex',id,cx,(CONFIG_CEX[cx] || {}).WARNA,cnt,checked, undefined, false));
+            });
+            $cexSection.append($cexGrid);
+            $wrap.append($cexSection);
+
+            // Section 2: PAIR DEX
+            const $pairSection = $('<div style="margin-bottom:25px;"></div>');
+            $pairSection.append($('<h5 style="margin:0 0 12px 0; font-size:15px; font-weight:600; color:#333;"><span style="color:#999; margin-right:8px;">■</span>2. Pair DEX</h5>'));
+            const $pairFlex = $('<div style="display:flex; flex-wrap:wrap; gap:10px;"></div>');
+            const pairs=Array.from(new Set([...Object.keys(pairDefs),'NON']));
+            pairs.forEach(p=>{
+                const id=`modal-sc-pair-${p}`; const cnt=byPair[p]||0;
+                if (cnt===0) return;
+                const checked=pairSel.includes(p);
+                const pairColor = (p === 'NON') ? '#000' : '';
+                $pairFlex.append(chipHtml('sc-pair',id,p,pairColor,cnt,checked, undefined, false));
+            });
+            $pairSection.append($pairFlex);
+            $wrap.append($pairSection);
+
+            // Section 3: DEX
+            const $dexSection = $('<div style="margin-bottom:25px;"></div>');
+            $dexSection.append($('<h5 style="margin:0 0 12px 0; font-size:15px; font-weight:600; color:#333;"><span style="color:#999; margin-right:8px;">■</span>3. DEX</h5>'));
+            const $dexGrid = $('<div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:10px;"></div>');
+            const dexAllowed = ((CONFIG_CHAINS[chain]||{}).DEXS || []).map(x=>String(x).toLowerCase());
+            const byDex = flatPair.reduce((a,t)=>{
+                (t.dexs||[]).forEach(d => { const k=String(d.dex||'').toLowerCase(); if (!dexAllowed.includes(k)) return; a[k]=(a[k]||0)+1; });
+                return a;
+            },{});
+            dexAllowed.forEach(dx => {
+                const id=`modal-sc-dex-${dx}`; const cnt=byDex[dx]||0; if (cnt===0) return; const checked=dexSel.includes(dx);
+                const col = (CONFIG_DEXS[dx] && (CONFIG_DEXS[dx].warna || CONFIG_DEXS[dx].WARNA)) || '#333';
+                $dexGrid.append(chipHtml('sc-dex',id,dx.toUpperCase(),col,cnt,checked, dx, false));
+            });
+            $dexSection.append($dexGrid);
+            $wrap.append($dexSection);
+
+            let totalSingle = 0;
+            if ((cexSel && cexSel.length) && (pairSel && pairSel.length) && (dexSel && dexSel.length)) {
+                const filtered = flat.filter(t => cexSel.includes(String(t.cex||'').toUpperCase()))
+                                     .filter(t => { const p = String(t.symbol_out||'').toUpperCase(); const key = pairDefs[p] ? p : 'NON'; return pairSel.includes(key); })
+                                     .filter(t => (t.dexs||[]).some(d => dexSel.includes(String(d.dex||'').toLowerCase())));
+                totalSingle = filtered.length;
+            } else {
+                totalSingle = 0;
+            }
+            $sum.text(`TOTAL KOIN: ${totalSingle}`);
+
+            // Insert only summary badge (no search input in modal)
+            $('#modal-summary-bar').empty().append($sum);
+
+            $('#modal-filter-sections').off('change.scf').on('change.scf','label.sc-cex input, label.sc-pair input, label.sc-dex input',function(){
+                const prev = getFilterChain(chain);
+                const prevC = (prev.cex||[]).map(String);
+                const prevP = (prev.pair||[]).map(x=>String(x).toUpperCase());
+                const prevD = (prev.dex||[]).map(x=>String(x).toLowerCase());
+
+                const c=$('#modal-filter-sections').find('label.sc-cex input:checked').map(function(){return $(this).closest('label').attr('data-val');}).get();
+                const p=$('#modal-filter-sections').find('label.sc-pair input:checked').map(function(){return $(this).closest('label').attr('data-val');}).get();
+                const d=$('#modal-filter-sections').find('label.sc-dex input:checked').map(function(){return $(this).closest('label').attr('data-val').toLowerCase();}).get();
+
+                setFilterChain(chain, { cex: c, pair: p, dex: d });
+
+                const cAdd = c.filter(x => !prevC.includes(x));
+                const cDel = prevC.filter(x => !c.includes(x));
+                const pAdd = p.filter(x => !prevP.includes(x));
+                const pDel = prevP.filter(x => !p.includes(x));
+                const dAdd = d.filter(x => !prevD.includes(x)).map(x=>x.toUpperCase());
+                const dDel = prevD.filter(x => !d.includes(x)).map(x=>x.toUpperCase());
+                const parts = [];
+                if (cAdd.length) parts.push(`+CEX: ${cAdd.join(', ')}`);
+                if (cDel.length) parts.push(`-CEX: ${cDel.join(', ')}`);
+                if (pAdd.length) parts.push(`+PAIR: ${pAdd.join(', ')}`);
+                if (pDel.length) parts.push(`-PAIR: ${pDel.join(', ')}`);
+                if (dAdd.length) parts.push(`+DEX: ${dAdd.join(', ')}`);
+                if (dDel.length) parts.push(`-DEX: ${dDel.join(', ')}`);
+                const msg = parts.length ? parts.join(' | ') : `Filter untuk ${chain.toUpperCase()} diperbarui: CEX=${c.length}, PAIR=${p.length}`;
+                try { if (typeof toast !== 'undefined' && toast.info) toast.info(msg); } catch(_){ }
+
+                try { if (typeof window.clearSignalCards === 'function') window.clearSignalCards(); } catch(_) {}
+                refreshTokensTable();
+                try { renderTokenManagementList(); } catch(_) {}
+                renderFilterCard();
+                renderFilterCardToModal();
+            });
+        }
+
+        // Apply color styling
+        $('#modal-filter-groups label[data-color]').each(function() {
+            const color = $(this).attr('data-color');
+            const $label = $(this);
+            if ($label.find('input').is(':checked')) {
+                $label.css({
+                    'background-color': color || '',
+                    'color': color ? '#fff' : ''
+                });
+                $label.find('span').css('color', color ? '#fff' : '');
+            } else {
+                $label.css({
+                    'background-color': '',
+                    'color': ''
+                });
+                $label.find('span').css('color', color || '');
+            }
+        });
+
+        $('#modal-filter-groups label.sc-pair').each(function() {
+            const color = $(this).attr('data-color');
+            const $label = $(this);
+            if ($label.find('input').is(':checked')) {
+                $label.css({
+                    'background-color': color || '#10b981',
+                    'color': '#fff'
+                });
+            } else {
+                $label.css({
+                    'background-color': '',
+                    'color': ''
+                });
+            }
+        });
+
+        $('#modal-filter-groups label input[type="checkbox"]').off('change.colorize').on('change.colorize', function() {
+            const $label = $(this).closest('label');
+            const color = $label.attr('data-color');
+            if ($(this).is(':checked')) {
+                if ($label.hasClass('sc-pair')) {
+                    $label.css({
+                        'background-color': color || '#10b981',
+                        'color': '#fff'
+                    });
+                } else {
+                    $label.css({
+                        'background-color': color || '',
+                        'color': color ? '#fff' : ''
+                    });
+                    $label.find('span').css('color', color ? '#fff' : '');
+                }
+            } else {
+                $label.css({
+                    'background-color': '',
+                    'color': ''
+                });
+                $label.find('span').css('color', color || '');
+            }
+        });
+    }
+
     // Ensure UI gating matches current run state after initial render
     try {
         const st = getAppState();
@@ -1421,8 +1706,12 @@ async function deferredInit() {
         saveToLocalStorage('SETTING_SCANNER', settingData);
 
         try { setLastAction("SIMPAN SETTING"); } catch(_) {}
-        alert("✅ SETTING SCANNER BERHASIL DISIMPAN");
-        location.reload();
+        if (typeof UIkit !== 'undefined' && UIkit.notification) {
+            UIkit.notification("✅ SETTING SCANNER BERHASIL DISIMPAN", {status:'success'});
+        } else if (typeof toast !== 'undefined' && toast.success) {
+            toast.success("✅ SETTING SCANNER BERHASIL DISIMPAN");
+        }
+        setTimeout(() => location.reload(), 500);
     });
 
     // Deprecated modal handler removed; settings now inline
@@ -1505,14 +1794,25 @@ $("#reload").click(function () {
     $('#ManajemenKoin').on('click', function(e){
       e.preventDefault();
       showMainSection('#token-management');
-      // Filter card is part of the main scanner view, so we need to show it separately if needed with management
-      $('#filter-card').show();
       try {
         if (window.SnapshotModule && typeof window.SnapshotModule.hide === 'function') {
             window.SnapshotModule.hide();
         }
       } catch(_) {}
       renderTokenManagementList();
+    });
+
+    // Scanner Filter Modal Handler
+    $('#ScannerFilterModal').on('click', function(e){
+      e.preventDefault();
+
+      // Render filter card to modal
+      renderFilterCardToModal();
+
+      // Show modal
+      if (window.UIkit?.modal) {
+        UIkit.modal('#scanner-filter-modal').show();
+      }
     });
 
     // Global search (in filter card) updates both monitoring and management views
@@ -1544,6 +1844,60 @@ $("#reload").click(function () {
                 window.scanCandidateTokens = null;
                 if (mode.type === 'single') {
                     filteredData = Array.isArray(window.singleChainTokensCurrent) ? window.singleChainTokensCurrent : [];
+                } else {
+                    filteredData = Array.isArray(window.currentListOrderMulti) ? window.currentListOrderMulti : (Array.isArray(window.filteredTokens) ? window.filteredTokens : []);
+                }
+            } else {
+                // Ada pencarian: filter data dan tampilkan semua yang cocok
+                if (mode.type === 'single') {
+                    const base = Array.isArray(window.singleChainTokensCurrent) ? window.singleChainTokensCurrent : [];
+                    filteredData = base.filter(t => pick(t).includes(q));
+                    window.scanCandidateTokens = filteredData;
+                } else {
+                    const base = Array.isArray(window.currentListOrderMulti) ? window.currentListOrderMulti : (Array.isArray(window.filteredTokens) ? window.filteredTokens : []);
+                    filteredData = base.filter(t => pick(t).includes(q));
+                    window.scanCandidateTokens = filteredData;
+                }
+            }
+
+            // Re-render tabel scanning dengan semua data yang sesuai filter
+            if (typeof loadKointoTable === 'function') {
+                loadKointoTable(filteredData, 'dataTableBody');
+            }
+        } catch(_) {}
+
+        // Re-render token management list to apply same query
+        try { renderTokenManagementList(); } catch(_) {}
+    }, 250));
+
+    // Modal search input - sync with main search input
+    $(document).on('input', '#modal-searchInput', debounce(function() {
+        const searchValue = ($(this).val() || '').toLowerCase();
+
+        // Sync with main search input
+        $('#searchInput').val(searchValue);
+
+        // Trigger same filtering logic
+        const mode = getAppMode();
+        const q = searchValue;
+        const pick = (t) => {
+            try {
+                const chainKey = String(t.chain||'').toLowerCase();
+                const chainName = (window.CONFIG_CHAINS?.[chainKey]?.Nama_Chain || '').toString().toLowerCase();
+                const dexs = (t.dexs||[]).map(d => String(d.dex||'').toLowerCase()).join(' ');
+                const addresses = [t.sc_in, t.sc_out].map(x => String(x||'').toLowerCase()).join(' ');
+                return [t.symbol_in, t.symbol_out, t.cex, t.chain, chainName, dexs, addresses]
+                    .map(x => String(x||'').toLowerCase()).join(' ');
+            } catch(_) { return ''; }
+        };
+
+        let filteredData = [];
+        try {
+            if (!q) {
+                // Tidak ada pencarian: tampilkan data sesuai filter saat ini
+                if (mode.type === 'single') {
+                    filteredData = Array.isArray(window.singleChainTokensCurrent) ? window.singleChainTokensCurrent : [];
+                    window.scanCandidateTokens = filteredData;
                 } else {
                     filteredData = Array.isArray(window.currentListOrderMulti) ? window.currentListOrderMulti : (Array.isArray(window.filteredTokens) ? window.filteredTokens : []);
                 }
@@ -4228,7 +4582,7 @@ $(document).ready(function() {
 
     // Bersihkan konten kolom DEX saat ada perubahan filter (serupa perilaku saat START scan)
     try {
-        $(document).on('change input', '#filter-card input, #filter-card select', function(){
+        $(document).on('change input', '#modal-filter-sections input, #modal-filter-sections select', function(){
             try { resetDexCells('dataTableBody'); } catch(_) {}
         });
     } catch(_) {}

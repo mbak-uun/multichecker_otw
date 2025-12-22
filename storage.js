@@ -851,7 +851,11 @@
                     UIkit.modal('#import-mode-modal').show();
                 } else {
                     // Fallback jika UIkit tidak tersedia
-                    alert('Error: UIkit modal tidak tersedia');
+                    if (typeof UIkit !== 'undefined' && UIkit.notification) {
+                        UIkit.notification('Error: UIkit modal tidak tersedia', {status:'danger'});
+                    } else if (typeof toast !== 'undefined' && toast.error) {
+                        toast.error('Error: UIkit modal tidak tersedia');
+                    }
                 }
 
                 // Stop processing here - akan dilanjutkan di event handler button
@@ -862,8 +866,8 @@
                 try { setLastAction('IMPORT DATA KOIN', 'error', { error: String(error && error.message || error) }); } catch(_) {}
                 if (typeof toast !== 'undefined' && toast.error) {
                     toast.error(`Format file CSV tidak valid: ${error.message}`);
-                } else {
-                    alert(`Format file CSV tidak valid: ${error.message}`);
+                } else if (typeof UIkit !== 'undefined' && UIkit.notification) {
+                    UIkit.notification(`Format file CSV tidak valid: ${error.message}`, {status:'danger'});
                 }
             } finally {
                 // Reset file input to allow re-selecting the same file
@@ -1057,8 +1061,10 @@
             } else if (typeof toast !== 'undefined' && toast.success) {
                 toast.success(successMsg);
                 setTimeout(() => { window.location.href = redirectUrl; }, 1000);
+            } else if (typeof UIkit !== 'undefined' && UIkit.notification) {
+                UIkit.notification(successMsg, {status:'success'});
+                setTimeout(() => { window.location.href = redirectUrl; }, 1000);
             } else {
-                alert(successMsg);
                 window.location.href = redirectUrl;
             }
         } catch(_) {

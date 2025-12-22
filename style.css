@@ -1805,3 +1805,34 @@ body.dark-mode .sub-dex-name {
     }
 }
 
+
+/* ==========================================================================
+   Scanner Filter Modal - Compact Styling
+   ========================================================================== */
+#scanner-filter-modal .uk-modal-dialog {
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+#modal-filter-sections label {
+    font-size: 12px !important;
+    padding: 3px 6px;
+    margin: 2px;
+}
+
+#modal-filter-sections label span {
+    font-size: 12px !important;
+}
+
+#modal-filter-sections .uk-checkbox {
+    width: 14px;
+    height: 14px;
+}
+
+#modal-filter-sections > div {
+    gap: 6px !important;
+    margin-bottom: 10px;
+}
+
+#modal-summary-bar span {
+    font-size: 13px;
+}

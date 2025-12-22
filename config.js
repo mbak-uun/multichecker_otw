@@ -688,47 +688,47 @@ const CONFIG_DEXS = {
         },
         allowFallback: true, // ✅ Enable fallback to SWOOP
     },
-    '1inch': {
-        label: '1inch',
-        badgeClass: 'bg-1inch',
-        disabled: true, // ⚠️ DISABLED - Disabled by user request
-        warna: "#06109bff",
-        builder: ({ chainCode, NameToken, NamePair }) => `https://1inch.com/swap?src=${chainCode}:${NameToken}&dst=${chainCode}:${NamePair}`,
-        fetchdex: {
-            primary: { tokentopair: 'hinkal-1inch', pairtotoken: 'hinkal-1inch' },
-            alternative: { tokentopair: 'zero-1inch', pairtotoken: 'zero-1inch' }
-        },
-        allowFallback: true, // Enable fallback ke alternative
-    },
-    rubic: {
-        label: 'Rubic',
-        badgeClass: 'bg-rubic',
-        disabled: true, // ⚠️ DISABLED - Disabled by user request
-        proxy: true, // ✅ Enable CORS proxy to avoid 429/500 errors
-        warna: "#00e28d", // Rubic green
-        isMultiDex: true, // ⭐ Multi-DEX aggregator - tampilkan top 3 providers
-        builder: ({ chainName, NameToken, NamePair }) => {
-            // Rubic chain mapping (chainName from config → Rubic API format)
-            const chainMap = {
-                'bsc': 'BSC',
-                'ethereum': 'ETH',
-                'polygon': 'POLYGON',
-                'arbitrum': 'ARBITRUM',
-                'base': 'BASE',
-                'optimism': 'OPTIMISM',
-                'avalanche': 'AVAX'
-            };
-            const chain = String(chainName || '').toLowerCase();
-            const rubicChain = chainMap[chain] || String(chainName || '').toUpperCase();
-            const from = String(NameToken || '').toUpperCase();
-            const to = String(NamePair || '').toUpperCase();
-            return `https://app.rubic.exchange/?fromChain=${rubicChain}&toChain=${rubicChain}&from=${from}&to=${to}`;
-        },
-        fetchdex: {
-            primary: { tokentopair: 'rubic', pairtotoken: 'rubic' }
-        },
-        allowFallback: false, // Rubic is already an aggregator, no fallback needed
-    },
+    // '1inch': {
+    //     label: '1inch',
+    //     badgeClass: 'bg-1inch',
+    //     disabled: true, // ⚠️ DISABLED - Disabled by user request
+    //     warna: "#06109bff",
+    //     builder: ({ chainCode, NameToken, NamePair }) => `https://1inch.com/swap?src=${chainCode}:${NameToken}&dst=${chainCode}:${NamePair}`,
+    //     fetchdex: {
+    //         primary: { tokentopair: 'hinkal-1inch', pairtotoken: 'hinkal-1inch' },
+    //         alternative: { tokentopair: 'zero-1inch', pairtotoken: 'zero-1inch' }
+    //     },
+    //     allowFallback: true, // Enable fallback ke alternative
+    // },
+    // rubic: {
+    //     label: 'Rubic',
+    //     badgeClass: 'bg-rubic',
+    //     disabled: true, // ⚠️ DISABLED - Disabled by user request
+    //     proxy: true, // ✅ Enable CORS proxy to avoid 429/500 errors
+    //     warna: "#00e28d", // Rubic green
+    //     isMultiDex: true, // ⭐ Multi-DEX aggregator - tampilkan top 3 providers
+    //     builder: ({ chainName, NameToken, NamePair }) => {
+    //         // Rubic chain mapping (chainName from config → Rubic API format)
+    //         const chainMap = {
+    //             'bsc': 'BSC',
+    //             'ethereum': 'ETH',
+    //             'polygon': 'POLYGON',
+    //             'arbitrum': 'ARBITRUM',
+    //             'base': 'BASE',
+    //             'optimism': 'OPTIMISM',
+    //             'avalanche': 'AVAX'
+    //         };
+    //         const chain = String(chainName || '').toLowerCase();
+    //         const rubicChain = chainMap[chain] || String(chainName || '').toUpperCase();
+    //         const from = String(NameToken || '').toUpperCase();
+    //         const to = String(NamePair || '').toUpperCase();
+    //         return `https://app.rubic.exchange/?fromChain=${rubicChain}&toChain=${rubicChain}&from=${from}&to=${to}`;
+    //     },
+    //     fetchdex: {
+    //         primary: { tokentopair: 'rubic', pairtotoken: 'rubic' }
+    //     },
+    //     allowFallback: false, // Rubic is already an aggregator, no fallback needed
+    // },
     // ============ END DISABLED DEXes ============
     paraswap: {
         label: 'ParaSwap',
@@ -790,39 +790,39 @@ const CONFIG_DEXS = {
         maxProviders: 2 // ⚠️ LIMIT: Hanya tampilkan 2 DEX teratas (tidak 3 seperti DZAP)
     },
 
-    rango: {
-        label: 'RANGO',
-        badgeClass: 'bg-rango',
-        warna: "#00d4ff", // Rango cyan/blue
-        disabled: true, // ⚠️ DISABLED: Even test API key returns 403 Forbidden
-        // Rango requires official production API key with domain whitelist
-        // Request key via Discord: https://discord.gg/rango (#support-ticket)
-        builder: ({ chainCode, chainName, tokenAddress, pairAddress }) => {
-            // Rango uses chain names, not chain IDs
-            // Map common chains to Rango format
-            const rangoChainMap = {
-                'ethereum': 'ETH',
-                'bsc': 'BSC',
-                'polygon': 'POLYGON',
-                'avalanche': 'AVAX_CCHAIN',
-                'arbitrum': 'ARBITRUM',
-                'optimism': 'OPTIMISM',
-                'base': 'BASE',
-                'solana': 'SOLANA'
-            };
-            const fromChain = rangoChainMap[String(chainName || '').toLowerCase()] || 'ETH';
-            return `https://app.rango.exchange/?fromBlockchain=${fromChain}&fromToken=${tokenAddress}&toBlockchain=${fromChain}&toToken=${pairAddress}`;
-        },
-        fetchdex: {
-            primary: {
-                tokentopair: 'rango',    // CEX→DEX: Rango multi-chain aggregator
-                pairtotoken: 'rango'     // DEX→CEX: Rango multi-chain aggregator
-            }
-        },
-        allowFallback: false, // Rango is already a multi-chain aggregator
-        isMultiDex: true, // Tampilkan top 3 routes dengan format lengkap
-        maxProviders: 2 // Display top 3 routes
-    },
+    // rango: {
+    //     label: 'RANGO',
+    //     badgeClass: 'bg-rango',
+    //     warna: "#00d4ff", // Rango cyan/blue
+    //     disabled: true, // ⚠️ DISABLED: Even test API key returns 403 Forbidden
+    //     // Rango requires official production API key with domain whitelist
+    //     // Request key via Discord: https://discord.gg/rango (#support-ticket)
+    //     builder: ({ chainCode, chainName, tokenAddress, pairAddress }) => {
+    //         // Rango uses chain names, not chain IDs
+    //         // Map common chains to Rango format
+    //         const rangoChainMap = {
+    //             'ethereum': 'ETH',
+    //             'bsc': 'BSC',
+    //             'polygon': 'POLYGON',
+    //             'avalanche': 'AVAX_CCHAIN',
+    //             'arbitrum': 'ARBITRUM',
+    //             'optimism': 'OPTIMISM',
+    //             'base': 'BASE',
+    //             'solana': 'SOLANA'
+    //         };
+    //         const fromChain = rangoChainMap[String(chainName || '').toLowerCase()] || 'ETH';
+    //         return `https://app.rango.exchange/?fromBlockchain=${fromChain}&fromToken=${tokenAddress}&toBlockchain=${fromChain}&toToken=${pairAddress}`;
+    //     },
+    //     fetchdex: {
+    //         primary: {
+    //             tokentopair: 'rango',    // CEX→DEX: Rango multi-chain aggregator
+    //             pairtotoken: 'rango'     // DEX→CEX: Rango multi-chain aggregator
+    //         }
+    //     },
+    //     allowFallback: false, // Rango is already a multi-chain aggregator
+    //     isMultiDex: true, // Tampilkan top 3 routes dengan format lengkap
+    //     maxProviders: 2 // Display top 3 routes
+    // },
 
     jupiter: {
         label: 'Jupiter',
@@ -872,24 +872,24 @@ const CONFIG_DEXS = {
         allowFallback: false // Kamino is Solana-specific multi-DEX aggregator
     },
 
-    fly: {
-        label: 'FLY',
-        badgeClass: 'bg-fly',
-        disabled: true, // ❌ DISABLED - FlyTrade not active
-        proxy: false,
-        warna: "#ba28f9ff", // fly purple
-        builder: ({ chainName, tokenAddress, pairAddress }) => {
-            const net = String(chainName || '').toLowerCase() || 'ethereum';
-            return `https://app.fly.trade/swap/${net}/${String(tokenAddress).toLowerCase()}/${net}/${String(pairAddress).toLowerCase()}`;
-        },
-        fetchdex: {
-            primary: {
-                tokentopair: 'fly',
-                pairtotoken: 'fly'
-            }
-        },
-        allowFallback: false
-    }
+    // fly: {
+    //     label: 'FLY',
+    //     badgeClass: 'bg-fly',
+    //     disabled: true, // ❌ DISABLED - FlyTrade not active
+    //     proxy: false,
+    //     warna: "#ba28f9ff", // fly purple
+    //     builder: ({ chainName, tokenAddress, pairAddress }) => {
+    //         const net = String(chainName || '').toLowerCase() || 'ethereum';
+    //         return `https://app.fly.trade/swap/${net}/${String(tokenAddress).toLowerCase()}/${net}/${String(pairAddress).toLowerCase()}`;
+    //     },
+    //     fetchdex: {
+    //         primary: {
+    //             tokentopair: 'fly',
+    //             pairtotoken: 'fly'
+    //         }
+    //     },
+    //     allowFallback: false
+    // }
 
 
 };

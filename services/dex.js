@@ -111,7 +111,32 @@
   const dexStrategies = {
     kyber: {
       buildRequest: ({ chainName, sc_input, sc_output, amount_in_big }) => {
-        const kyberUrl = `https://aggregator-api.kyberswap.com/${chainName.toLowerCase()}/api/v1/routes?tokenIn=${sc_input}&tokenOut=${sc_output}&amountIn=${amount_in_big}&gasInclude=true`;
+        // Custom LP selection - daftar LP yang digunakan (dapat disesuaikan per chain)
+        const includedSources = [
+          // Major DEXes
+          'uniswap', 'uniswapv3', 'uniswap-v4',
+          'sushiswap', 'sushiswap-v3',
+          'pancake', 'pancake-v3', 'pancake-stable',
+          'kyberswap', 'kyberswap-static', 'kyberswap-limit-order-v2', 'kyber-pmm',
+          'curve', 'curve-stable-ng', 'curve-stable-plain', 'curve-tricrypto-ng', 'curve-twocrypto-ng',
+          'balancer-v2-stable', 'balancer-v2-weighted', 'balancer-v3-stable', 'balancer-v3-weighted',
+          // Aggregators & Advanced
+          'maverick-v1', 'maverick-v2',
+          'dodo-classical', 'dodo-dpp', 'dodo-dsp', 'dodo-dvm',
+          'fraxswap', 'solidly-v2', 'solidly-v3',
+          'traderjoe-v21',
+          // Stablecoins & Specialized
+          'maker-psm', 'lite-psm', 'usds-lite-psm',
+          'aave-v3', 'compound-v2', 'compound-v3',
+          // Ethereum Specific
+          'lido', 'lido-steth', 'rocketpool-reth',
+          'bancor-v3', 'hashflow-v3',
+          // Additional protocols
+          'odos', 'paraswap', '0x',
+          'wombat', 'smardex', 'verse'
+        ].join(',');
+
+        const kyberUrl = `https://aggregator-api.kyberswap.com/${chainName.toLowerCase()}/api/v1/routes?tokenIn=${sc_input}&tokenOut=${sc_output}&amountIn=${amount_in_big}&includedSources=${encodeURIComponent(includedSources)}&gasInclude=true`;
         return { url: kyberUrl, method: 'GET' };
       },
       parseResponse: (response, { des_output, chainName }) => {

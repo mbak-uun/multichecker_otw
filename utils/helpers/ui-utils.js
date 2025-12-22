@@ -50,6 +50,8 @@
 
                 $('#chain-links-container a, #chain-links-container .chain-link, #chain-links-container .icon, #multichain_scanner, #multichain_scanner .icon')
                     .css({ pointerEvents: 'auto', opacity: 1 });
+                // Disable Scanner Filter Modal icon during scan
+                $('#ScannerFilterModal').css({ pointerEvents: 'none', opacity: 0.4 });
                 // Disable scanner config controls and filter card inputs
                 $('#scanner-config').find('input, select, button, textarea').not('#btn-scroll-top').prop('disabled', true);
                 $('#filter-card').find('input, select, button, textarea').not('#btn-scroll-top').prop('disabled', true);
@@ -77,6 +79,8 @@
             } else {
                 // Re-enable toolbar
                 $allToolbar.css({ pointerEvents: '', opacity: '' });
+                // Re-enable Scanner Filter Modal icon
+                $('#ScannerFilterModal').css({ pointerEvents: '', opacity: '' });
                 // Reset controls (actual availability will be enforced by applyControlsFor)
                 $('#scanner-config').find('input, select, button, textarea').prop('disabled', false);
                 $('#filter-card').find('input, select, button, textarea').prop('disabled', false);

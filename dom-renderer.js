@@ -940,7 +940,7 @@ function DisplayPNL(data) {
         const dexNameStrong = $mainCell.find('strong').first();
         if (dexNameStrong.length) {
           const baseName = String(dextype || '').toUpperCase().substring(0, 6);
-          const modalText = `[$${maxModal.toFixed(0)}] <span style="color:#10b981">│ ${actualModal.toFixed(0)}$</span>`;
+          const modalText = `[$${maxModal.toFixed(0)}] <span style="color:#3fa9a7">│ ${actualModal.toFixed(0)}$</span>`;
           dexNameStrong.html(`${baseName} ${modalText}`);
         }
       } catch (_) { }
@@ -978,8 +978,8 @@ function DisplayPNL(data) {
       // CEX prices for calculation
       const buyPairCEX = n(priceBuyPair_CEX);
       const sellPairCEX = n(priceSellPair_CEX);
-      const buyTokenCEX = n(priceBuyToken_CEX);
-      const sellTokenCEX = n(priceSellToken_CEX);
+      const buyTokenCEX = n(displayPriceBuyToken);
+      const sellTokenCEX = n(displayPriceSellToken);
 
       // Best PNL tracking for highlight
       let bestPnl = -Infinity;
@@ -1228,8 +1228,8 @@ function DisplayPNL(data) {
     candB = (q2u > 0 && dexRateRaw > 0) ? (q2u / dexRateRaw) : 0;  // TOKEN/QUOTE → USDT/TOKEN
   }
 
-  const refCexBuy = n(priceBuyToken_CEX);
-  const refCexSell = n(priceSellToken_CEX);
+  const refCexBuy = n(displayPriceBuyToken);
+  const refCexSell = n(displayPriceSellToken);
 
   let dexUsdtPerToken;
   if (lower(trx) === 'tokentopair') {

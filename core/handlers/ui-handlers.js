@@ -222,11 +222,16 @@
                 const res = await (window.restoreIDB ? window.restoreIDB(json) : Promise.resolve({ ok:0, fail:0 }));
                 try { setLastAction('RESTORE DATABASE'); } catch(_) {}
                 const msg = `Restore selesai. OK: ${res.ok}, Fail: ${res.fail}`;
-                try { if (typeof toast !== 'undefined' && toast.success) toast.success(`✅ ${msg}`); } catch(_) {}
                 try { $('#backupSummary').text(`Restore OK: ${res.ok}, Fail: ${res.fail}`); } catch(_) {}
-                // Tampilkan alert sukses dan reload halaman agar data hasil restore terpakai penuh
-                try { alert(`✅ ${msg}\nHalaman akan di-reload untuk menerapkan perubahan.`); } catch(_) {}
-                try { location.reload(); } catch(_) {}
+                // Tampilkan notifikasi sukses dan reload halaman agar data hasil restore terpakai penuh
+                try {
+                    if (typeof UIkit !== 'undefined' && UIkit.notification) {
+                        UIkit.notification(`✅ ${msg}<br>Halaman akan di-reload untuk menerapkan perubahan.`, {status:'success'});
+                    } else if (typeof toast !== 'undefined' && toast.success) {
+                        toast.success(`✅ ${msg}\nHalaman akan di-reload untuk menerapkan perubahan.`);
+                    }
+                } catch(_) {}
+                setTimeout(() => { try { location.reload(); } catch(_) {} }, 1000);
             } catch(err){
                 // console.error('Restore parse error:', err);
                 if (typeof toast !== 'undefined' && toast.error) toast.error('File tidak valid. Pastikan format JSON benar.');

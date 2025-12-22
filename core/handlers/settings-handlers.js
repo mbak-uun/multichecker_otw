@@ -117,8 +117,12 @@
         saveToLocalStorage('SETTING_SCANNER', settingData);
 
         try { setLastAction("SIMPAN SETTING"); } catch(_) {}
-        alert("✅ SETTING SCANNER BERHASIL DISIMPAN");
-        location.reload();
+        if (typeof UIkit !== 'undefined' && UIkit.notification) {
+            UIkit.notification("✅ SETTING SCANNER BERHASIL DISIMPAN", {status:'success'});
+        } else if (typeof toast !== 'undefined' && toast.success) {
+            toast.success("✅ SETTING SCANNER BERHASIL DISIMPAN");
+        }
+        setTimeout(() => location.reload(), 500);
     });
 
 })();
