@@ -15,7 +15,7 @@
  * - FILTER_<CHAIN>
  */
 
-(function(global) {
+(function (global) {
     'use strict';
 
     const root = global || (typeof window !== 'undefined' ? window : {});
@@ -67,7 +67,7 @@
 
             console.log('[Database Viewer] Initialized with config:', DB_CONFIG);
             console.log('[Database Viewer] Expected stores: APP_KV_STORE, SNAPSHOT_STORE');
-        } catch(err) {
+        } catch (err) {
             console.error('[Database Viewer] Error initializing config:', err);
         }
     }
@@ -89,7 +89,7 @@
             console.warn('[Database Viewer] CONFIG_CHAINS not found, using fallback chain list');
             // Hardcoded common chains sebagai fallback
             return ['bsc', 'ethereum', 'solana', 'polygon', 'arbitrum', 'optimism', 'avalanche', 'fantom', 'base', 'ton'];
-        } catch(err) {
+        } catch (err) {
             console.error('[Database Viewer] Error getting chain keys:', err);
             // Ultimate fallback
             return ['bsc', 'ethereum', 'solana'];
@@ -122,7 +122,7 @@
                 const tables = {};
 
                 const payload = await window.exportIDB();
-                const storagePrefix = (function(){ try { return String(window.storagePrefix || ''); } catch(_) { return ''; }})();
+                const storagePrefix = (function () { try { return String(window.storagePrefix || ''); } catch (_) { return ''; } })();
                 const strip = (k) => (k && storagePrefix && String(k).startsWith(storagePrefix)) ? String(k).slice(storagePrefix.length) : String(k);
 
                 const kvIndex = new Map(); // stripped -> { rawKey, val }
@@ -139,7 +139,7 @@
                 const settings = getKv('SETTING_SCANNER') ?? (typeof window.getFromLocalStorage === 'function' ? window.getFromLocalStorage('SETTING_SCANNER', undefined) : undefined);
                 if (settings) {
                     tables['SETTING_SCANNER'] = {
-                        name: 'SETTING_SCANNER', displayName: 'Setting Scanner', type: 'settings', rawKey: (kvIndex.get('SETTING_SCANNER')||{}).rawKey || 'SETTING_SCANNER', data: settings, count: Object.keys(settings).length
+                        name: 'SETTING_SCANNER', displayName: 'Setting Scanner', type: 'settings', rawKey: (kvIndex.get('SETTING_SCANNER') || {}).rawKey || 'SETTING_SCANNER', data: settings, count: Object.keys(settings).length
                     };
                 }
 
@@ -152,7 +152,7 @@
                     const key = `TOKEN_${chainUpper}`;
                     const data = getKv(key);
                     if (Array.isArray(data) && data.length) {
-                        tables[key] = { name: key, displayName: `Koin ${chainName}`, type: 'koin', chain: chain, rawKey: (kvIndex.get(key)||{}).rawKey || key, data, count: data.length };
+                        tables[key] = { name: key, displayName: `Koin ${chainName}`, type: 'koin', chain: chain, rawKey: (kvIndex.get(key) || {}).rawKey || key, data, count: data.length };
                     }
                 }
 
@@ -195,15 +195,37 @@
                     const key = `FILTER_${chainUpper}`;
                     const data = getKv(key);
                     if (data) {
-                        tables[key] = { name: key, displayName: `Filter ${chainName}`, type: 'filter', chain: chain, rawKey: (kvIndex.get(key)||{}).rawKey || key, data, count: typeof data === 'object' ? Object.keys(data).length : 1 };
+                        tables[key] = { name: key, displayName: `Filter ${chainName}`, type: 'filter', chain: chain, rawKey: (kvIndex.get(key) || {}).rawKey || key, data, count: typeof data === 'object' ? Object.keys(data).length : 1 };
                     }
                 }
 
                 // Filter Multichain
                 const fm = getKv('FILTER_MULTICHAIN') ?? (typeof window.getFromLocalStorage === 'function' ? window.getFromLocalStorage('FILTER_MULTICHAIN', undefined) : undefined);
                 if (fm) {
-                    tables['FILTER_MULTICHAIN'] = { name: 'FILTER_MULTICHAIN', displayName: 'Filter Multichain', type: 'filter', chain: 'multichain', rawKey: (kvIndex.get('FILTER_MULTICHAIN')||{}).rawKey || 'FILTER_MULTICHAIN', data: fm, count: typeof fm === 'object' ? Object.keys(fm).length : 1 };
+                    tables['FILTER_MULTICHAIN'] = { name: 'FILTER_MULTICHAIN', displayName: 'Filter Multichain', type: 'filter', chain: 'multichain', rawKey: (kvIndex.get('FILTER_MULTICHAIN') || {}).rawKey || 'FILTER_MULTICHAIN', data: fm, count: typeof fm === 'object' ? Object.keys(fm).length : 1 };
                 }
+
+                // Modal Profiles (per-chain only, NO multichain)
+                for (const chain of chains) {
+                    const chainUpper = chain.toUpperCase();
+                    const chainCfg = root.CONFIG_CHAINS?.[chain.toLowerCase()] || {};
+                    const chainName = chainCfg.Nama_Chain || chainUpper;
+                    const key = `MODAL_PROFILE_${chainUpper}`;
+                    const data = getKv(key);
+
+                    if (Array.isArray(data) && data.length > 0) {
+                        tables[key] = {
+                            name: key,
+                            displayName: `Profil Modal ${chainName}`,
+                            type: 'modal_profile',
+                            chain: chain,
+                            rawKey: (kvIndex.get(key) || {}).rawKey || key,
+                            data,
+                            count: data.length
+                        };
+                    }
+                }
+
 
                 allTablesData = tables;
                 filteredData = { ...tables };
@@ -216,7 +238,7 @@
 
                 return tables;
             }
-        } catch(e) {
+        } catch (e) {
             console.warn('[Database Viewer] Storage module path failed, falling back to direct IDB:', e);
         }
 
@@ -363,7 +385,7 @@
 
             return tables;
 
-        } catch(err) {
+        } catch (err) {
             console.error('[Database Viewer] Error loading data:', err);
 
             // ========== LOADING OVERLAY: END (ERROR CASE) ==========
@@ -391,7 +413,7 @@
                 request.onerror = (event) => {
                     reject(new Error('Failed to open database'));
                 };
-            } catch(err) {
+            } catch (err) {
                 reject(err);
             }
         });
@@ -414,7 +436,7 @@
                 request.onerror = () => {
                     resolve([]);
                 };
-            } catch(err) {
+            } catch (err) {
                 console.error(`[Database Viewer] Error getting keys from ${storeName}:`, err);
                 resolve([]);
             }
@@ -461,7 +483,7 @@
                     console.error(`[Database Viewer] ❌ Error reading ${key} from ${storeName}:`, err);
                     resolve(null);
                 };
-            } catch(err) {
+            } catch (err) {
                 console.error(`[Database Viewer] ❌ Exception reading ${key} from ${storeName}:`, err);
                 resolve(null);
             }
@@ -646,6 +668,14 @@
                     </span>
                 </div>
             `;
+        } else if (table.type === 'modal_profile') {
+            return `
+                <div class="db-table-summary">
+                    <span class="summary-item">
+                        <strong>${table.count}</strong> profil
+                    </span>
+                </div>
+            `;
         }
 
         return '';
@@ -661,6 +691,8 @@
             return renderKoinTable(table.data);
         } else if (table.type === 'filter') {
             return renderFilterData(table.data);
+        } else if (table.type === 'modal_profile') {
+            return renderModalProfileData(table.data);
         }
         return '<p class="uk-text-muted">No data renderer available</p>';
     }
@@ -980,6 +1012,72 @@
     }
 
     /**
+     * Render modal profile data as table
+     * @param {Array} data - Array of profile objects
+     * @returns {string} HTML table
+     */
+    function renderModalProfileData(data) {
+        if (!Array.isArray(data) || data.length === 0) {
+            return '<p class="uk-text-muted uk-text-center">Tidak ada profil modal</p>';
+        }
+
+        let html = `
+            <div class="uk-overflow-auto">
+                <table class="uk-table uk-table-divider uk-table-hover uk-table-small db-data-table">
+                    <thead>
+                        <tr>
+                            <th style="width:40px">No</th>
+                            <th>Nama Profil</th>
+                            <th style="width:80px">Chain</th>
+                            <th style="width:80px" class="uk-text-center">Jumlah DEX</th>
+                            <th>Range</th>
+                            <th style="width:140px">Dibuat</th>
+                            <th style="width:140px">Diupdate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        data.forEach((profile, idx) => {
+            const name = profile.name || '-';
+            const chain = (profile.chain || '').toUpperCase();
+            const chainColor = getChainColor(chain.toLowerCase());
+            const ranges = profile.ranges || {};
+            const dexCount = Object.keys(ranges).length;
+
+            // Build range summary
+            const rangeSummary = Object.entries(ranges)
+                .map(([dex, vals]) => `${dex.toUpperCase()}: ${vals.left}|${vals.right}`)
+                .join(', ');
+
+            const created = profile.createdAt ? new Date(profile.createdAt).toLocaleString('id-ID', { hour12: false }) : '-';
+            const updated = profile.updatedAt ? new Date(profile.updatedAt).toLocaleString('id-ID', { hour12: false }) : '-';
+
+            html += `
+                <tr>
+                    <td class="uk-text-muted">${idx + 1}</td>
+                    <td><strong>${name}</strong></td>
+                    <td><span class="uk-badge" style="background:${chainColor}">${chain}</span></td>
+                    <td class="uk-text-center"><strong>${dexCount}</strong></td>
+                    <td class="uk-text-small uk-text-truncate" title="${rangeSummary}" style="max-width:300px">
+                        ${rangeSummary}
+                    </td>
+                    <td class="uk-text-small uk-text-muted">${created}</td>
+                    <td class="uk-text-small uk-text-muted">${updated}</td>
+                </tr>
+            `;
+        });
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        return html;
+    }
+
+    /**
      * Render all tables as accordion cards
      */
     function renderDatabaseView() {
@@ -1002,7 +1100,8 @@
             settings: [],
             koin: [],
             snapshot: [],
-            filter: []
+            filter: [],
+            modal_profile: []
         };
 
         tables.forEach(table => {
@@ -1029,6 +1128,11 @@
         // Render Filter Tables
         if (grouped.filter.length > 0) {
             html += renderTableGroup('Filter per Chain', grouped.filter);
+        }
+
+        // Render Modal Profile Tables
+        if (grouped.modal_profile.length > 0) {
+            html += renderTableGroup('Profil Modal per Chain', grouped.modal_profile);
         }
 
         $container.html(html);
@@ -1099,8 +1203,8 @@
     /**
      * Bind accordion click events
      */
-     function bindAccordionEvents() {
-        $('.db-table-header').off('click').on('click', function(e) {
+    function bindAccordionEvents() {
+        $('.db-table-header').off('click').on('click', function (e) {
             // Jangan toggle jika klik di button export
             if ($(e.target).closest('.export-table-btn').length > 0) {
                 return;
@@ -1127,20 +1231,20 @@
         });
 
         // Per-table search
-        $('.db-table-search').off('input').on('input', function(e) {
+        $('.db-table-search').off('input').on('input', function (e) {
             e.stopPropagation();
             const query = $(this).val().toLowerCase();
             const $table = $(this).closest('.db-table-card').find('.db-data-table');
             const $rows = $table.find('tbody tr');
 
-            $rows.each(function() {
+            $rows.each(function () {
                 const rowText = $(this).text().toLowerCase();
                 $(this).toggle(rowText.includes(query));
             });
         });
 
         // Per-table sorting
-        $('.db-data-table thead th').off('click').on('click', function(e) {
+        $('.db-data-table thead th').off('click').on('click', function (e) {
             e.stopPropagation();
             const $th = $(this);
             const $table = $th.closest('table');
@@ -1174,20 +1278,20 @@
                 return nextSort === 'asc' ? compare : -compare;
             });
 
-            $.each(rows, function(index, row) {
+            $.each(rows, function (index, row) {
                 $tbody.append(row);
             });
         });
 
         // Bind export buttons
-        $('.export-table-btn').off('click').on('click', function(e) {
+        $('.export-table-btn').off('click').on('click', function (e) {
             e.stopPropagation();
             const tableName = $(this).data('table');
             exportTableToJSON(tableName);
         });
 
         // Bind delete buttons
-        $('.delete-table-btn').off('click').on('click', function(e) {
+        $('.delete-table-btn').off('click').on('click', function (e) {
             e.stopPropagation();
             const tableName = $(this).data('table');
             deleteTable(tableName);
@@ -1221,7 +1325,7 @@
             if (typeof toast !== 'undefined' && toast.success) {
                 toast.success(`Export ${table.displayName} berhasil`);
             }
-        } catch(err) {
+        } catch (err) {
             console.error('[Database Viewer] Export error:', err);
             if (typeof toast !== 'undefined' && toast.error) {
                 toast.error('Gagal export data');
@@ -1251,7 +1355,7 @@
                     const map = await window.snapshotDbGet('SNAPSHOT_DATA_KOIN') || {};
                     const keyLower = String(table.chain || '').toLowerCase();
                     if (Object.prototype.hasOwnProperty.call(map, keyLower)) {
-                        try { delete map[keyLower]; } catch(_) {}
+                        try { delete map[keyLower]; } catch (_) { }
                         const ok = await window.snapshotDbSet('SNAPSHOT_DATA_KOIN', map);
                         if (!ok) throw new Error('Gagal menyimpan snapshot');
                     }
@@ -1288,10 +1392,10 @@
                         { includeChain: false }
                     );
                 }
-            } catch(_) {}
+            } catch (_) { }
             await refresh();
 
-        } catch(err) {
+        } catch (err) {
             console.error('[Database Viewer] Error saat menghapus tabel:', err);
             // Log deletion error to history
             try {
@@ -1308,7 +1412,7 @@
                         { includeChain: false }
                     );
                 }
-            } catch(_) {}
+            } catch (_) { }
             if (typeof toast !== 'undefined' && toast.error) {
                 toast.error('Gagal menghapus data');
             }
@@ -1341,7 +1445,7 @@
             // Update stats
             updateGlobalStats();
 
-        } catch(err) {
+        } catch (err) {
             console.error('[Database Viewer] Error showing viewer:', err);
             if (typeof toast !== 'undefined' && toast.error) {
                 toast.error('Gagal memuat database: ' + err.message);
@@ -1403,7 +1507,7 @@
             if (typeof toast !== 'undefined' && toast.success) {
                 toast.success('Database berhasil di-refresh');
             }
-        } catch(err) {
+        } catch (err) {
             console.error('[Database Viewer] Refresh error:', err);
             if (typeof toast !== 'undefined' && toast.error) {
                 toast.error('Gagal refresh database');
@@ -1420,7 +1524,7 @@
      */
     function init() {
         // Bind search input
-        $('#db-search-input').off('input').on('input', function() {
+        $('#db-search-input').off('input').on('input', function () {
             const query = $(this).val();
             handleSearch(query);
         });
@@ -1447,7 +1551,7 @@
     }
 
     // Auto-init on DOM ready
-    $(document).ready(function() {
+    $(document).ready(function () {
         init();
     });
 
