@@ -52,7 +52,8 @@ function applyControlsFor(state) {
     const $import = $('#uploadJSON');
     const $export = $('a[onclick="downloadTokenScannerCSV()"], #btnExportTokens');
     const $settingsIcon = $('#SettingConfig');
-    const $toolIcons = $('.header-card .icon');
+    const $toolIcons = $('.header-card .icon').not('#ScannerFilterModal'); // ✅ Exclude filter button from disable
+    const $scannerFilterBtn = $('#ScannerFilterModal');
     const $chainLinks = $('#chain-links-container a, #chain-links-container .chain-link');
     const $sortToggles = $('.sort-toggle');
 
@@ -76,6 +77,15 @@ function applyControlsFor(state) {
             .css('pointer-events', enabled ? '' : 'none');
     }
 
+    function forceEnableFilterButton() {
+        // Force enable filter button with !important equivalent
+        $('#ScannerFilterModal').css({
+            'opacity': '1',
+            'pointer-events': 'auto',
+            'cursor': 'pointer'
+        }).prop('disabled', false).removeClass('disabled');
+    }
+
     // lock everything by default
     // Only lock scanner-config controls; settings form remains usable even when missing
     setDisabled($('#scanner-config').find('input, select, button'), true);
@@ -84,6 +94,8 @@ function applyControlsFor(state) {
     setClickableEnabled($sortToggles, false);
     toggleFilterControls(false);
     $settingsIcon.removeClass('cta-settings icon-alert-missing');
+    // ✅ Keep filter button always enabled (view-only when scanning)
+    forceEnableFilterButton();
 
     if (state === 'READY') {
         try {
@@ -104,6 +116,8 @@ function applyControlsFor(state) {
         setClickableEnabled($toolIcons.add($chainLinks), true);
         setClickableEnabled($sortToggles, true);
         toggleFilterControls(true);
+        // ✅ Keep filter button always enabled
+        forceEnableFilterButton();
         try { $('#sync-tokens-btn').removeClass('cta-highlight'); } catch (_) { }
         try { $('#ManajemenKoin').removeClass('cta-highlight'); } catch (_) { }
         try { $('#ManajemenKoin img.icon').removeClass('icon-alert-missing'); } catch (_) { }
@@ -136,6 +150,8 @@ function applyControlsFor(state) {
             // Explicitly disable Manajemen Koin menu
             $('#ManajemenKoin,#multichain_scanner').css({ opacity: '0.5', pointerEvents: 'none' }).prop('disabled', true);
         } catch (_) { }
+        // ✅ Keep filter button always enabled
+        forceEnableFilterButton();
     } else if (state === 'MISSING_TOKENS') {
         setDisabled($import, false);
         // Settings sudah ada: semua toolbar bisa diklik, kecuali Update Wallet CEX
@@ -147,6 +163,8 @@ function applyControlsFor(state) {
         setClickableEnabled($sortToggles, false);
         // Disable khusus tombol Update Wallet CEX sampai ada token tersimpan
         try { $('#UpdateWalletCEX').css({ opacity: '0.5', pointerEvents: 'none' }).prop('disabled', true); } catch (_) { }
+        // ✅ Keep filter button always enabled
+        forceEnableFilterButton();
         // Remove setting icon alert since settings exist
         // Info
         $('#infoAPP').html('⚠️ Tambahkan / Import / Sinkronisasi <b>DATA KOIN</b> terlebih dahulu.').show();
@@ -157,6 +175,8 @@ function applyControlsFor(state) {
         try { $('#ManajemenKoin img.icon').addClass('icon-alert-missing'); } catch (_) { }
         setClickableEnabled($toolIcons.not($settingsIcon), false);
         setClickableEnabled($settingsIcon, true);
+        // ✅ Keep filter button always enabled
+        forceEnableFilterButton();
     }
 }
 

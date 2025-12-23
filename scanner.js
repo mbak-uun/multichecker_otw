@@ -765,8 +765,9 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                 : null;
 
                             if (autoVolResult && !autoVolResult.error && autoVolResult.totalCoins > 0) {
-                                // Auto Volume success
-                                modal = autoVolResult.actualModal;
+                                // ✅ FIX PNL: Use maxModal for PNL calculation, not actualModal
+                                // actualModal is only for display purposes
+                                modal = maxModal;  // ← Use configured modal for correct PNL check
                                 avgPriceCEX = autoVolResult.avgPrice;
 
                                 // ✅ FIX: Different amountIn per direction

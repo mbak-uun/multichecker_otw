@@ -10,7 +10,7 @@
  * - setScanUIGating: Enable/disable UI controls during scanning
  */
 
-(function() {
+(function () {
     'use strict';
 
     /**
@@ -22,7 +22,7 @@
      */
     function debounce(func, wait) {
         let timeout;
-        return function(...args) {
+        return function (...args) {
             const context = this;
             clearTimeout(timeout);
             timeout = setTimeout(() => func.apply(context, args), wait);
@@ -37,7 +37,7 @@
         try {
             const $allToolbar = $('.header-card a, .header-card .icon');
             const mode = (typeof getAppMode === 'function') ? getAppMode() : { type: 'multi' };
-            const isSingle = String(mode.type||'').toLowerCase() === 'single';
+            const isSingle = String(mode.type || '').toLowerCase() === 'single';
             if (isRunning) {
                 // Dim and disable all toolbar actions
                 $allToolbar.css({ pointerEvents: 'none', opacity: 0.4 });
@@ -50,8 +50,8 @@
 
                 $('#chain-links-container a, #chain-links-container .chain-link, #chain-links-container .icon, #multichain_scanner, #multichain_scanner .icon')
                     .css({ pointerEvents: 'auto', opacity: 1 });
-                // Disable Scanner Filter Modal icon during scan
-                $('#ScannerFilterModal').css({ pointerEvents: 'none', opacity: 0.4 });
+                // ✅ KEEP Scanner Filter Modal icon ACTIVE during scan (modal will show readonly inputs)
+                $('#ScannerFilterModal').css({ pointerEvents: 'auto', opacity: 1 });
                 // Disable scanner config controls and filter card inputs
                 $('#scanner-config').find('input, select, button, textarea').not('#btn-scroll-top').prop('disabled', true);
                 $('#filter-card').find('input, select, button, textarea').not('#btn-scroll-top').prop('disabled', true);
@@ -79,7 +79,7 @@
             } else {
                 // Re-enable toolbar
                 $allToolbar.css({ pointerEvents: '', opacity: '' });
-                // Re-enable Scanner Filter Modal icon
+                // ✅ Scanner Filter Modal icon remains enabled (already enabled during scan)
                 $('#ScannerFilterModal').css({ pointerEvents: '', opacity: '' });
                 // Reset controls (actual availability will be enforced by applyControlsFor)
                 $('#scanner-config').find('input, select, button, textarea').prop('disabled', false);

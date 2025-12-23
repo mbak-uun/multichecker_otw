@@ -591,10 +591,11 @@ function renderTokenManagementList() {
   const controls = (() => {
     const base = [
       `<button id=\"btnNewToken\" class=\"uk-button uk-button-default uk-button-small\" title=\"Tambah Data Koin\"><span uk-icon=\"plus-circle\"></span> ADD COIN</button>`,
+      `<button id=\"btnToggleMgrFilter\" class=\"uk-button uk-button-small uk-button-primary\" title=\"Toggle Filter Setting\"><span uk-icon=\"settings\"></span> FILTER</button>`,
       `<button id=\"btnExportTokens\" data-feature=\"export\" class=\"uk-button uk-button-small uk-button-secondary\" title=\"Export CSV\"><span uk-icon=\"download\"></span> Export</button>`,
       `<button id=\"btnImportTokens\" data-feature=\"import\" class=\"uk-button uk-button-small uk-button-danger\" title=\"Import CSV\"><span uk-icon=\"upload\"></span> Import</button>`,
       `<input type=\"file\" id=\"uploadJSON\" accept=\".csv,text/csv\" style=\"display:none;\" onchange=\"uploadTokenScannerCSV(event)\"> <button type="button" id="btn-cancel-setting" class="uk-button uk-button-muted uk-button-small">
-        <span uk-icon="icon:  arrow-left" class="uk-text-primary"></span>  <span class="uk-text-primary">KEMBALI</span> 
+        <span uk-icon="icon:  arrow-left" class="uk-text-primary"></span>  <span class="uk-text-primary">KEMBALI</span>
       </button>  `
     ];
     // Add SYNC button only for single chain mode
@@ -605,18 +606,108 @@ function renderTokenManagementList() {
     return base.join('\n');
   })();
 
+  // ✅ Build filter chips visual (CEX/Pair/DEX)
+  let filterChipsHtml = '';
+  let hasActiveFilters = false;
+  if (m.type === 'single') {
+    const chainKey = m.chain;
+    const filters = getFilterChain(chainKey) || { cex: [], pair: [], dex: [] };
+    const cexSel = filters.cex || [];
+    const pairSel = filters.pair || [];
+    const dexSel = (filters.dex || []).map(x => String(x).toLowerCase());
+    hasActiveFilters = cexSel.length > 0 && pairSel.length > 0 && dexSel.length > 0;
+
+    const cexChips = cexSel.map(cx => {
+      const col = CONFIG_CEX?.[cx]?.WARNA || '#666';
+      return `<span class="filter-chip" style="background:${col}; color:#fff; padding:2px 6px; border-radius:3px; font-size:10px; margin:2px;">${String(cx).toUpperCase()}</span>`;
+    }).join('');
+
+    const pairChips = pairSel.map(p => {
+      return `<span class="filter-chip" style="background:#28a745; color:#fff; padding:2px 6px; border-radius:3px; font-size:10px; margin:2px;">${String(p).toUpperCase()}</span>`;
+    }).join('');
+
+    const dexChips = dexSel.map(dx => {
+      const col = (CONFIG_DEXS?.[dx]?.warna || CONFIG_DEXS?.[dx]?.WARNA) || '#333';
+      return `<span class="filter-chip" style="background:${col}; color:#fff; padding:2px 6px; border-radius:3px; font-size:10px; margin:2px;">${String(dx).toUpperCase()}</span>`;
+    }).join('');
+
+    if (cexChips || pairChips || dexChips) {
+      filterChipsHtml = `
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          ${cexChips ? `<div class="uk-text-small">
+            <b class="uk-text-muted" style="min-width:50px; display:inline-block;">CEX:</b>
+            <span style="cursor:pointer;" onclick="$('#ScannerFilterModal').trigger('click');" title="Klik untuk edit filter">${cexChips}</span>
+          </div>` : ''}
+          ${pairChips ? `<div class="uk-text-small">
+            <b class="uk-text-muted" style="min-width:50px; display:inline-block;">PAIR:</b>
+            <span style="cursor:pointer;" onclick="$('#ScannerFilterModal').trigger('click');" title="Klik untuk edit filter">${pairChips}</span>
+          </div>` : ''}
+          ${dexChips ? `<div class="uk-text-small">
+            <b class="uk-text-muted" style="min-width:50px; display:inline-block;">DEX:</b>
+            <span style="cursor:pointer;" onclick="$('#ScannerFilterModal').trigger('click');" title="Klik untuk edit filter">${dexChips}</span>
+          </div>` : ''}
+        </div>
+      `;
+    }
+  } else {
+    const filters = getFilterMulti() || { chains: [], cex: [], dex: [] };
+    const chainsSel = (filters.chains || []).map(c => String(c).toLowerCase());
+    const cexSel = filters.cex || [];
+    const dexSel = (filters.dex || []).map(x => String(x).toLowerCase());
+    const saved = getFromLocalStorage('FILTER_MULTICHAIN', null);
+    hasActiveFilters = saved !== null && chainsSel.length > 0 && cexSel.length > 0 && dexSel.length > 0;
+
+    const chainChips = chainsSel.map(ch => {
+      const cfg = CONFIG_CHAINS?.[ch] || {};
+      const col = cfg.WARNA || '#666';
+      const label = (cfg.Nama_Pendek || cfg.SHORT_NAME || ch).toUpperCase();
+      return `<span class="filter-chip" style="background:${col}; color:#fff; padding:2px 6px; border-radius:3px; font-size:10px; margin:2px;">${label}</span>`;
+    }).join('');
+
+    const cexChips = cexSel.map(cx => {
+      const col = CONFIG_CEX?.[cx]?.WARNA || '#666';
+      return `<span class="filter-chip" style="background:${col}; color:#fff; padding:2px 6px; border-radius:3px; font-size:10px; margin:2px;">${String(cx).toUpperCase()}</span>`;
+    }).join('');
+
+    const dexChips = dexSel.map(dx => {
+      const col = (CONFIG_DEXS?.[dx]?.warna || CONFIG_DEXS?.[dx]?.WARNA) || '#333';
+      return `<span class="filter-chip" style="background:${col}; color:#fff; padding:2px 6px; border-radius:3px; font-size:10px; margin:2px;">${String(dx).toUpperCase()}</span>`;
+    }).join('');
+
+    if (chainChips || cexChips || dexChips) {
+      filterChipsHtml = `
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          ${chainChips ? `<div class="uk-text-small">
+            <b class="uk-text-muted" style="min-width:60px; display:inline-block;">CHAIN:</b>
+            <span style="cursor:pointer;" onclick="$('#ScannerFilterModal').trigger('click');" title="Klik untuk edit filter">${chainChips}</span>
+          </div>` : ''}
+          ${cexChips ? `<div class="uk-text-small">
+            <b class="uk-text-muted" style="min-width:60px; display:inline-block;">CEX:</b>
+            <span style="cursor:pointer;" onclick="$('#ScannerFilterModal').trigger('click');" title="Klik untuk edit filter">${cexChips}</span>
+          </div>` : ''}
+          ${dexChips ? `<div class="uk-text-small">
+            <b class="uk-text-muted" style="min-width:60px; display:inline-block;">DEX:</b>
+            <span style="cursor:pointer;" onclick="$('#ScannerFilterModal').trigger('click');" title="Klik untuk edit filter">${dexChips}</span>
+          </div>` : ''}
+        </div>
+      `;
+    }
+  }
+
   // Render header only once; on subsequent calls, only update stats summary to avoid losing focus on input
   const $hdr = $('#token-management-stats');
   if ($hdr.find('.mgr-header').length === 0) {
-    const headerHtml = `<div class="uk-flex uk-flex-between uk-flex-middle mgr-header" style="gap:8px; align-items:center;">
-                        <!-- Bagian kiri -->
-                        <div id="mgrStatsSummary" class="uk-flex uk-flex-middle" style="white-space:nowrap;">
-                            <h4 class="uk-margin-remove">${statsHtml}</h4>
-                        </div>
+    const headerHtml = `<div class="mgr-header">
+                        <div class="uk-flex uk-flex-between uk-flex-middle" style="gap:8px; align-items:center;">
+                            <!-- Bagian kiri -->
+                            <div id="mgrStatsSummary" class="uk-flex uk-flex-middle" style="white-space:nowrap;">
+                                <h4 class="uk-margin-remove">${statsHtml}</h4>
+                            </div>
 
-                        <!-- Bagian kanan -->
-                        <div class="uk-flex uk-flex-middle" style="gap:6px; align-items:center;">
-                            ${controls}
+                            <!-- Bagian kanan -->
+                            <div class="uk-flex uk-flex-middle" style="gap:6px; align-items:center;">
+                                ${controls}
+                            </div>
                         </div>
                     </div>
                     `;

@@ -1412,7 +1412,8 @@ async function deferredInit() {
                 try { if (typeof toast !== 'undefined' && toast.info) toast.info(msg); } catch (_) { }
 
                 try { if (typeof window.clearSignalCards === 'function') window.clearSignalCards(); } catch (_) { }
-                refreshTokensTable();
+                // ✅ FIX: Use correct function for single chain mode
+                if (typeof loadAndDisplaySingleChainTokens === 'function') loadAndDisplaySingleChainTokens();
                 try { renderTokenManagementList(); } catch (_) { }
                 renderFilterCard();
                 renderFilterCardToModal();
@@ -1809,6 +1810,51 @@ async function deferredInit() {
         // Render filter card to modal
         renderFilterCardToModal();
 
+        // ✅ FIX: Check if scanning - set all inputs to readonly
+        const isScanning = (typeof window.App !== 'undefined' &&
+            window.App.Scanner &&
+            typeof window.App.Scanner.isScanRunning === 'function')
+            ? window.App.Scanner.isScanRunning()
+            : false;
+
+        if (isScanning) {
+            // ✅ Set all inputs in modal to DISABLED (bukan readonly)
+            setTimeout(() => {
+                // Disable semua input, button, select, textarea dalam modal
+                $('#modal-filter-sections').find('input, button, select, textarea').prop('disabled', true).css({
+                    'opacity': '0.6',
+                    'cursor': 'not-allowed'
+                });
+
+                // ✅ PENTING: Pastikan close button TETAP AKTIF
+                $('#scanner-filter-modal').find('.uk-modal-close, .uk-modal-close-default, button[uk-close]').prop('disabled', false).css({
+                    'opacity': '1',
+                    'cursor': 'pointer',
+                    'pointerEvents': 'auto'
+                });
+
+                // Add warning message
+                const warningHtml = `
+                    <div class="uk-alert-warning uk-margin-small-top" uk-alert style="padding:8px;">
+                        <span uk-icon="icon: warning; ratio: 0.8"></span>
+                        <span class="uk-text-small">Filter tidak dapat diubah saat scanning sedang berjalan. Stop scanning terlebih dahulu.</span>
+                    </div>
+                `;
+                if (!$('#modal-filter-sections').find('.uk-alert-warning').length) {
+                    $('#modal-filter-sections').prepend(warningHtml);
+                }
+            }, 100);
+        } else {
+            // Remove disabled state and warning
+            setTimeout(() => {
+                $('#modal-filter-sections').find('input, button, select, textarea').prop('disabled', false).css({
+                    'opacity': '',
+                    'cursor': ''
+                });
+                $('#modal-filter-sections').find('.uk-alert-warning').remove();
+            }, 100);
+        }
+
         // Show modal
         if (window.UIkit?.modal) {
             UIkit.modal('#scanner-filter-modal').show();
@@ -1923,6 +1969,12 @@ async function deferredInit() {
         // Re-render token management list to apply same query
         try { renderTokenManagementList(); } catch (_) { }
     }, 250));
+
+    // Open Scanner Filter Modal from Management Menu
+    $(document).on('click', '#btnToggleMgrFilter', function () {
+        // Trigger same modal as scanner filter
+        $('#ScannerFilterModal').trigger('click');
+    });
 
     $(document).on('click', '#btnNewToken', () => {
         const keys = Object.keys(window.CONFIG_CHAINS || {});
@@ -2311,154 +2363,12 @@ async function deferredInit() {
         }
     });
 
-    // Copy current edited token to Multichain store (from per-chain edit modal)
-    $(document).on('click', '#CopyToMultiBtn', function () {
-        try {
-            const mode = getAppMode();
-            if (mode.type !== 'single') {
-                if (typeof toast !== 'undefined' && toast.info) toast.info('Tombol ini hanya tersedia pada mode per-chain.');
-                return;
-            }
-            const chainKey = String(mode.chain).toLowerCase();
-            const id = $('#multiTokenIndex').val();
-            let singleTokens = getTokensChain(chainKey);
-            const idx = singleTokens.findIndex(t => String(t.id) === String(id));
-            const prevDataCexs = idx !== -1 ? (singleTokens[idx].dataCexs || {}) : {};
 
-            const tokenObj = {
-                id: id || Date.now().toString(),
-                symbol_in: ($('#inputSymbolToken').val() || '').trim(),
-                des_in: Number($('#inputDesToken').val() || 0),
-                sc_in: ($('#inputSCToken').val() || '').trim(),
-                symbol_out: ($('#inputSymbolPair').val() || '').trim(),
-                des_out: Number($('#inputDesPair').val() || 0),
-                sc_out: ($('#inputSCPair').val() || '').trim(),
-                chain: chainKey,
-                status: readStatusRadio(),
-                ...readCexSelectionFromForm(),
-                ...readDexSelectionFromForm()
-            };
+    // ❌ REMOVED DUPLICATE HANDLER: CopyToMultiBtn
+    // Handler now registered ONLY in core/handlers/token-handlers.js (line 331)
+    // with improved CEX/DEX merge logic
 
-            if (!tokenObj.symbol_in || !tokenObj.symbol_out) return (typeof toast !== 'undefined' && toast.warning) ? toast.warning('Symbol Token & Pair tidak boleh kosong') : undefined;
-            // Removed 4-DEX selection cap: allow any number of DEX
 
-            // Build dataCexs preserving previous per-chain CEX details if available
-            const dataCexs = {};
-            (tokenObj.selectedCexs || []).forEach(cx => {
-                const up = String(cx).toUpperCase();
-                dataCexs[up] = prevDataCexs[up] || { feeWDToken: 0, feeWDPair: 0, depositToken: false, withdrawToken: false, depositPair: false, withdrawPair: false };
-            });
-            tokenObj.dataCexs = dataCexs;
-
-            // Upsert into TOKEN_MULTICHAIN by (chain, symbol_in, symbol_out)
-            let multi = getTokensMulti();
-
-            // ========== AGGRESSIVE DEBUGGING ==========
-            console.group(`[IMPORT DEBUG] Token Import Process`);
-            console.log(`🔍 Looking for: Chain="${chainKey.toUpperCase()}" Pair="${tokenObj.symbol_in}/${tokenObj.symbol_out}"`);
-            console.log(`📊 Total tokens in multichain: ${multi.length}`);
-
-            // Show all tokens in multichain
-            if (multi.length > 0) {
-                console.log(`📋 All tokens in multichain:`);
-                console.table(multi.map((t, idx) => ({
-                    Index: idx,
-                    Chain: String(t.chain).toUpperCase(),
-                    'Symbol In': t.symbol_in,
-                    'Symbol Out': t.symbol_out,
-                    Pair: `${t.symbol_in}/${t.symbol_out}`
-                })));
-            }
-
-            // Filter by chain
-            const sameChainTokens = multi.filter(t => String(t.chain).toLowerCase() === chainKey);
-            console.log(`🔎 Tokens in chain "${chainKey.toUpperCase()}": ${sameChainTokens.length}`);
-            if (sameChainTokens.length > 0) {
-                console.table(sameChainTokens.map((t, idx) => ({
-                    'Original Index': multi.indexOf(t),
-                    'Symbol In': t.symbol_in,
-                    'Symbol Out': t.symbol_out,
-                    Pair: `${t.symbol_in}/${t.symbol_out}`
-                })));
-            }
-
-            // Detailed match checking
-            console.log(`🔍 Checking for exact match:`);
-            const matchIdx = multi.findIndex(t => {
-                const chainMatch = String(t.chain).toLowerCase() === chainKey;
-                const symbolInMatch = String(t.symbol_in || '').toUpperCase() === tokenObj.symbol_in.toUpperCase();
-                const symbolOutMatch = String(t.symbol_out || '').toUpperCase() === tokenObj.symbol_out.toUpperCase();
-
-                console.log(`  Token ${multi.indexOf(t)}: Chain=${chainMatch} (${String(t.chain).toLowerCase()} vs ${chainKey}), SymIn=${symbolInMatch} (${String(t.symbol_in || '').toUpperCase()} vs ${tokenObj.symbol_in.toUpperCase()}), SymOut=${symbolOutMatch} (${String(t.symbol_out || '').toUpperCase()} vs ${tokenObj.symbol_out.toUpperCase()})`);
-
-                return chainMatch && symbolInMatch && symbolOutMatch;
-            });
-
-            if (matchIdx !== -1) {
-                console.warn(`⚠️ MATCH FOUND at index ${matchIdx}!`);
-                console.log(`Existing token:`, multi[matchIdx]);
-            } else {
-                console.log(`✅ NO MATCH - Token will be added as new`);
-            }
-            console.groupEnd();
-            // ========== END AGGRESSIVE DEBUGGING ==========
-
-            let proceed = true;
-            if (matchIdx !== -1) {
-                // Token already exists in multichain, show detailed confirmation
-                const existing = multi[matchIdx];
-                const existingCexs = (existing.selectedCexs || []).map(c => String(c).toUpperCase()).join(', ') || 'Tidak ada';
-                const existingDexs = (existing.selectedDexs || []).map(d => String(d).toUpperCase()).join(', ') || 'Tidak ada';
-                const newCexs = (tokenObj.selectedCexs || []).map(c => String(c).toUpperCase()).join(', ') || 'Tidak ada';
-                const newDexs = (tokenObj.selectedDexs || []).map(d => String(d).toUpperCase()).join(', ') || 'Tidak ada';
-
-                const detailMsg = `DATA KOIN di mode Multichain SUDAH ADA:\n\n` +
-                    `Chain: ${String(chainKey).toUpperCase()}\n` +
-                    `Pair : ${tokenObj.symbol_in}/${tokenObj.symbol_out}\n\n` +
-                    `DATA LAMA (di Multichain):\n` +
-                    `- CEX: ${existingCexs}\n` +
-                    `- DEX: ${existingDexs}\n\n` +
-                    `DATA BARU (dari form ini):\n` +
-                    `- CEX: ${newCexs}\n` +
-                    `- DEX: ${newDexs}\n\n` +
-                    `💡 Tip: Buka Console (F12) untuk melihat detail lengkap\n\n` +
-                    `Ganti dengan data baru?`;
-
-                proceed = confirm(detailMsg);
-                if (!proceed) {
-                    console.log('[IMPORT] User cancelled the import/replace operation');
-                    if (typeof toast !== 'undefined' && toast.info) toast.info('Import dibatalkan');
-                    return;
-                }
-                console.log('[IMPORT] Replacing existing token at index', matchIdx);
-                multi[matchIdx] = { ...multi[matchIdx], ...tokenObj };
-            } else {
-                console.log('[IMPORT] Adding new token to multichain');
-                multi.push(tokenObj);
-            }
-
-            setTokensMulti(multi);
-            console.log(`[IMPORT] Success! Token ${tokenObj.symbol_in}/${tokenObj.symbol_out} saved to multichain`);
-
-            if (typeof toast !== 'undefined' && toast.success) {
-                toast.success(`Koin ${tokenObj.symbol_in}/${tokenObj.symbol_out} (${String(chainKey).toUpperCase()}) berhasil disalin ke mode Multichain`);
-            }
-
-            // Close modal
-            if (window.UIkit?.modal) UIkit.modal('#FormEditKoinModal').hide();
-
-            // Refresh UI to show new/updated token
-            try {
-                if (typeof renderFilterCard === 'function') renderFilterCard();
-                console.log('[IMPORT] UI refreshed');
-            } catch (e) {
-                console.warn('[IMPORT] Failed to refresh UI:', e);
-            }
-        } catch (e) {
-            console.error('[IMPORT] Error during import:', e);
-            if (typeof toast !== 'undefined' && toast.error) toast.error('Gagal menyalin ke Multichain: ' + e.message);
-        }
-    });
 
     // ========== DEBUG HELPER: View Multichain Tokens ==========
     // User can call this from browser console to see all tokens in multichain

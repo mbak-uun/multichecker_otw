@@ -25,23 +25,23 @@
  * @module core/handlers/token-handlers
  */
 
-(function() {
+(function () {
     'use strict';
 
     /**
      * Global delegated delete handler
      * Resilient during scanning and rerenders
      */
-    $(document).off('click.globalDelete').on('click.globalDelete', '.delete-token-button', function(){
+    $(document).off('click.globalDelete').on('click.globalDelete', '.delete-token-button', function () {
         try {
             const $el = $(this);
             const id = String($el.data('id'));
             if (!id) return;
-            const symIn  = String($el.data('symbol-in')  || '').toUpperCase();
+            const symIn = String($el.data('symbol-in') || '').toUpperCase();
             const symOut = String($el.data('symbol-out') || '').toUpperCase();
-            const chain  = String($el.data('chain')      || '').toUpperCase();
-            const cex    = String($el.data('cex')        || '').toUpperCase();
-            const detail = `• Token: ${symIn||'-'}/${symOut||'-'}\n• Chain: ${chain||'-'}\n• CEX: ${cex||'-'}`;
+            const chain = String($el.data('chain') || '').toUpperCase();
+            const cex = String($el.data('cex') || '').toUpperCase();
+            const detail = `• Token: ${symIn || '-'}/${symOut || '-'}\n• Chain: ${chain || '-'}\n• CEX: ${cex || '-'}`;
             const ok = confirm(`🗑️ Hapus Koin Ini?\n\n${detail}\n\n⚠️ Tindakan ini tidak dapat dibatalkan. Lanjutkan?`);
             if (!ok) return;
 
@@ -55,53 +55,53 @@
                 list = list.filter(t => String(t.id) !== id);
                 setTokensChain(mode.chain, list);
                 if (list.length < before) {
-                    try { setLastAction('HAPUS KOIN'); } catch(_) {}
+                    try { setLastAction('HAPUS KOIN'); } catch (_) { }
                     if (typeof toast !== 'undefined' && toast.info) toast.info(`PROSES HAPUS KOIN ${symIn} VS ${symOut} BERHASIL`);
 
                     // FIX: Jika sedang scanning, HANYA update total koin tanpa refresh tabel
                     if (isScanning) {
                         // Update HANYA angka total koin di header manajemen (tanpa re-render tabel)
-                        try { if (typeof updateTokenStatsOnly === 'function') updateTokenStatsOnly(); } catch(_) {}
+                        try { if (typeof updateTokenStatsOnly === 'function') updateTokenStatsOnly(); } catch (_) { }
                         // Update HANYA angka "TOTAL KOIN" di filter card (tanpa re-render filter)
-                        try { if (typeof updateTotalKoinOnly === 'function') updateTotalKoinOnly(); } catch(_) {}
+                        try { if (typeof updateTotalKoinOnly === 'function') updateTotalKoinOnly(); } catch (_) { }
                     } else {
                         // Jika TIDAK scanning, update total + refresh tabel
-                        try { if (typeof renderTokenManagementList === 'function') renderTokenManagementList(); } catch(_) {}
-                        try { if (typeof loadAndDisplaySingleChainTokens === 'function') loadAndDisplaySingleChainTokens(); } catch(_) {}
+                        try { if (typeof renderTokenManagementList === 'function') renderTokenManagementList(); } catch (_) { }
+                        try { if (typeof loadAndDisplaySingleChainTokens === 'function') loadAndDisplaySingleChainTokens(); } catch (_) { }
                     }
                 }
-                try { $el.closest('tr').addClass('row-hidden'); } catch(_) {}
+                try { $el.closest('tr').addClass('row-hidden'); } catch (_) { }
             } else {
                 let list = getTokensMulti();
                 const before = list.length;
                 list = list.filter(t => String(t.id) !== id);
                 setTokensMulti(list);
                 if (list.length < before) {
-                    try { setLastAction('HAPUS KOIN'); } catch(_) {}
+                    try { setLastAction('HAPUS KOIN'); } catch (_) { }
                     if (typeof toast !== 'undefined' && toast.info) toast.info(`PROSES HAPUS KOIN ${symIn} VS ${symOut} BERHASIL`);
 
                     // FIX: Jika sedang scanning, HANYA update total koin tanpa refresh tabel
                     if (isScanning) {
                         // Update HANYA angka total koin di header manajemen (tanpa re-render tabel)
-                        try { if (typeof updateTokenStatsOnly === 'function') updateTokenStatsOnly(); } catch(_) {}
+                        try { if (typeof updateTokenStatsOnly === 'function') updateTokenStatsOnly(); } catch (_) { }
                         // Update HANYA angka "TOTAL KOIN" di filter card (tanpa re-render filter)
-                        try { if (typeof updateTotalKoinOnly === 'function') updateTotalKoinOnly(); } catch(_) {}
+                        try { if (typeof updateTotalKoinOnly === 'function') updateTotalKoinOnly(); } catch (_) { }
                     } else {
                         // Jika TIDAK scanning, update total + refresh tabel
-                        try { if (typeof renderTokenManagementList === 'function') renderTokenManagementList(); } catch(_) {}
-                        try { if (typeof refreshTokensTable === 'function') refreshTokensTable(); } catch(_) {}
+                        try { if (typeof renderTokenManagementList === 'function') renderTokenManagementList(); } catch (_) { }
+                        try { if (typeof refreshTokensTable === 'function') refreshTokensTable(); } catch (_) { }
                     }
                 }
-                try { $el.closest('tr').addClass('row-hidden'); } catch(_) {}
+                try { $el.closest('tr').addClass('row-hidden'); } catch (_) { }
             }
-        } catch(e) { console.error('Delete error:', e); if (typeof toast !== 'undefined' && toast.error) toast.error('Gagal menghapus koin'); }
+        } catch (e) { console.error('Delete error:', e); if (typeof toast !== 'undefined' && toast.error) toast.error('Gagal menghapus koin'); }
     });
 
     /**
      * Global delegated edit handler
      * Newly rendered rows always work
      */
-    $(document).off('click.globalEdit').on('click.globalEdit', '.edit-token-button', function(){
+    $(document).off('click.globalEdit').on('click.globalEdit', '.edit-token-button', function () {
         try {
             const id = String($(this).data('id') || '');
             if (!id) { if (typeof toast !== 'undefined' && toast.error) toast.error('ID token tidak ditemukan'); return; }
@@ -118,63 +118,63 @@
      * Opens empty edit modal with defaults
      */
     $(document).on('click', '#btnNewToken', () => {
-      const keys = Object.keys(window.CONFIG_CHAINS || {});
-      const firstChainWithDex = keys.find(k => {
-          const d = CONFIG_CHAINS[k]?.DEXS;
-          return Array.isArray(d) ? d.length > 0 : !!(d && Object.keys(d).length);
+        const keys = Object.keys(window.CONFIG_CHAINS || {});
+        const firstChainWithDex = keys.find(k => {
+            const d = CONFIG_CHAINS[k]?.DEXS;
+            return Array.isArray(d) ? d.length > 0 : !!(d && Object.keys(d).length);
         }) || keys[0] || '';
 
-      const empty = { id: Date.now().toString(), chain: String(firstChainWithDex).toLowerCase(), status: true, selectedCexs: [], selectedDexs: [], dataDexs: {}, dataCexs: {} };
+        const empty = { id: Date.now().toString(), chain: String(firstChainWithDex).toLowerCase(), status: true, selectedCexs: [], selectedDexs: [], dataDexs: {}, dataCexs: {} };
 
-      $('#multiTokenIndex').val(empty.id);
-      $('#inputSymbolToken, #inputSCToken, #inputSymbolPair, #inputSCPair').val('');
-      $('#inputDesToken, #inputDesPair').val('');
-      setStatusRadios(true);
+        $('#multiTokenIndex').val(empty.id);
+        $('#inputSymbolToken, #inputSCToken, #inputSymbolPair, #inputSCPair').val('');
+        $('#inputDesToken, #inputDesPair').val('');
+        setStatusRadios(true);
 
-      const $sel = $('#FormEditKoinModal #mgrChain');
-      populateChainSelect($sel, empty.chain);
+        const $sel = $('#FormEditKoinModal #mgrChain');
+        populateChainSelect($sel, empty.chain);
 
-      // Enforce chain select by mode + theme the modal
-      try {
-        const m = getAppMode();
-        if (m.type === 'single') {
-          const c = String(m.chain).toLowerCase();
-          $sel.val(c).prop('disabled', true).attr('title','Per-chain mode: Chain terkunci');
-          if (typeof applyEditModalTheme === 'function') applyEditModalTheme(c);
-          $('#CopyToMultiBtn').show();
-        } else {
-          $sel.prop('disabled', false).attr('title','');
-          if (typeof applyEditModalTheme === 'function') applyEditModalTheme(null);
-          $('#CopyToMultiBtn').hide();
-        }
-      } catch(_) {}
+        // Enforce chain select by mode + theme the modal
+        try {
+            const m = getAppMode();
+            if (m.type === 'single') {
+                const c = String(m.chain).toLowerCase();
+                $sel.val(c).prop('disabled', true).attr('title', 'Per-chain mode: Chain terkunci');
+                if (typeof applyEditModalTheme === 'function') applyEditModalTheme(c);
+                $('#CopyToMultiBtn').show();
+            } else {
+                $sel.prop('disabled', false).attr('title', '');
+                if (typeof applyEditModalTheme === 'function') applyEditModalTheme(null);
+                $('#CopyToMultiBtn').hide();
+            }
+        } catch (_) { }
 
-      const currentChain = String($sel.val() || empty.chain).toLowerCase();
-      const baseToken = { ...empty, chain: currentChain };
+        const currentChain = String($sel.val() || empty.chain).toLowerCase();
+        const baseToken = { ...empty, chain: currentChain };
 
-      buildCexCheckboxForKoin(baseToken);
-      buildDexCheckboxForKoin(baseToken);
+        buildCexCheckboxForKoin(baseToken);
+        buildDexCheckboxForKoin(baseToken);
 
-      $sel.off('change.rebuildDexAdd').on('change.rebuildDexAdd', function () {
-        const newChain = String($(this).val() || '').toLowerCase();
-        buildDexCheckboxForKoin({ ...baseToken, chain: newChain });
-        try { if (typeof applyEditModalTheme === 'function') applyEditModalTheme(newChain); } catch(_){}
-      });
+        $sel.off('change.rebuildDexAdd').on('change.rebuildDexAdd', function () {
+            const newChain = String($(this).val() || '').toLowerCase();
+            buildDexCheckboxForKoin({ ...baseToken, chain: newChain });
+            try { if (typeof applyEditModalTheme === 'function') applyEditModalTheme(newChain); } catch (_) { }
+        });
 
-      if (window.UIkit?.modal) UIkit.modal('#FormEditKoinModal').show();
+        if (window.UIkit?.modal) UIkit.modal('#FormEditKoinModal').show();
     });
 
     /**
      * Export tokens button handler
      */
-    $(document).on('click', '#btnExportTokens', function(){
-        try { downloadTokenScannerCSV(); } catch(e) { console.error(e); }
+    $(document).on('click', '#btnExportTokens', function () {
+        try { downloadTokenScannerCSV(); } catch (e) { console.error(e); }
     });
 
     /**
      * Import tokens button handler
      */
-    $(document).on('click', '#btnImportTokens', function(){
+    $(document).on('click', '#btnImportTokens', function () {
         const $inp = $('#uploadJSON');
         if ($inp.length) $inp.trigger('click');
     });
@@ -199,7 +199,7 @@
             if (window.AppOverlay) {
                 overlayId = window.AppOverlay.show('Memperbarui data koin...');
             }
-        } catch(_) {}
+        } catch (_) { }
         // ======================================
 
         const updatedToken = {
@@ -264,17 +264,17 @@
                 // Token management list tetap di-refresh (tidak mengganggu)
                 try {
                     renderTokenManagementList();
-                } catch(e) {
+                } catch (e) {
                     console.error('[Update Token] Management list refresh error:', e);
                 }
 
                 try {
                     const action = (idx !== -1) ? 'UBAH KOIN' : 'TAMBAH KOIN';
                     setLastAction(`${action}`);
-                } catch(_) { setLastAction('UBAH KOIN'); }
+                } catch (_) { setLastAction('UBAH KOIN'); }
 
                 if (window.UIkit?.modal) UIkit.modal('#FormEditKoinModal').hide();
-            } catch(e) {
+            } catch (e) {
                 console.error('[Update Token] Error:', e);
                 $saveBtn.prop('disabled', false).html(originalBtnHtml);
                 if (overlayId && window.AppOverlay) window.AppOverlay.hide(overlayId);
@@ -292,23 +292,23 @@
         if (!id) return (typeof toast !== 'undefined' && toast.error) ? toast.error('ID token tidak ditemukan.') : undefined;
 
         // Compose detailed confirmation message
-        const symIn  = String(($('#inputSymbolToken').val() || '')).trim().toUpperCase();
+        const symIn = String(($('#inputSymbolToken').val() || '')).trim().toUpperCase();
         const symOut = String(($('#inputSymbolPair').val() || '')).trim().toUpperCase();
         const mode = getAppMode();
-        const chainSel = String($('#FormEditKoinModal #mgrChain').val() || (mode.type==='single'? mode.chain : '')).toUpperCase();
+        const chainSel = String($('#FormEditKoinModal #mgrChain').val() || (mode.type === 'single' ? mode.chain : '')).toUpperCase();
         let cexList = '-';
         let dexList = '-';
         try {
-            const cex = (readCexSelectionFromForm()?.selectedCexs || []).map(x=>String(x).toUpperCase());
-            const dex = (readDexSelectionFromForm()?.selectedDexs || []).map(x=>String(x).toUpperCase());
+            const cex = (readCexSelectionFromForm()?.selectedCexs || []).map(x => String(x).toUpperCase());
+            const dex = (readDexSelectionFromForm()?.selectedDexs || []).map(x => String(x).toUpperCase());
             cexList = cex.length ? cex.join(', ') : '-';
             dexList = dex.length ? dex.join(', ') : '-';
-        } catch(_) {}
-        const detailMsg = `⚠️ INGIN HAPUS DATA KOIN INI?\n\n`+
-                          `- Pair : ${symIn || '?'} / ${symOut || '?'}\n`+
-                          `- Chain: ${chainSel || '?'}\n`+
-                          `- CEX  : ${cexList}\n`+
-                          `- DEX  : ${dexList}`;
+        } catch (_) { }
+        const detailMsg = `⚠️ INGIN HAPUS DATA KOIN INI?\n\n` +
+            `- Pair : ${symIn || '?'} / ${symOut || '?'}\n` +
+            `- Chain: ${chainSel || '?'}\n` +
+            `- CEX  : ${cexList}\n` +
+            `- DEX  : ${dexList}`;
 
         if (confirm(detailMsg)) {
             deleteTokenById(id);
@@ -320,7 +320,7 @@
                 if (m.type === 'single') { loadAndDisplaySingleChainTokens(); }
                 else { refreshTokensTable(); }
                 renderTokenManagementList();
-            } catch(_) {}
+            } catch (_) { }
         }
     });
 
@@ -328,7 +328,7 @@
      * Copy token to multichain handler
      * Only available in per-chain edit modal
      */
-    $(document).on('click', '#CopyToMultiBtn', function(){
+    $(document).on('click', '#CopyToMultiBtn', function () {
         try {
             const mode = getAppMode();
             if (mode.type !== 'single') {
@@ -366,22 +366,83 @@
             });
             tokenObj.dataCexs = dataCexs;
 
-            // Upsert into TOKEN_MULTICHAIN by (chain, symbol_in, symbol_out)
+            // ✅ CEX/DEX MERGE LOGIC: Check for existing token by chain + pair (NOT CEX)
+            // In multichain mode, same token can exist with multiple CEXs
             let multi = getTokensMulti();
-            const matchIdx = multi.findIndex(t => String(t.chain).toLowerCase() === chainKey && String(t.symbol_in||'').toUpperCase() === tokenObj.symbol_in.toUpperCase() && String(t.symbol_out||'').toUpperCase() === tokenObj.symbol_out.toUpperCase());
+            const matchIdx = multi.findIndex(t =>
+                String(t.chain).toLowerCase() === chainKey &&
+                String(t.symbol_in || '').toUpperCase() === tokenObj.symbol_in.toUpperCase() &&
+                String(t.symbol_out || '').toUpperCase() === tokenObj.symbol_out.toUpperCase()
+            );
+
             let proceed = true;
             if (matchIdx !== -1) {
-                proceed = confirm('DATA KOIN di mode Multichain SUDAH ADA. Ganti dengan data ini?');
+                // Token exists - MERGE CEX and DEX lists
+                const existingToken = multi[matchIdx];
+                const existingCexs = (existingToken.selectedCexs || []).map(c => String(c).toUpperCase());
+                const newCexs = (tokenObj.selectedCexs || []).map(c => String(c).toUpperCase());
+                const existingDexs = (existingToken.selectedDexs || []).map(d => String(d).toLowerCase());
+                const newDexs = (tokenObj.selectedDexs || []).map(d => String(d).toLowerCase());
+
+                // Create merged sets (remove duplicates)
+                const mergedCexs = [...new Set([...existingCexs, ...newCexs])];
+                const mergedDexs = [...new Set([...existingDexs, ...newDexs])];
+
+                // Build detailed confirmation message
+                const detailMsg =
+                    `📦 TOKEN SUDAH ADA - MERGE CEX & DEX\n\n` +
+                    `Token: ${tokenObj.symbol_in}/${tokenObj.symbol_out}\n` +
+                    `Chain: ${String(chainKey).toUpperCase()}\n\n` +
+                    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                    `CEX EXISTING: ${existingCexs.join(', ') || 'Tidak ada'}\n` +
+                    `CEX IMPORT  : ${newCexs.join(', ') || 'Tidak ada'}\n` +
+                    `CEX MERGED  : ${mergedCexs.join(', ')}\n\n` +
+                    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                    `DEX EXISTING: ${existingDexs.join(', ') || 'Tidak ada'}\n` +
+                    `DEX IMPORT  : ${newDexs.join(', ') || 'Tidak ada'}\n` +
+                    `DEX MERGED  : ${mergedDexs.join(', ')}\n\n` +
+                    `✅ Lanjutkan MERGE?`;
+
+                proceed = confirm(detailMsg);
                 if (!proceed) return;
-                multi[matchIdx] = { ...multi[matchIdx], ...tokenObj };
+
+                // MERGE: Update token with merged CEX/DEX lists
+                // Preserve existing dataCexs and merge with new ones
+                const mergedDataCexs = { ...(existingToken.dataCexs || {}) };
+                newCexs.forEach(cx => {
+                    if (!mergedDataCexs[cx]) {
+                        mergedDataCexs[cx] = dataCexs[cx] || {
+                            feeWDToken: 0, feeWDPair: 0,
+                            depositToken: false, withdrawToken: false,
+                            depositPair: false, withdrawPair: false
+                        };
+                    }
+                });
+
+                // Merge dataDexs
+                const mergedDataDexs = { ...(existingToken.dataDexs || {}), ...(tokenObj.dataDexs || {}) };
+
+                multi[matchIdx] = {
+                    ...existingToken,
+                    ...tokenObj,
+                    selectedCexs: mergedCexs,
+                    selectedDexs: mergedDexs,
+                    dataCexs: mergedDataCexs,
+                    dataDexs: mergedDataDexs
+                };
             } else {
+                // New token - add to multichain
                 multi.push(tokenObj);
             }
+
             setTokensMulti(multi);
-            if (typeof toast !== 'undefined' && toast.success) toast.success('Koin berhasil disalin ke mode Multichain');
+            if (typeof toast !== 'undefined' && toast.success) {
+                const action = matchIdx !== -1 ? 'di-MERGE dengan' : 'disalin ke';
+                toast.success(`Koin berhasil ${action} mode Multichain`);
+            }
             $('#FormEditKoinModal').hide();
-            try { if (typeof renderFilterCard === 'function') renderFilterCard(); } catch(_){}
-        } catch(e) {
+            try { if (typeof renderFilterCard === 'function') renderFilterCard(); } catch (_) { }
+        } catch (e) {
             // console.error('Copy to Multichain failed:', e);
             if (typeof toast !== 'undefined' && toast.error) toast.error('Gagal menyalin ke Multichain');
         }
@@ -407,7 +468,7 @@
     /**
      * Management table status toggle handler
      */
-    $(document).on('change', '.mgrStatus', function(){
+    $(document).on('change', '.mgrStatus', function () {
         const id = String($(this).data('id'));
         const val = $(this).val() === 'true';
         const m = getAppMode();
@@ -418,10 +479,10 @@
             if (m.type === 'single') setTokensChain(m.chain, tokens); else setTokensMulti(tokens);
             if (typeof toast !== 'undefined' && toast.success) toast.success(`Status diubah ke ${val ? 'ON' : 'OFF'}`);
             try {
-                const chainLbl = String(tokens[idx]?.chain || (m.type==='single'? m.chain : 'all')).toUpperCase();
-                const pairLbl = `${String(tokens[idx]?.symbol_in||'').toUpperCase()}/${String(tokens[idx]?.symbol_out||'').toUpperCase()}`;
+                const chainLbl = String(tokens[idx]?.chain || (m.type === 'single' ? m.chain : 'all')).toUpperCase();
+                const pairLbl = `${String(tokens[idx]?.symbol_in || '').toUpperCase()}/${String(tokens[idx]?.symbol_out || '').toUpperCase()}`;
                 setLastAction(`UBAH STATUS KOIN`);
-            } catch(_) { setLastAction('UBAH STATUS KOIN'); }
+            } catch (_) { setLastAction('UBAH STATUS KOIN'); }
         }
     });
 
