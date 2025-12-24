@@ -265,8 +265,17 @@ function parseOrderbook(cex, response) {
  */
 function calculateAutoVolume(orderbook, maxModal, maxLevels, side) {
   try {
+    // 🔍 DEBUG: Input parameters
+    console.log('┌─────────────────────────────────────────────────┐');
+    console.log('│ 🔍 [AUTO VOLUME] CALCULATION START             │');
+    console.log('└─────────────────────────────────────────────────┘');
+    console.log('📊 Modal Max:', maxModal);
+    console.log('📊 Max Levels:', maxLevels);
+    console.log('📊 Side:', side, side === 'asks' ? '(CEX→DEX/BUY)' : '(DEX→CEX/SELL)');
+
     // Validation
     if (!orderbook || typeof orderbook !== 'object') {
+      console.warn('⚠️  Invalid orderbook data');
       return {
         actualModal: maxModal,
         avgPrice: 0,
@@ -279,6 +288,7 @@ function calculateAutoVolume(orderbook, maxModal, maxLevels, side) {
     const levels = orderbook[side]; // 'asks' or 'bids'
 
     if (!Array.isArray(levels) || levels.length === 0) {
+      console.warn('⚠️  No orderbook levels available');
       return {
         actualModal: maxModal,
         avgPrice: 0,
@@ -292,17 +302,27 @@ function calculateAutoVolume(orderbook, maxModal, maxLevels, side) {
     const limitedMaxLevels = Math.min(Math.max(1, Math.floor(maxLevels)), 4);
     const limitedLevels = levels.slice(0, limitedMaxLevels);
 
+    // 🔍 DEBUG: Orderbook levels
+    console.log('📚 Orderbook Levels (first', limitedMaxLevels, '):', limitedLevels.map((l, i) => ({
+      level: i + 1,
+      price: l[0],
+      amount: l[1],
+      volumeUSDT: (l[0] * l[1]).toFixed(2)
+    })));
+
     let totalUSDT = 0;
     let totalCoins = 0;
     let levelsUsed = 0;
     let lastLevelPrice = 0;  // Track last/highest level price for display
 
     // Iterate through levels and accumulate
+    console.log('🔄 Processing levels...');
     for (let i = 0; i < limitedLevels.length; i++) {
       const [price, amount] = limitedLevels[i];
 
       // Skip invalid levels
       if (!isFinite(price) || !isFinite(amount) || price <= 0 || amount <= 0) {
+        console.warn(`  ⏭️  Level ${i + 1} skipped (invalid):`, { price, amount });
         continue;
       }
 
@@ -319,6 +339,18 @@ function calculateAutoVolume(orderbook, maxModal, maxLevels, side) {
         totalUSDT += remaining;
         levelsUsed = i + 1;
 
+        // 🔍 DEBUG: Partial level used
+        console.log(`  📍 Level ${i + 1} (PARTIAL):`, {
+          price,
+          amount,
+          volumeUSDT: volumeUSDT.toFixed(2),
+          remaining: remaining.toFixed(2),
+          partialCoins: partialCoins.toFixed(6),
+          totalUSDT: totalUSDT.toFixed(2),
+          totalCoins: totalCoins.toFixed(6),
+          status: '🛑 STOP (Modal reached)'
+        });
+
         // Stop: maxModal reached
         break;
       }
@@ -327,10 +359,30 @@ function calculateAutoVolume(orderbook, maxModal, maxLevels, side) {
       totalUSDT += volumeUSDT;
       totalCoins += amount;
       levelsUsed = i + 1;
+
+      // 🔍 DEBUG: Full level used
+      console.log(`  ✅ Level ${i + 1} (FULL):`, {
+        price,
+        amount,
+        volumeUSDT: volumeUSDT.toFixed(2),
+        totalUSDT: totalUSDT.toFixed(2),
+        totalCoins: totalCoins.toFixed(6)
+      });
     }
 
     // Calculate weighted average price
     const avgPrice = totalCoins > 0 ? (totalUSDT / totalCoins) : 0;
+
+    // 🔍 DEBUG: Final results
+    console.log('┌─────────────────────────────────────────────────┐');
+    console.log('│ ✨ [AUTO VOLUME] RESULTS                       │');
+    console.log('└─────────────────────────────────────────────────┘');
+    console.log('📊 Levels Used:', levelsUsed, '/', limitedMaxLevels);
+    console.log('💰 Actual Modal:', totalUSDT.toFixed(2), '/', maxModal.toFixed(2));
+    console.log('🪙 Total Coins:', totalCoins.toFixed(6));
+    console.log('💵 Weighted Avg Price:', avgPrice.toFixed(8), '(for PNL calculation)');
+    console.log('💵 Last Level Price:', lastLevelPrice.toFixed(8), '(for display)');
+    console.log('');
 
     return {
       actualModal: totalUSDT,     // Can be < maxModal if volume insufficient

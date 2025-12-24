@@ -1026,12 +1026,47 @@ function DisplayPNL(data) {
     const actualModal = n(data.autoVolResult.actualModal || 0);
     const maxModal = n(data.maxModal || 0);
 
+    // 🔍 DEBUG: Auto Volume data received
+    const isInsufficientVolume = actualModal < maxModal;
+    if (isInsufficientVolume) {
+      console.warn('⚠️  [DOM-RENDERER] INSUFFICIENT ORDERBOOK VOLUME!');
+      console.warn('  DEX:', dextype);
+      console.warn('  Max Modal:', maxModal);
+      console.warn('  Actual Modal:', actualModal);
+      console.warn('  Shortfall:', (maxModal - actualModal).toFixed(2));
+      console.warn('  ⚠️  PNL will be calculated using ACTUAL modal ($' + actualModal.toFixed(2) + '), not max modal!');
+    }
+    console.log('🖼️  [DOM-RENDERER] Auto Volume Data Received:', {
+      dex: dextype,
+      actualModal,
+      maxModal,
+      levelsUsed: data.autoVolResult.levelsUsed,
+      lastLevelPrice: data.autoVolResult.lastLevelPrice,
+      avgPrice: data.autoVolResult.avgPrice,
+      totalCoins: data.autoVolResult.totalCoins,
+      volumeStatus: isInsufficientVolume ? '⚠️ INSUFFICIENT' : '✅ SUFFICIENT'
+    });
+
     if (actualModal > 0 && maxModal > 0) {
       try {
         const dexNameStrong = $mainCell.find('strong').first();
         if (dexNameStrong.length) {
           const baseName = String(dextype || '').toUpperCase().substring(0, 6);
-          const modalText = `[$${maxModal.toFixed(0)}] <span style="color:#3fa9a7">│ ${actualModal.toFixed(0)}$</span>`;
+
+          // ⚠️ Highlight if actualModal < maxModal (insufficient orderbook volume)
+          const isInsufficient = actualModal < maxModal;
+
+          let modalText;
+          if (isInsufficient) {
+            // Show actual modal with warning icon if insufficient
+            const warningIcon = '<span style="color:#ff6b35; font-size:10px;" title="Insufficient orderbook volume! Using partial modal.">⚠️</span>';
+            modalText = `[$${maxModal.toFixed(0)}] <span style="color:#ff6b35">│ ${actualModal.toFixed(0)}$</span> ${warningIcon}`;
+          } else {
+            // Show only checkmark if sufficient
+            const checkIcon = '<span style="color:#3fa9a7; font-size:11px;" title="Orderbook volume sufficient">✅</span>';
+            modalText = `[$${maxModal.toFixed(0)}] ${checkIcon}`;
+          }
+
           dexNameStrong.html(`${baseName} ${modalText}`);
         }
       } catch (_) { }
@@ -1042,9 +1077,19 @@ function DisplayPNL(data) {
 
     // Override CEX prices with lastLevelPrice for display
     if (data.cexBuyPriceDisplay) {
+      console.log('💵 [DOM-RENDERER] Override CEX BUY Price:', {
+        original: priceBuyToken_CEX,
+        override: data.cexBuyPriceDisplay,
+        difference: ((data.cexBuyPriceDisplay - priceBuyToken_CEX) / priceBuyToken_CEX * 100).toFixed(2) + '%'
+      });
       displayPriceBuyToken = data.cexBuyPriceDisplay;
     }
     if (data.cexSellPriceDisplay) {
+      console.log('💵 [DOM-RENDERER] Override CEX SELL Price:', {
+        original: priceSellToken_CEX,
+        override: data.cexSellPriceDisplay,
+        difference: ((data.cexSellPriceDisplay - priceSellToken_CEX) / priceSellToken_CEX * 100).toFixed(2) + '%'
+      });
       displayPriceSellToken = data.cexSellPriceDisplay;
     }
   }
@@ -1322,6 +1367,17 @@ function DisplayPNL(data) {
   const refCexBuy = n(displayPriceBuyToken);
   const refCexSell = n(displayPriceSellToken);
 
+  // 🔍 DEBUG: Log CEX prices used for calculation vs display
+  console.log('🎯 [DisplayPNL] Price Analysis:', {
+    dex: dextype,
+    direction: trx,
+    priceBuyToken_CEX_original: priceBuyToken_CEX,
+    priceSellToken_CEX_original: priceSellToken_CEX,
+    displayPriceBuyToken: displayPriceBuyToken,
+    displayPriceSellToken: displayPriceSellToken,
+    autoVolActive: !!(data.autoVolResult && data.maxModal)
+  });
+
   let dexUsdtPerToken;
   if (lower(trx) === 'tokentopair') {
     if (refCexBuy > 0 && candA > 0 && candB > 0) {
@@ -1363,6 +1419,21 @@ function DisplayPNL(data) {
     const inv = sellPrice > 0 ? (1 / sellPrice) : 0;
     tipSell = `${Name_out} -> USDT | ${CEX} | ${fmtIDR(sellPrice)} | ${inv > 0 && isFinite(inv) ? inv.toFixed(6) : 'N/A'} ${Name_in}/${Name_out}`;
   }
+
+  // 🔍 DEBUG: Final buy/sell prices for display
+  console.log('💰 [DisplayPNL] Final Display Prices:', {
+    dex: dextype,
+    direction,
+    Name_in,
+    Name_out,
+    buyPrice,
+    sellPrice,
+    dexUsdtPerToken,
+    profitLoss: pnl,
+    totalValue: n(totalValue),
+    totalModal: n(totalModal),
+    anomaly: direction === 'pairtotoken' && sellPrice < buyPrice ? '⚠️ SELL < BUY (Should be LOSS!)' : direction === 'tokentopair' && buyPrice > sellPrice ? '⚠️ BUY > SELL (Should be LOSS!)' : 'OK'
+  });
 
   // Re-apply detailed title log only on price links when result is complete (not for errors)
   if (__titleLog && __titleLog.length > 0) {
@@ -1692,6 +1763,29 @@ function calculateResult(baseId, tableBodyId, amount_out, FeeSwap, sc_input, sc_
   }
   const profitLoss = totalValue - totalModal;
   const profitLossPercent = totalModal !== 0 ? (profitLoss / totalModal) * 100 : 0;
+
+  // 🔍 DEBUG: PNL Calculation Details
+  console.log('📊 [calculateResult] PNL Calculation:', {
+    dex: dextype,
+    direction: trx,
+    Name_in,
+    Name_out,
+    amount_in,
+    amount_out,
+    priceBuyToken_CEX,
+    priceSellToken_CEX,
+    priceBuyPair_CEX,
+    priceSellPair_CEX,
+    Modal,
+    totalFee,
+    totalModal,
+    totalValue,
+    profitLoss,
+    formula: trx === 'TokentoPair'
+      ? `totalValue = ${amount_out} × ${priceSellPair_CEX} = ${totalValue}`
+      : `totalValue = ${amount_out} × ${priceSellToken_CEX} = ${totalValue}`,
+    anomaly: profitLoss > 0 && trx === 'PairtoToken' && priceSellToken_CEX < priceBuyToken_CEX ? '⚠️ PROFIT but SELL < BUY!' : 'Normal'
+  });
 
   const linkDEX = generateDexLink(
     dextype,
