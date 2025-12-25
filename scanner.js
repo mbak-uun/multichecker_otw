@@ -395,13 +395,15 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
     sendStatusTELE(ConfigScan.nickname, 'ONLINE');
 
     // Ambil parameter jeda dan kecepatan dari settings.
+    // OPTIMIZED: Kurangi default jedaKoin untuk scan lebih cepat (500→150ms)
     let scanPerKoin = parseInt(ConfigScan.scanPerKoin || 1);
-    let jedaKoin = parseInt(ConfigScan.jedaKoin || 500);
+    let jedaKoin = parseInt(ConfigScan.jedaKoin || 150);
     let jedaTimeGroup = parseInt(ConfigScan.jedaTimeGroup || 1000);
     // Jeda tambahan agar urutan fetch mengikuti pola lama (tanpa mengubah logika hasil)
     // Catatan: gunakan nilai dari SETTING_SCANNER
     // - Jeda DEX: per-DEX dari ConfigScan.JedaDexs[dex] (Jeda CEX dihapus)
-    let speedScan = Math.round(parseFloat(ConfigScan.speedScan || 2) * 1000);
+    // OPTIMIZED: Kurangi speedScan untuk timeout lebih cepat (2s → 1s)
+    let speedScan = Math.round(parseFloat(ConfigScan.speedScan || 1) * 1000);
 
     const jedaDexMap = (ConfigScan || {}).JedaDexs || {};
     const getJedaDex = (dx) => parseInt(jedaDexMap[dx]) || 0;
@@ -634,20 +636,21 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
         } catch (_) { }
         try {
             // 1. Ambil data harga dari CEX dengan mekanisme retry.
-            const cexResult = await fetchCEXWithRetry(token, tableBodyId, { maxAttempts: 3, delayMs: 450 });
+            // OPTIMIZED: Kurangi retry untuk hemat waktu (3→2 attempts, 450→250ms delay)
+            const cexResult = await fetchCEXWithRetry(token, tableBodyId, { maxAttempts: 2, delayMs: 250 });
             const DataCEX = cexResult.data || {};
 
             // ===== AUTO SKIP FEATURE =====
-            // Jika pengambilan data CEX gagal, tampilkan warning toast tapi TETAP lanjut ke DEX
-            // (tidak lagi return error dan skip DEX)
+            // Jika pengambilan data CEX gagal, tampilkan warning toast dan SKIP scan DEX
+            // (scan DEX tidak akan dilakukan jika CEX tidak ada harga)
             if (!cexResult.ok) {
                 if (typeof toast !== 'undefined' && toast.warning) {
-                    toast.warning(`⚠️ CEX ${token.cex} gagal - Auto skip ke DEX untuk ${token.symbol_in}`, {
+                    toast.warning(`⚠️ CEX ${token.cex} gagal - DEX akan di-skip untuk ${token.symbol_in}`, {
                         duration: 3000
                     });
                 }
                 // Log untuk debugging
-                console.warn(`[AUTO SKIP] CEX ${token.cex} failed for ${token.symbol_in}, continuing to DEX...`);
+                console.warn(`[AUTO SKIP] CEX ${token.cex} failed for ${token.symbol_in}, DEX will be skipped...`);
             }
 
             // ===== AUTO VOLUME: Fetch Orderbook =====
@@ -698,10 +701,9 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                     const modalKiri = dexData.left;
                     const modalKanan = dexData.right;
 
-                    // ===== AUTO SKIP FEATURE =====
-                    // Jika CEX gagal, gunakan nilai default untuk amount_in
-                    // Default: 100 USD worth untuk testing DEX quotes
-                    const DEFAULT_AMOUNT = 100;
+                    // ===== CALCULATE AMOUNT =====
+                    // Hitung amount_in berdasarkan harga CEX
+                    // Jika CEX gagal, DEX akan di-skip (lihat kondisi shouldSkip di bawah)
                     let amount_in_token, amount_in_pair;
 
                     if (cexResult.ok && DataCEX.priceBuyToken > 0 && DataCEX.priceBuyPair > 0) {
@@ -709,10 +711,9 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                         amount_in_token = parseFloat(modalKiri) / DataCEX.priceBuyToken;
                         amount_in_pair = parseFloat(modalKanan) / DataCEX.priceBuyPair;
                     } else {
-                        // CEX gagal, gunakan default amount untuk cek quote DEX
-                        amount_in_token = DEFAULT_AMOUNT;
-                        amount_in_pair = DEFAULT_AMOUNT;
-                        console.log(`[AUTO SKIP] Using default amount ${DEFAULT_AMOUNT} for DEX quote check`);
+                        // CEX gagal, set ke 0 (DEX akan di-skip)
+                        amount_in_token = 0;
+                        amount_in_pair = 0;
                     }
 
                     /**
@@ -1406,8 +1407,8 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                         const cexSummary = `CEX READY BT=${fmt6(DataCEX.priceBuyToken)} ST=${fmt6(DataCEX.priceSellToken)} BP=${fmt6(DataCEX.priceBuyPair)} SP=${fmt6(DataCEX.priceSellPair)}`;
                         updateDexCellStatus('checking', dex, cexSummary);
                         // REMOVED: Watchdog for primary DEX removed
-                        // Increased timeout window from 300ms to 2000ms for slower DEX APIs
-                        const dexTimeoutWindow = getJedaDex(dex) + Math.max(speedScan) + 2000;
+                        // OPTIMIZED: Kurangi timeout buffer untuk scan lebih cepat (2s → 1s)
+                        const dexTimeoutWindow = getJedaDex(dex) + Math.max(speedScan) + 1000;
                         // Mulai ticker countdown untuk menampilkan sisa detik pada label "Checking".
                         try {
                             const endAt = Date.now() + dexTimeoutWindow;
@@ -1473,11 +1474,12 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                     const isWalletCEXChecked = (typeof $ === 'function') ? $('#checkWalletCEX').is(':checked') : false;
 
                     // CEX→DEX (TokentoPair): Perlu withdrawToken ON untuk bisa WD dari CEX
-                    const shouldSkipTokenToPair = isWalletCEXChecked && token.withdrawToken === false;
+                    // SKIP jika CEX tidak ada harga (!cexResult.ok)
+                    const shouldSkipTokenToPair = !cexResult.ok || (isWalletCEXChecked && token.withdrawToken === false);
                     if (!shouldSkipTokenToPair) {
                         callDex('TokentoPair');
                     } else {
-                        // Set status SKIP untuk sel yang di-skip (WD OFF)
+                        // Set status SKIP untuk sel yang di-skip (CEX no price atau WD OFF)
                         const sym1 = String(token.symbol_in || '').toUpperCase();
                         const sym2 = String(token.symbol_out || '').toUpperCase();
                         const tokenId = String(token.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -1490,21 +1492,23 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                             const span = ensureDexStatusSpan(cell);
                             span.className = 'dex-status uk-text-muted';
                             span.innerHTML = `<span class=\"uk-label uk-label-warning\"><< SKIP >></span>`;
-                            span.title = 'Withdraw Token OFF - Fetch di-skip untuk optimasi';
+                            // Tentukan alasan skip
+                            const skipReason = !cexResult.ok
+                                ? 'CEX tidak ada harga - DEX di-skip'
+                                : 'Withdraw Token OFF - Fetch di-skip untuk optimasi';
+                            span.title = skipReason;
                             try { if (cell.dataset) cell.dataset.final = '1'; } catch (_) { }
                         }
                     }
 
                     // DEX→CEX (PairtoToken): Perlu depositToken ON untuk bisa DP ke CEX
-                    const shouldSkipPairToToken = isWalletCEXChecked && token.depositToken === false;
+                    // SKIP jika CEX tidak ada harga (!cexResult.ok)
+                    // FIX: Hapus double delay - callDex sudah memiliki setTimeout internal
+                    const shouldSkipPairToToken = !cexResult.ok || (isWalletCEXChecked && token.depositToken === false);
                     if (!shouldSkipPairToToken) {
-                        (function () {
-                            const gap = getJedaDex(dex) || 0;
-                            if (gap > 0) setTimeout(() => { try { callDex('PairtoToken'); } catch (_) { } }, gap);
-                            else callDex('PairtoToken');
-                        })();
+                        callDex('PairtoToken');
                     } else {
-                        // Set status SKIP untuk sel yang di-skip (DP OFF)
+                        // Set status SKIP untuk sel yang di-skip (CEX no price atau DP OFF)
                         const sym1 = String(token.symbol_out || '').toUpperCase();
                         const sym2 = String(token.symbol_in || '').toUpperCase();
                         const tokenId = String(token.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -1517,7 +1521,11 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                             const span = ensureDexStatusSpan(cell);
                             span.className = 'dex-status uk-text-muted';
                             span.innerHTML = `<span class=\"uk-label uk-label-warning\"><< SKIP >> </span>`;
-                            span.title = 'Deposit Token OFF - Fetch di-skip untuk optimasi';
+                            // Tentukan alasan skip
+                            const skipReason = !cexResult.ok
+                                ? 'CEX tidak ada harga - DEX di-skip'
+                                : 'Deposit Token OFF - Fetch di-skip untuk optimasi';
+                            span.title = skipReason;
                             try { if (cell.dataset) cell.dataset.final = '1'; } catch (_) { }
                         }
                     }
@@ -1602,8 +1610,7 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
             // dengan jeda kecil antar pemanggilan untuk menghindari rate-limit.
             const jobs = groupTokens.map((token, tokenIndex) => (async () => {
                 if (!isScanRunning) return;
-                // Stagger start per token within the group
-                try { await delay(tokenIndex * Math.max(jedaKoin, 0)); } catch (_) { }
+                // OPTIMIZED: Hapus stagger delay (redundant, processRequest sudah ada jedaKoin delay)
                 if (!isScanRunning) return;
                 try { await processRequest(token, tableBodyId); } catch (e) { console.error(`Err token ${token.symbol_in}_${token.symbol_out}`, e); }
                 // Update progress as each token finishes

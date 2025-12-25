@@ -1253,7 +1253,10 @@ function DisplayPNL(data) {
 
       // Multi-DEX: highlight per sub-kolom, BUKAN seluruh cell
       // Cell hanya diberi border jika ada sinyal, tapi background tetap putih/default
-      const shouldHighlight = bestPnl > 0;
+      // FIX: Gunakan logika filter PNL yang sama seperti single-DEX
+      const filterPNLValue = (typeof getPNLFilter === 'function') ? n(getPNLFilter())
+        : (typeof SavedSettingData !== 'undefined' ? n(SavedSettingData?.filterPNL) : 0);
+      const shouldHighlight = bestPnl > 0 && (filterPNLValue === 0 || bestPnl > filterPNLValue);
       if (shouldHighlight) {
         // Hanya border, tanpa background (background sudah di sub-kolom)
         el.style.cssText = 'text-align:center;vertical-align:middle;border:2px solid #28a745!important;';
@@ -1336,10 +1339,8 @@ function DisplayPNL(data) {
     (typeof getPNLFilter === 'function') ? n(getPNLFilter())
       : (typeof SavedSettingData !== 'undefined' ? n(SavedSettingData?.filterPNL) : 0);
 
-  const passPNL =
-    ((filterPNLValue === 0) && (n(totalValue) > n(totalModal))) ||
-    ((n(totalValue) - n(totalModal)) > filterPNLValue) ||
-    (pnl > feeAll);
+  // FIX: Sinyal hanya muncul jika PNL positif dan memenuhi threshold filter
+  const passPNL = pnl > 0 && (filterPNLValue === 0 || pnl > filterPNLValue);
 
   const checkVol = (typeof $ === 'function') ? $('#checkVOL').is(':checked') : false;
   const volOK = n(vol) >= n(Modal);
