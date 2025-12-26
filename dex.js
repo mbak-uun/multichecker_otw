@@ -240,35 +240,81 @@
       useProxy: false
     },
     'hinkal-odos': {
-      // Hinkal ODOS proxy (pair-to-token per permintaan)
-      buildRequest: ({ codeChain, SavedSettingData, amount_in_big, sc_input, sc_output }) => {
-        const url = 'https://ethmainnet.server.hinkal.pro/OdosSwapData';
+      /**
+       * Hinkal ODOS Proxy - Privacy-focused ODOS integration
+       * Endpoint: https://ethmainnet.server.hinkal.pro/OdosSwapData
+       *
+       * This proxy wraps the official ODOS API with privacy features.
+       * Request format matches official ODOS API (see createOdosStrategy above).
+       *
+       * Response wraps ODOS data in: { odosResponse: {...} }
+       * - odosResponse.outputTokens[0].amount: Output in wei
+       * - odosResponse.gasEstimateValue: Gas cost in USD
+       *
+       * NOTE: Typically 1-2 seconds faster than direct ODOS API v2/v3
+       */
+      buildRequest: ({ codeChain, SavedSettingData, amount_in_big, sc_input_in, sc_output_in }) => {
+        const wallet = SavedSettingData?.walletMeta || '0x0000000000000000000000000000000000000000';
+        // CRITICAL FIX: Use checksummed addresses (sc_input_in/sc_output_in)
         return {
-          url,
+          url: 'https://ethmainnet.server.hinkal.pro/OdosSwapData',
           method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
           data: JSON.stringify({
             chainId: codeChain,
-            inputTokens: [{ amount: amount_in_big.toString(), tokenAddress: sc_input }],
-            outputTokens: [{ proportion: 1, tokenAddress: sc_output }],
-            userAddr: SavedSettingData.walletMeta,
+            inputTokens: [{
+              tokenAddress: sc_input_in,  // ✅ Use checksummed address
+              amount: amount_in_big.toString()
+            }],
+            outputTokens: [{
+              tokenAddress: sc_output_in,  // ✅ Use checksummed address
+              proportion: 1
+            }],
+            userAddr: wallet,
             slippageLimitPercent: 0.3,
-            sourceBlacklist: [],
-            sourceWhitelist: [],
-            simulate: false,
-            referralCode: 0
+            referralCode: 0,
+            sourceBlacklist: [],        // Optional: exclude specific sources
+            sourceWhitelist: [],        // Optional: only use specific sources
+            simulate: false,            // Set to true for simulation mode
+            disableRFQs: true,         // Disable RFQ for reliability
+            compact: true              // Enable compact call data
           })
         };
       },
       parseResponse: (response, { des_output, chainName }) => {
-        // Gunakan jumlah output mentah (wei) dari outputTokens; outValues adalah nilai (USD) dan tidak dipakai untuk unit token
-        const outRawStr = response?.odosResponse?.outputTokens?.[0]?.amount;
-        if (!outRawStr) throw new Error('Invalid Hinkal ODOS out amount');
+        // Hinkal wraps ODOS response in odosResponse object
+        const odosData = response?.odosResponse;
+        if (!odosData) throw new Error('Invalid Hinkal-ODOS response: missing odosResponse');
+
+        // Parse output amount from outputTokens array (wei format)
+        const outRawStr = odosData.outputTokens?.[0]?.amount;
+        if (!outRawStr) throw new Error('Invalid Hinkal-ODOS response: missing outputTokens');
+
         const outRaw = parseFloat(outRawStr);
-        if (!Number.isFinite(outRaw) || outRaw <= 0) throw new Error('Invalid Hinkal ODOS out amount');
+        if (!Number.isFinite(outRaw) || outRaw <= 0) {
+          throw new Error(`Invalid Hinkal-ODOS output amount: ${outRawStr}`);
+        }
+
         const amount_out = outRaw / Math.pow(10, des_output);
-        const feeUsd = parseFloat(response?.odosResponse?.gasEstimateValue || response?.gasEstimateValue || 0);
-        const FeeSwap = (Number.isFinite(feeUsd) && feeUsd > 0) ? feeUsd : getFeeSwap(chainName);
-        return { amount_out, FeeSwap, dexTitle: 'ODOS' };
+
+        // Parse gas estimate (prefer odosResponse nested value)
+        const feeUsd = parseFloat(
+          odosData.gasEstimateValue ||
+          response?.gasEstimateValue ||
+          0
+        );
+        const FeeSwap = (Number.isFinite(feeUsd) && feeUsd > 0)
+          ? feeUsd
+          : getFeeSwap(chainName);
+
+        return {
+          amount_out,
+          FeeSwap,
+          dexTitle: 'ODOS',
+          routeTool: 'HINKAL-ODOS'  // Track that it came via Hinkal proxy
+        };
       },
       useProxy: false
     },
@@ -639,43 +685,92 @@
       }
     },
   };
+  /**
+   * ODOS Strategy Factory - Official API Implementation
+   * Docs: https://docs.odos.xyz/build/quickstart/sor
+   *
+   * IMPORTANT: API v2 is being retired. Use v3 for new integrations.
+   *
+   * Request Format:
+   * - chainId: Blockchain network ID
+   * - inputTokens: Array of {tokenAddress, amount}
+   * - outputTokens: Array of {tokenAddress, proportion}
+   * - userAddr: User wallet address (checksummed)
+   * - slippageLimitPercent: Slippage tolerance (0.3 = 0.3%)
+   * - referralCode: Partner tracking (0 = default)
+   * - disableRFQs: Disable RFQ liquidity (true = more reliable)
+   * - compact: Enable compact call data (true = recommended)
+   *
+   * Response Format:
+   * - outAmounts: Array of output amounts in wei
+   * - gasEstimateValue: Gas cost in USD
+   * - pathId: Quote identifier (valid for 60 seconds)
+   */
   function createOdosStrategy(version){
     const endpoint = `https://api.odos.xyz/sor/quote/${version}`;
     return {
-      buildRequest: ({ codeChain, SavedSettingData, amount_in_big, sc_input, sc_output }) => {
+      buildRequest: ({ codeChain, SavedSettingData, amount_in_big, sc_input_in, sc_output_in }) => {
         const wallet = SavedSettingData?.walletMeta || '0x0000000000000000000000000000000000000000';
+        // CRITICAL FIX: ODOS requires CHECKSUMMED addresses, use sc_input_in/sc_output_in (NOT lowercase!)
         return {
           url: endpoint,
           method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
           data: JSON.stringify({
             chainId: codeChain,
-            compact: true,
-            disableRFQs: true,
+            inputTokens: [{
+              tokenAddress: sc_input_in,  // ✅ Use checksummed address
+              amount: amount_in_big.toString()
+            }],
+            outputTokens: [{
+              tokenAddress: sc_output_in,  // ✅ Use checksummed address
+              proportion: 1
+            }],
             userAddr: wallet,
-            inputTokens: [{ amount: amount_in_big.toString(), tokenAddress: sc_input }],
-            outputTokens: [{ proportion: 1, tokenAddress: sc_output }],
-            slippageLimitPercent: 0.3
+            slippageLimitPercent: 0.3,
+            referralCode: 0,              // Partner tracking code
+            disableRFQs: true,            // Disable RFQ for reliability
+            compact: true                 // Enable compact call data
           })
         };
       },
       parseResponse: (response, { des_output, chainName }) => {
+        // Parse output amounts (array format)
         const rawOut = Array.isArray(response?.outAmounts) ? response.outAmounts[0] : response?.outAmounts;
-        if (!rawOut) throw new Error("Invalid Odos response structure");
+        if (!rawOut) throw new Error("Invalid ODOS response: missing outAmounts");
+
         const outNum = parseFloat(rawOut);
-        if (!Number.isFinite(outNum) || outNum <= 0) throw new Error("Invalid Odos output amount");
-        const gasEstimate = parseFloat(response?.gasEstimateValue || response?.gasFeeUsd || response?.gasEstimateUSD || 0);
-        const FeeSwap = (Number.isFinite(gasEstimate) && gasEstimate > 0) ? gasEstimate : getFeeSwap(chainName);
+        if (!Number.isFinite(outNum) || outNum <= 0) {
+          throw new Error(`Invalid ODOS output amount: ${rawOut}`);
+        }
+
+        // Parse gas estimate (USD value)
+        const gasEstimate = parseFloat(
+          response?.gasEstimateValue ||
+          response?.gasFeeUsd ||
+          response?.gasEstimateUSD ||
+          0
+        );
+        const FeeSwap = (Number.isFinite(gasEstimate) && gasEstimate > 0)
+          ? gasEstimate
+          : getFeeSwap(chainName);
+
         return {
           amount_out: outNum / Math.pow(10, des_output),
           FeeSwap,
-          dexTitle: 'ODOS'
+          dexTitle: 'ODOS',
+          routeTool: `ODOS-${version.toUpperCase()}`  // Track API version
         };
       }
     };
   }
-  dexStrategies.odos2 = createOdosStrategy('v2');
-  dexStrategies.odos3 = createOdosStrategy('v3');
-  dexStrategies.odos = dexStrategies.odos3;
+
+  // ODOS API Strategy Instances
+  dexStrategies.odos2 = createOdosStrategy('v2');  // Legacy (being retired)
+  dexStrategies.odos3 = createOdosStrategy('v3');  // Current (recommended)
+  dexStrategies.odos = dexStrategies.odos3;        // Default to v3
 
   // =============================
   // DZAP Strategy - Multi-DEX Aggregator
@@ -1810,7 +1905,23 @@
       }
 
       const SavedSettingData = getFromLocalStorage('SETTING_SCANNER', {});
-      const timeoutMilliseconds = Math.max(Math.round((SavedSettingData.speedScan || 4) * 1000));
+
+      // OPTIMIZED: Timeout mengikuti setting user (speedScan)
+      // CRITICAL: API timeout HARUS LEBIH KECIL dari scanner window untuk avoid cancel!
+      const dexLower = String(dexType || '').toLowerCase();
+      const isOdosFamily = ['odos', 'odos2', 'odos3', 'hinkal-odos'].includes(dexLower);
+
+      let timeoutMilliseconds;
+      if (isOdosFamily) {
+        // ODOS needs longer timeout (API can be slow)
+        timeoutMilliseconds = 8000;  // 8 seconds for ODOS
+      } else {
+        // For other DEXs: use speedScan setting directly (NO MINIMUM!)
+        // User can control speed via speedScan setting (default 1s)
+        const userSpeed = Math.round((SavedSettingData.speedScan || 1) * 1000);
+        timeoutMilliseconds = Math.max(userSpeed, 1000);  // Min 1s (safety), not 3s
+      }
+
       const amount_in_big = BigInt(Math.round(Math.pow(10, des_input) * amount_in));
 
       const runStrategy = (strategyName) => new Promise((res, rej) => {

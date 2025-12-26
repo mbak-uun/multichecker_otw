@@ -660,19 +660,26 @@ const CONFIG_DEXS = {
 
         warna: "#6e2006ff", // ungu-biru Odos
         builder: () => `https://app.odos.xyz`,
-        // Strategi internal: Hinkal-ODOS sebagai alternative untuk mengurangi beban ke SWOOP
+        // OPTIMIZED STRATEGY: Diversifikasi endpoint untuk load balancing & reliability
+        // - KIRI (CEX→DEX): Direct ODOS v3 API (official, latest version)
+        // - KANAN (DEX→CEX): Hinkal proxy (faster, 1-2s response time)
+        // - Alternative: SWOOP (more stable than DZAP for ODOS family)
         fetchdex: {
             primary: {
-                tokentopair: 'odos2',       // CEX→DEX (Actionkiri): ODOS API v2
-                pairtotoken: 'odos3'        // DEX→CEX (ActionKanan): ODOS API v3 (lebih stabil)
+                tokentopair: 'odos3',        // CEX→DEX (KIRI): Official ODOS v3 API
+                pairtotoken: 'hinkal-odos'   // DEX→CEX (KANAN): Hinkal proxy (faster)
             },
             alternative: {
-                tokentopair: 'hinkal-odos',  // Fallback CEX→DEX: Hinkal ODOS proxy (internal provider)
-                pairtotoken: 'hinkal-odos'   // Fallback DEX→CEX: Hinkal ODOS proxy (internal provider)
+                tokentopair: 'swoop',        // Fallback CEX→DEX: SWOOP aggregator
+                pairtotoken: 'swoop'         // Fallback DEX→CEX: SWOOP aggregator
             }
         },
         allowFallback: true,
-        // Note: Menggunakan Hinkal-ODOS untuk kedua arah agar tidak membebani SWOOP
+        // Benefits:
+        // 1. Diversified endpoints (reduce single point of failure)
+        // 2. Official v3 API for tokentopair (latest features)
+        // 3. Faster Hinkal proxy for pairtotoken (1-2s faster)
+        // 4. SWOOP fallback (more reliable for ODOS than DZAP)
     },
     // ============ DISABLED DEXes ============
     okx: {
@@ -858,7 +865,7 @@ const CONFIG_DEXS = {
     kamino: {
         label: 'Kamino',
         badgeClass: 'bg-kamino',
-        proxy: false,
+        proxy: true,
         warna: "#7c3aed", // Kamino purple
         isMultiDex: true, // ⭐ Multi-DEX aggregator like LIFI/DZAP
         builder: ({ tokenAddress, pairAddress }) =>

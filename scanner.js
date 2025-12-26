@@ -405,8 +405,10 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
     // OPTIMIZED: Kurangi speedScan untuk timeout lebih cepat (2s → 1s)
     let speedScan = Math.round(parseFloat(ConfigScan.speedScan || 1) * 1000);
 
+    // Jeda per-DEX untuk rate limiting (dapat di-set via settings, default 0 = no delay)
+    // User dapat mengatur delay berbeda untuk setiap DEX jika ada rate limit
     const jedaDexMap = (ConfigScan || {}).JedaDexs || {};
-    const getJedaDex = (dx) => parseInt(jedaDexMap[dx]) || 0;
+    const getJedaDex = (dx) => parseInt(jedaDexMap[dx]) || 0;  // Default 0ms (no delay)
 
     // Fungsi helper untuk membuat jeda (delay).
     function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
@@ -985,10 +987,11 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                     ? autoVolResult.avgPrice
                                     : DataCEX.priceSellToken;
 
+                                // ✅ CRITICAL FIX: Use `modal` (actual modal from Auto Volume), NOT modalKiri/modalKanan (max modal)!
                                 const update = calculateResult(
                                     baseId, tableBodyId, finalDexRes.amount_out, finalDexRes.FeeSwap,
                                     isKiri ? token.sc_in : token.sc_out, isKiri ? token.sc_out : token.sc_in,
-                                    token.cex, isKiri ? modalKiri : modalKanan,
+                                    token.cex, modal,  // ✅ FIX: Use `modal` (actualModal when Auto Volume ON)
                                     isKiri ? amount_in_token : amount_in_pair,
                                     cexBuyPriceCalc, cexSellPriceCalc, DataCEX.priceBuyPair, DataCEX.priceSellPair,
                                     isKiri ? token.symbol_in : token.symbol_out, isKiri ? token.symbol_out : token.symbol_in,
@@ -1407,8 +1410,22 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                         const cexSummary = `CEX READY BT=${fmt6(DataCEX.priceBuyToken)} ST=${fmt6(DataCEX.priceSellToken)} BP=${fmt6(DataCEX.priceBuyPair)} SP=${fmt6(DataCEX.priceSellPair)}`;
                         updateDexCellStatus('checking', dex, cexSummary);
                         // REMOVED: Watchdog for primary DEX removed
-                        // OPTIMIZED: Kurangi timeout buffer untuk scan lebih cepat (2s → 1s)
-                        const dexTimeoutWindow = getJedaDex(dex) + Math.max(speedScan) + 1000;
+                        // OPTIMIZED: Scanner timeout mengikuti speedScan setting + buffer
+                        // CRITICAL: Scanner window HARUS LEBIH BESAR dari API timeout!
+                        // - ODOS: API timeout 8s → scanner window 10s (8s + 2s buffer)
+                        // - Other DEX: API timeout speedScan → scanner window (speedScan + 1.5s buffer)
+                        const dexLower = String(dex).toLowerCase();
+                        const isOdos = dexLower === 'odos';
+
+                        let dexTimeoutWindow;
+                        if (isOdos) {
+                            dexTimeoutWindow = 10000;  // Fixed 10s for ODOS (API needs 8s)
+                        } else {
+                            // Use speedScan setting + buffer (not hardcoded!)
+                            const apiTimeout = Math.max(speedScan, 1000);  // Match API timeout calculation
+                            const buffer = 1500;  // 1.5s buffer (API timeout + buffer > API timeout)
+                            dexTimeoutWindow = apiTimeout + buffer;
+                        }
                         // Mulai ticker countdown untuk menampilkan sisa detik pada label "Checking".
                         try {
                             const endAt = Date.now() + dexTimeoutWindow;
