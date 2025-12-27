@@ -892,6 +892,28 @@
         ? (SavedSettingData?.walletSolana || defaultSolAddr)
         : (SavedSettingData?.walletMeta || defaultEvmAddr);
 
+      // ✅ HARDCODED: Filter for EVM chains - DEX only (no bridges)
+      const options = {
+        slippage: 0.03,
+        order: 'RECOMMENDED',
+        allowSwitchChain: false
+      };
+
+      // ✅ EVM CHAINS: Strict whitelist - only allow specific DEX aggregators
+      if (!isSolana) {
+        options.exchanges = {
+          allow: [
+            '1inch',          // 1inch aggregator
+            'paraswap',       // Paraswap aggregator
+            '0x',             // Matcha/0x
+            'odos',           // Odos optimizer
+            'sushiswap',      // Sushiswap DEX
+            'kyberswap',      // KyberSwap
+            'okx'             // OKX aggregator (okx, bukan okxdex)
+          ]
+        };
+      }
+
       const body = {
         fromChainId: lifiChainId,
         toChainId: lifiChainId,
@@ -900,11 +922,7 @@
         fromAmount: amount_in_big.toString(),
         fromAddress: userAddr,
         toAddress: userAddr,
-        options: {
-          slippage: 0.03,
-          order: 'RECOMMENDED',
-          allowSwitchChain: false
-        }
+        options: options
       };
 
       return {
@@ -959,9 +977,9 @@
         throw new Error("No valid LIFI routes found");
       }
 
-      // Sort by amount_out (descending) dan ambil top N sesuai config
-      // ⚠️ LIMIT: LIFI hanya tampilkan 2 DEX (sesuai maxProviders di config.js)
-      const maxProviders = (typeof window !== 'undefined' && window.CONFIG_DEXS?.lifi?.maxProviders) || 2;
+      // Sort by amount_out (descending) dan ambil top 3 routes (sama dengan DZAP)
+      // ✅ FIX: Changed from 2 to 3 to show more multi-route options
+      const maxProviders = (typeof window !== 'undefined' && window.CONFIG_DEXS?.lifi?.maxProviders) || 3;
       subResults.sort((a, b) => b.amount_out - a.amount_out);
       const topN = subResults.slice(0, maxProviders);
 
@@ -1913,8 +1931,8 @@
 
       let timeoutMilliseconds;
       if (isOdosFamily) {
-        // ODOS needs longer timeout (API can be slow)
-        timeoutMilliseconds = 8000;  // 8 seconds for ODOS
+        // ✅ OPTIMIZED: Reduced from 8s to 4s (ODOS is fast enough with 4s)
+        timeoutMilliseconds = 4000;  // 4 seconds for ODOS (was 8s - too slow!)
       } else {
         // For other DEXs: use speedScan setting directly (NO MINIMUM!)
         // User can control speed via speedScan setting (default 1s)

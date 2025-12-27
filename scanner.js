@@ -1421,7 +1421,8 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
 
                         let dexTimeoutWindow;
                         if (isOdos) {
-                            dexTimeoutWindow = 10000;  // Fixed 10s for ODOS (API needs 8s)
+                            // ✅ OPTIMIZED: Reduced from 10s to 5.5s (API timeout 4s + 1.5s buffer)
+                            dexTimeoutWindow = 5500;  // 5.5s for ODOS (was 10s - too slow!)
                         } else {
                             // Use speedScan setting + buffer (not hardcoded!)
                             const apiTimeout = Math.max(speedScan, 1000);  // Match API timeout calculation
