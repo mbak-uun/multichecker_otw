@@ -988,11 +988,12 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                     : DataCEX.priceSellToken;
 
                                 // ✅ CRITICAL FIX: Use `modal` (actual modal from Auto Volume), NOT modalKiri/modalKanan (max modal)!
+                                // ✅ CRITICAL FIX #2: Use `amountIn` (actual amount from Auto Volume), NOT amount_in_token/amount_in_pair (based on max modal)!
                                 const update = calculateResult(
                                     baseId, tableBodyId, finalDexRes.amount_out, finalDexRes.FeeSwap,
                                     isKiri ? token.sc_in : token.sc_out, isKiri ? token.sc_out : token.sc_in,
                                     token.cex, modal,  // ✅ FIX: Use `modal` (actualModal when Auto Volume ON)
-                                    isKiri ? amount_in_token : amount_in_pair,
+                                    amountIn,          // ✅ FIX: Use `amountIn` (from Auto Volume OR fixed modal)
                                     cexBuyPriceCalc, cexSellPriceCalc, DataCEX.priceBuyPair, DataCEX.priceSellPair,
                                     isKiri ? token.symbol_in : token.symbol_out, isKiri ? token.symbol_out : token.symbol_in,
                                     isKiri ? DataCEX.feeWDToken : DataCEX.feeWDPair,
@@ -1302,7 +1303,8 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                 getPriceAltDEX(
                                     isKiri ? token.sc_in : token.sc_out, isKiri ? token.des_in : token.des_out,
                                     isKiri ? token.sc_out : token.sc_in, isKiri ? token.des_out : token.des_in,
-                                    isKiri ? amount_in_token : amount_in_pair, DataCEX.priceBuyPair, dex,
+                                    amountIn,  // ✅ FIX: Use amountIn (from Auto Volume OR fixed modal)
+                                    DataCEX.priceBuyPair, dex,
                                     isKiri ? token.symbol_in : token.symbol_out, isKiri ? token.symbol_out : token.symbol_in,
                                     token.cex, token.chain, CONFIG_CHAINS[token.chain.toLowerCase()].Kode_Chain, direction
                                 )

@@ -1670,12 +1670,14 @@ function InfoSinyal(DEXPLUS, TokenPair, PNL, totalFee, cex, NameToken, NamePair,
   const signalItemId = `signal_${idPrefix}${baseId}`;
 
   // Item sinyal: kompak + border kanan (separator)
+  // ✅ FIX: Round modal value properly (no floating point errors)
+  const modalRounded = Number(modal) >= 100 ? Math.round(Number(modal)) : Number(modal).toFixed(2);
   const sLink = `
     <div id="${signalItemId}" class="signal-item uk-flex uk-flex-middle uk-flex-nowrap uk-text-small uk-padding-remove-vertical" >
       <a href="#${idPrefix}${baseId}" class="uk-link-reset " style="text-decoration:none; font-size:12px; margin-top:2px; margin-left:4px;">
         <span class="${Number(PNL) > filterPNLValue ? 'signal-highlight' : ''}" style="color:${warnaCEX}; ${highlightStyle}; display:inline-block; font-weight:bolder;">
           🔸 ${String(cex).slice(0, 3).toUpperCase()}X
-          <span class="uk-text-muted">:${modal}</span>
+          <span class="uk-text-muted">:${modalRounded}</span>
           <span class="${warnaTeksArah}"> ${NameToken}->${NamePair}</span>${chainPart}:
           <span class="uk-text-muted">${Number(PNL).toFixed(2)}$</span>
         </span>
