@@ -1836,3 +1836,64 @@ body.dark-mode .sub-dex-name {
 #modal-summary-bar span {
     font-size: 13px;
 }
+
+/* ==========================================================================
+   Calculator Modal Styles
+   ========================================================================== */
+
+#calculator-modal .uk-modal-dialog {
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    background: linear-gradient(160deg, #f8f9fa, #e9ecef);
+}
+
+#calculator-modal .uk-modal-body {
+    padding: clamp(18px, 2vw, 28px);
+}
+
+#calculator-modal .uk-form-label {
+    font-weight: 600;
+    color: #495057;
+    min-width: 60px;
+    display: inline-block;
+}
+
+#calculator-modal .uk-input {
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
+}
+
+#calculator-modal .uk-input:focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+#calculator-modal .dynamic-input {
+    background: #ffffff;
+    padding: 8px 12px;
+}
+
+#calculator-modal .uk-button-group {
+    display: flex;
+    gap: 8px;
+}
+
+#calculator-modal .uk-heading-divider {
+    font-size: 1.5rem;
+    font-weight: 700;
+    padding-bottom: 10px;
+}
+
+/* Responsive adjustments for calculator */
+@media (max-width: 768px) {
+    #calculator-modal .uk-form-label {
+        min-width: 50px;
+        font-size: 0.85rem;
+    }
+
+    #calculator-modal .uk-input {
+        font-size: 0.85rem;
+    }
+}

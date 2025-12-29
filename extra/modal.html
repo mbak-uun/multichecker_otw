@@ -1541,9 +1541,18 @@ img:hover {
                         }
                     });
                     ratePrice.idr = parseFloat(indodaxResponse[0].ticker.last);
+                    // Also store to localStorage for consistency with USDTIDR function
+                    localStorage.setItem('MULTI_USDTRate', ratePrice.idr);
+                    console.log('✅ IDR rate updated:', ratePrice.idr);
                 }).fail(function (error) {
                     console.log("-----------------------");
                     console.log(error);
+                    // Fallback: load from localStorage if fetch fails
+                    const storedRate = parseFloat(localStorage.getItem('MULTI_USDTRate')) || 0;
+                    if (storedRate > 0) {
+                        ratePrice.idr = storedRate;
+                        console.log('ℹ️ Using stored IDR rate:', ratePrice.idr);
+                    }
                 });
             }
 
@@ -1569,7 +1578,9 @@ img:hover {
             'SOL',          // Solana
             'AVAX',         // Avalanche
             'ARB',          // Arbitrum
-            'OP'            // Optimism
+            'OP',           // Optimism
+            // Fiat currency
+            'IDR'           // Indonesian Rupiah (for Indodax)
         ]);
 
         // Changed to 1.0 to show only assets with value above $1
@@ -1650,6 +1661,28 @@ img:hover {
         async function getUsdtRate(symbol) {
             const upper = (symbol || "").toUpperCase();
             if (!upper) return 0;
+
+            // Handle IDR (Indonesian Rupiah) - convert to USDT using ratePrice.idr
+            if (upper === 'IDR') {
+                // Try to get IDR rate from ratePrice first, fallback to localStorage
+                let idrRate = ratePrice.idr || 0;
+                if (!idrRate || idrRate <= 0) {
+                    const storedRate = parseFloat(localStorage.getItem('MULTI_USDTRate')) || 0;
+                    if (storedRate > 0) {
+                        idrRate = storedRate;
+                        ratePrice.idr = storedRate; // Update ratePrice for consistency
+                    }
+                }
+
+                if (idrRate > 0) {
+                    const usdtRate = 1 / idrRate; // 1 IDR = 1/ratePrice.idr USDT
+                    priceTickerCache.assetRates.set(upper, usdtRate);
+                    console.log(`[IDR] Rate: 1 IDR = ${usdtRate.toFixed(8)} USDT (IDR rate: ${idrRate})`);
+                    return usdtRate;
+                }
+                console.warn('[IDR] Rate not available');
+                return 0;
+            }
 
             if (stableCoinRates[upper] !== undefined) {
                 priceTickerCache.assetRates.set(upper, stableCoinRates[upper]);
@@ -2020,6 +2053,13 @@ img:hover {
                 });
             }
             fetchRates();
+
+            // Load IDR rate from localStorage on initialization
+            const storedIDRRate = parseFloat(localStorage.getItem('MULTI_USDTRate')) || 0;
+            if (storedIDRRate > 0) {
+                ratePrice.idr = storedIDRRate;
+                console.log('✅ Loaded stored IDR rate on init:', ratePrice.idr);
+            }
 
         // END KALKULATOR
         const infuraApiKey = '9d0429abadc34232af7d5c0e6ab98631'; // Ganti dengan API Key Infura Anda

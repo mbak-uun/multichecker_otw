@@ -61,6 +61,8 @@
 
             <a href="extra/modal.html" target="_blank" data-feature="assets"><img class="icon" title="PORTOFOLIO ASSET"
                 width="24px" src="https://cdn-icons-png.flaticon.com/512/893/893097.png" /></a>
+            <a href="#" id="openCalculatorModal" title="KALKULATOR CRYPTO"><img class="icon" width="24"
+                src="https://cdn-icons-png.flaticon.com/512/342/342344.png" /></a>
             <a href="#" id="openDatabaseViewer" title="MANAJEMEN DATABASE"><img class="icon" width="24"
                 src="https://cdn-icons-png.flaticon.com/512/2906/2906274.png" /></a>
             <a href="#" id="openHistoryModal" title="RIWAYAT AKSI"><img class="icon" width="24"
@@ -1124,7 +1126,70 @@
     </div>
   </div>
 
+  <!-- Modal: Kalkulator Crypto -->
+  <div id="calculator-modal" uk-modal>
+    <div class="uk-modal-dialog uk-modal-body uk-width-large uk-padding-remove-bottom" style="border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+      <button class="uk-modal-close-default" type="button" uk-close></button>
 
+      <h3 class="uk-heading-divider uk-align-center uk-text-primary uk-margin-small-bottom">
+        <span uk-icon="icon: cog"></span> KALKULATOR CRYPTO
+      </h3>
+      <p class="uk-text-center uk-text-small uk-text-primary uk-margin-remove-top">
+        <span uk-icon="icon: info"></span> Konversi Harga Crypto Secara Realtime
+      </p>
+
+      <!-- Input Fields for Cryptocurrency Values -->
+      <div class="uk-grid-small uk-child-width-1-1 uk-align-center uk-margin-remove uk-padding-remove" uk-grid>
+        <div class="uk-margin-small-top">
+          <div class="uk-form-controls">
+            <label for="usdtprice" class="uk-form-label uk-margin-large-right"><b>USDT </b></label>
+            <input id="usdtprice" class="uk-input dynamic-input uk-form-width-large" type="text" placeholder="Masukkan nilai USDT" oninput="convertFromInput('usdt')">
+          </div>
+        </div>
+        <div class="uk-margin-small-top">
+          <div class="uk-form-controls">
+            <label for="idrprice" class="uk-form-label uk-margin-large-right"><b>IDR&nbsp;&nbsp;</b></label>
+            <input id="idrprice" class="uk-input dynamic-input uk-form-width-large" type="text" placeholder="Masukkan nilai IDR" oninput="convertFromInput('idr')">
+          </div>
+        </div>
+        <div class="uk-margin-small-top">
+          <div class="uk-form-controls">
+            <label for="btcprice" class="uk-form-label uk-margin-large-right"><b>BTC&nbsp;&nbsp;</b></label>
+            <input id="btcprice" class="uk-input dynamic-input uk-form-width-large" type="text" placeholder="Masukkan nilai BTC" oninput="convertFromInput('btc')">
+          </div>
+        </div>
+        <div class="uk-margin-small-top">
+          <div class="uk-form-controls">
+            <label for="ethprice" class="uk-form-label uk-margin-large-right"><b>ETH&nbsp;&nbsp;</b></label>
+            <input id="ethprice" class="uk-input dynamic-input uk-form-width-large" type="text" placeholder="Masukkan nilai ETH" oninput="convertFromInput('eth')">
+          </div>
+        </div>
+        <div class="uk-margin-small-top">
+          <div class="uk-form-controls">
+            <label for="bnbprice" class="uk-form-label uk-margin-large-right"><b>BNB&nbsp;&nbsp;</b></label>
+            <input id="bnbprice" class="uk-input dynamic-input uk-form-width-large" type="text" placeholder="Masukkan nilai BNB" oninput="convertFromInput('bnb')">
+          </div>
+        </div>
+        <!-- Input untuk Token 1 -->
+        <div class="uk-margin-small-top">
+          <div class="uk-form-controls">
+            <label for="random1symbol" class="uk-form-label uk-text-danger"><b>CUSTOM TOKEN :</b></label>
+            <div class="uk-button-group">
+              <input type="text" class="uk-input dynamic-input uk-form-width-medium" id="random1symbol" placeholder="Symbol TOKEN">
+              <input type="text" class="uk-input dynamic-input" id="random1price" placeholder="Harga TOKEN" disabled>
+            </div>
+          </div>
+        </div>
+
+        <div class="uk-form-controls uk-align-center">
+          <div class="uk-button-group uk-form-width-large">
+            <button class="uk-button uk-button-small uk-button-danger uk-margin-large-left" id="cekTokensBtn">CEK Tokens</button>
+            <button class="uk-button uk-button-small uk-button-primary" id="updatePriceBtn">Update Price</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ========================================================================= -->
   <!-- SCRIPT LOADING ORDER - REFACTORED MODULAR ARCHITECTURE                  -->
@@ -1193,6 +1258,9 @@
   <!-- 11. LEGACY FILES (remaining code) -->
   <script src="scanner.js"></script><!-- Remaining scanner logic -->
   <script src="main.js"></script><!-- Remaining main logic -->
+
+  <!-- 12. CALCULATOR CRYPTO -->
+  <script src="calculator-crypto.js"></script><!-- Crypto calculator feature -->
 
   <!-- ========================================================================= -->
   <!-- END SCRIPT LOADING                                                       -->
