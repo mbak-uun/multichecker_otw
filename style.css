@@ -1838,6 +1838,29 @@ body.dark-mode .sub-dex-name {
 }
 
 /* ==========================================================================
+   Calculator Icon - Always Accessible
+   ========================================================================== */
+
+#openCalculatorModal {
+    pointer-events: all !important;
+    cursor: pointer !important;
+    z-index: 100 !important;
+    opacity: 1 !important;
+}
+
+/* Prevent icon from being dimmed during scan */
+#openCalculatorModal.icon {
+    opacity: 1 !important;
+    filter: none !important;
+}
+
+/* Override any global dimming during scan */
+.header-card #openCalculatorModal {
+    pointer-events: all !important;
+    opacity: 1 !important;
+}
+
+/* ==========================================================================
    Calculator Modal Styles
    ========================================================================== */
 
@@ -1870,6 +1893,15 @@ body.dark-mode .sub-dex-name {
     box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
 
+#calculator-modal .uk-input[readonly] {
+    background-color: #e9ecef !important;
+    cursor: not-allowed;
+}
+
+#calculator-modal .uk-input:not([readonly]):not([disabled]) {
+    background-color: #ffffff !important;
+}
+
 #calculator-modal .dynamic-input {
     background: #ffffff;
     padding: 8px 12px;
@@ -1886,7 +1918,7 @@ body.dark-mode .sub-dex-name {
     padding-bottom: 10px;
 }
 
-/* Responsive adjustments for calculator */
+/* Responsive adjustments for calculator modal */
 @media (max-width: 768px) {
     #calculator-modal .uk-form-label {
         min-width: 50px;
@@ -1895,5 +1927,10 @@ body.dark-mode .sub-dex-name {
 
     #calculator-modal .uk-input {
         font-size: 0.85rem;
+    }
+
+    #calculator-modal .uk-modal-dialog {
+        width: 95vw;
+        max-width: 95vw;
     }
 }

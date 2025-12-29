@@ -64,17 +64,17 @@
             $.getJSON("https://api-gcp.binance.com/api/v3/ticker/price?symbol=" + symbol1 + "USDT")
                 .done(function(response) {
                     ratePrice.random1 = parseFloat(response.price);
-                    $("#random1price").prop("disabled", false).val(ratePrice.random1.toFixed(8));
-                    if (typeof toast !== 'undefined' && toast.info) toast.info("Custom token " + symbol1 + " ditemukan dengan harga " + ratePrice.random1 + " USDT.");
+                    $("#random1price").prop("readonly", false).val(ratePrice.random1.toFixed(8));
+                    if (typeof toast !== 'undefined' && toast.info) toast.info("Token " + symbol1 + " = $" + ratePrice.random1.toFixed(4));
                 })
                 .fail(function() {
-                    if (typeof toast !== 'undefined' && toast.error) toast.error("Custom token tidak ditemukan.");
+                    if (typeof toast !== 'undefined' && toast.error) toast.error("Token tidak ditemukan.");
                     ratePrice.random1 = 0;
-                    $("#random1price").prop("disabled", true).val('');
+                    $("#random1price").prop("readonly", true).val('');
                 });
         }
 
-        if (typeof toast !== 'undefined' && toast.info) toast.info("Harga token telah diperbarui!");
+        if (typeof toast !== 'undefined' && toast.info) toast.info("Harga crypto berhasil diperbarui!");
     });
 
     // Check custom token price
@@ -88,25 +88,26 @@
         $.getJSON("https://api-gcp.binance.com/api/v3/ticker/price?symbol=" + symbol1 + "USDT")
             .done(function (response) {
                 ratePrice.random1 = parseFloat(response.price);
-                $("#random1price").prop("disabled", false).val(ratePrice.random1.toFixed(8));
-                if (typeof toast !== 'undefined' && toast.info) toast.info("Custom token ditemukan: " + symbol1 + " dengan harga " + ratePrice.random1 + " USDT");
-
-                // Add event listener for changing custom token value
-                $("#random1price").on("input", function () {
-                    convertFromInput('random1');
-                });
+                $("#random1price").prop("readonly", false).val(ratePrice.random1.toFixed(8));
+                if (typeof toast !== 'undefined' && toast.info) toast.info("Token ditemukan: " + symbol1 + " = $" + ratePrice.random1.toFixed(4));
             })
             .fail(function () {
-                if (typeof toast !== 'undefined' && toast.error) toast.error("Token tidak ditemukan.");
+                if (typeof toast !== 'undefined' && toast.error) toast.error("Token tidak ditemukan di Binance.");
                 ratePrice.random1 = 0;
-                $("#random1price").prop("disabled", true).val('');
+                $("#random1price").prop("readonly", true).val('');
             });
     });
 
     // Convert input dynamically
-    window.convertFromInput = function(base) {
+    function convertFromInput(base) {
         const baseValue = parseFloat($("#" + base + "price").val());
-        if (isNaN(baseValue) || baseValue <= 0) return;
+        if (isNaN(baseValue) || baseValue <= 0) {
+            // Clear all inputs if invalid
+            if (isNaN(baseValue)) {
+                clearAllInputs();
+            }
+            return;
+        }
 
         var updatedPrices = {};
         switch (base) {
@@ -114,20 +115,20 @@
                 updatedPrices = {
                     usdt: baseValue,
                     idr: baseValue * ratePrice.idr,
-                    btc: baseValue / ratePrice.btc,
-                    eth: baseValue / ratePrice.eth,
-                    bnb: baseValue / ratePrice.bnb,
-                    random1: baseValue / ratePrice.random1
+                    btc: ratePrice.btc > 0 ? baseValue / ratePrice.btc : 0,
+                    eth: ratePrice.eth > 0 ? baseValue / ratePrice.eth : 0,
+                    bnb: ratePrice.bnb > 0 ? baseValue / ratePrice.bnb : 0,
+                    random1: ratePrice.random1 > 0 ? baseValue / ratePrice.random1 : 0
                 };
                 break;
             case "idr":
                 updatedPrices = {
-                    usdt: baseValue / ratePrice.idr,
+                    usdt: ratePrice.idr > 0 ? baseValue / ratePrice.idr : 0,
                     idr: baseValue,
-                    btc: (baseValue / ratePrice.idr) / ratePrice.btc,
-                    eth: (baseValue / ratePrice.idr) / ratePrice.eth,
-                    bnb: (baseValue / ratePrice.idr) / ratePrice.bnb,
-                    random1: (baseValue / ratePrice.idr) / ratePrice.random1
+                    btc: (ratePrice.idr > 0 && ratePrice.btc > 0) ? (baseValue / ratePrice.idr) / ratePrice.btc : 0,
+                    eth: (ratePrice.idr > 0 && ratePrice.eth > 0) ? (baseValue / ratePrice.idr) / ratePrice.eth : 0,
+                    bnb: (ratePrice.idr > 0 && ratePrice.bnb > 0) ? (baseValue / ratePrice.idr) / ratePrice.bnb : 0,
+                    random1: (ratePrice.idr > 0 && ratePrice.random1 > 0) ? (baseValue / ratePrice.idr) / ratePrice.random1 : 0
                 };
                 break;
             case "btc":
@@ -135,29 +136,29 @@
                     usdt: baseValue * ratePrice.btc,
                     idr: baseValue * ratePrice.btc * ratePrice.idr,
                     btc: baseValue,
-                    eth: baseValue * ratePrice.btc / ratePrice.eth,
-                    bnb: baseValue * ratePrice.btc / ratePrice.bnb,
-                    random1: baseValue * ratePrice.btc / ratePrice.random1
+                    eth: ratePrice.eth > 0 ? baseValue * ratePrice.btc / ratePrice.eth : 0,
+                    bnb: ratePrice.bnb > 0 ? baseValue * ratePrice.btc / ratePrice.bnb : 0,
+                    random1: ratePrice.random1 > 0 ? baseValue * ratePrice.btc / ratePrice.random1 : 0
                 };
                 break;
             case "eth":
                 updatedPrices = {
                     usdt: baseValue * ratePrice.eth,
                     idr: baseValue * ratePrice.eth * ratePrice.idr,
-                    btc: baseValue * ratePrice.eth / ratePrice.btc,
+                    btc: ratePrice.btc > 0 ? baseValue * ratePrice.eth / ratePrice.btc : 0,
                     eth: baseValue,
-                    bnb: baseValue * ratePrice.eth / ratePrice.bnb,
-                    random1: baseValue * ratePrice.eth / ratePrice.random1
+                    bnb: ratePrice.bnb > 0 ? baseValue * ratePrice.eth / ratePrice.bnb : 0,
+                    random1: ratePrice.random1 > 0 ? baseValue * ratePrice.eth / ratePrice.random1 : 0
                 };
                 break;
             case "bnb":
                 updatedPrices = {
                     usdt: baseValue * ratePrice.bnb,
                     idr: baseValue * ratePrice.bnb * ratePrice.idr,
-                    btc: baseValue * ratePrice.bnb / ratePrice.btc,
-                    eth: baseValue * ratePrice.bnb / ratePrice.eth,
+                    btc: ratePrice.btc > 0 ? baseValue * ratePrice.bnb / ratePrice.btc : 0,
+                    eth: ratePrice.eth > 0 ? baseValue * ratePrice.bnb / ratePrice.eth : 0,
                     bnb: baseValue,
-                    random1: baseValue * ratePrice.bnb / ratePrice.random1
+                    random1: ratePrice.random1 > 0 ? baseValue * ratePrice.bnb / ratePrice.random1 : 0
                 };
                 break;
             case "random1":
@@ -165,9 +166,9 @@
                 updatedPrices = {
                     usdt: baseValue * ratePrice.random1,
                     idr: baseValue * ratePrice.random1 * ratePrice.idr,
-                    btc: (baseValue * ratePrice.random1) / ratePrice.btc,
-                    eth: (baseValue * ratePrice.random1) / ratePrice.eth,
-                    bnb: (baseValue * ratePrice.random1) / ratePrice.bnb,
+                    btc: ratePrice.btc > 0 ? (baseValue * ratePrice.random1) / ratePrice.btc : 0,
+                    eth: ratePrice.eth > 0 ? (baseValue * ratePrice.random1) / ratePrice.eth : 0,
+                    bnb: ratePrice.bnb > 0 ? (baseValue * ratePrice.random1) / ratePrice.bnb : 0,
                     random1: baseValue
                 };
                 break;
@@ -175,26 +176,101 @@
 
         // Update input fields
         updatePrices(updatedPrices, base);
-    };
+    }
+
+    // Clear all inputs
+    function clearAllInputs() {
+        $('#usdtprice, #idrprice, #btcprice, #ethprice, #bnbprice, #random1price').val('');
+    }
+
+    // Attach input event listeners
+    $('#usdtprice').on('input', function() { convertFromInput('usdt'); });
+    $('#idrprice').on('input', function() { convertFromInput('idr'); });
+    $('#btcprice').on('input', function() { convertFromInput('btc'); });
+    $('#ethprice').on('input', function() { convertFromInput('eth'); });
+    $('#bnbprice').on('input', function() { convertFromInput('bnb'); });
+    $('#random1price').on('input', function() {
+        if (!$(this).prop('readonly')) {
+            convertFromInput('random1');
+        }
+    });
 
     // Update input fields
     function updatePrices(prices, excludeBase) {
         $.each(prices, function (key, value) {
             if (key !== excludeBase) {
-                // If IDR, format with thousand separator
-                if (key === "idr") {
-                    $("#" + key + "price").val(value ? formatIDR(value) : '');
+                if (!value || value === 0) {
+                    $("#" + key + "price").val('');
                 } else {
-                    $("#" + key + "price").val(value ? value.toFixed(8) : '');
+                    // Format based on value size
+                    let formattedValue;
+                    if (key === "idr") {
+                        // IDR: show as integer
+                        formattedValue = Math.round(value);
+                    } else if (value >= 1) {
+                        // Large values: 2-4 decimals
+                        formattedValue = value.toFixed(Math.min(4, 2));
+                    } else if (value >= 0.01) {
+                        // Medium values: 4 decimals
+                        formattedValue = value.toFixed(4);
+                    } else {
+                        // Small values: 8 decimals
+                        formattedValue = value.toFixed(8);
+                    }
+                    $("#" + key + "price").val(formattedValue);
                 }
             }
         });
     }
 
-    // Open calculator modal handler
+    // Function to enable all calculator inputs
+    function enableCalculatorInputs() {
+        $('#calculator-modal').find('input, select, button, textarea').prop('disabled', false);
+        $('#random1price').prop('readonly', true); // Keep readonly by default until token checked
+        console.log('✅ Calculator inputs enabled');
+    }
+
+    // Open calculator modal handler - Always active, even during scan
+    // Using event delegation to ensure it works even if icon is dynamically loaded
+    $(document).on('click', '#openCalculatorModal', function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        try {
+            // Force enable all inputs before showing modal
+            enableCalculatorInputs();
+            UIkit.modal('#calculator-modal').show();
+            console.log('✅ Calculator modal opened');
+        } catch (error) {
+            console.error('❌ Error opening calculator modal:', error);
+            alert('Gagal membuka kalkulator. Silakan refresh halaman.');
+        }
+
+        return false;
+    });
+
+    // Additional direct event listener for immediate binding
     $('#openCalculatorModal').on('click', function(event) {
         event.preventDefault();
-        UIkit.modal('#calculator-modal').show();
+        event.stopPropagation();
+
+        try {
+            // Force enable all inputs before showing modal
+            enableCalculatorInputs();
+            UIkit.modal('#calculator-modal').show();
+            console.log('✅ Calculator modal opened (direct handler)');
+        } catch (error) {
+            console.error('❌ Error opening calculator modal:', error);
+        }
+
+        return false;
+    });
+
+    // Also enable inputs when modal is shown (UIkit event)
+    UIkit.util.on('#calculator-modal', 'shown', function () {
+        enableCalculatorInputs();
+        console.log('✅ Calculator modal shown - inputs enabled');
     });
 
     // Load IDR rate from localStorage on initialization
@@ -206,5 +282,19 @@
 
     // Fetch rates on initialization
     fetchRates();
+
+    // Keyboard shortcut: Ctrl+K or Cmd+K to open calculator
+    $(document).on('keydown', function(event) {
+        // Check for Ctrl+K (Windows/Linux) or Cmd+K (Mac)
+        if ((event.ctrlKey || event.metaKey) && event.key === 'k') {
+            event.preventDefault();
+            event.stopPropagation();
+            UIkit.modal('#calculator-modal').show();
+            console.log('✅ Calculator opened via keyboard shortcut (Ctrl/Cmd+K)');
+            return false;
+        }
+    });
+
+    console.log('✅ Calculator Crypto module loaded. Press Ctrl+K (or Cmd+K) to open calculator.');
 
 })();

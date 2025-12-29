@@ -52,9 +52,13 @@
                     .css({ pointerEvents: 'auto', opacity: 1 });
                 // ✅ KEEP Scanner Filter Modal icon ACTIVE during scan (modal will show readonly inputs)
                 $('#ScannerFilterModal').css({ pointerEvents: 'auto', opacity: 1 });
+                // ✅ KEEP Calculator Modal icon ACTIVE and fully functional during scan
+                $('#openCalculatorModal').css({ pointerEvents: 'auto', opacity: 1 });
                 // Disable scanner config controls and filter card inputs
                 $('#scanner-config').find('input, select, button, textarea').not('#btn-scroll-top').prop('disabled', true);
                 $('#filter-card').find('input, select, button, textarea').not('#btn-scroll-top').prop('disabled', true);
+                // ✅ Ensure calculator modal inputs are NEVER disabled
+                $('#calculator-modal').find('input, select, button, textarea').prop('disabled', false);
                 // Keep Auto Scroll checkbox enabled and clickable during scanning
                 $('#autoScrollCheckbox').prop('disabled', false).css({ pointerEvents: 'auto', opacity: 1 });
                 // Some extra clickable items in page (keep chain links enabled)
@@ -81,6 +85,9 @@
                 $allToolbar.css({ pointerEvents: '', opacity: '' });
                 // ✅ Scanner Filter Modal icon remains enabled (already enabled during scan)
                 $('#ScannerFilterModal').css({ pointerEvents: '', opacity: '' });
+                // ✅ Calculator Modal icon and inputs remain enabled
+                $('#openCalculatorModal').css({ pointerEvents: 'auto', opacity: 1 });
+                $('#calculator-modal').find('input, select, button, textarea').prop('disabled', false);
                 // Reset controls (actual availability will be enforced by applyControlsFor)
                 $('#scanner-config').find('input, select, button, textarea').prop('disabled', false);
                 $('#filter-card').find('input, select, button, textarea').prop('disabled', false);
