@@ -502,12 +502,21 @@ function hasValidTokens() {
  * and preloads saved values from storage.
  */
 function renderSettingsForm() {
-    // Generate DEX delay inputs with colors
-    const dexList = Object.keys(CONFIG_DEXS || {}).sort();
+    // ✅ Generate DEX delay inputs - Ambil semua DEX dari CONFIG_DEXS yang tidak disabled
+    // Filter berdasarkan property 'disabled' di CONFIG_DEXS
+    const activeDexList = Object.keys(CONFIG_DEXS || {})
+        .filter(dexKey => {
+            const dexConfig = CONFIG_DEXS[dexKey];
+            // Include jika tidak ada property disabled atau disabled === false
+            return !dexConfig.disabled;
+        })
+        .sort();
+
     let dexDelayHtml = '';
-    dexList.forEach(dex => {
-        const dexConfig = CONFIG_DEXS[dex] || {};
-        const dexLabel = (dexConfig.label || dex).toUpperCase();  // ✅ UPPERCASE semua
+
+    activeDexList.forEach(dexKey => {
+        const dexConfig = CONFIG_DEXS[dexKey] || {};
+        const dexLabel = (dexConfig.label || dexKey).toUpperCase();  // ✅ UPPERCASE semua
         const dexColor = dexConfig.warna || '#333';
 
         dexDelayHtml += `
@@ -519,7 +528,7 @@ function renderSettingsForm() {
                         </label>
                         <div class="uk-flex uk-flex-middle" style="gap: 4px;">
                             <input type="number" class="uk-input uk-form-small dex-delay-input"
-                                   data-dex="${dex}"
+                                   data-dex="${dexKey}"
                                    value="100"
                                    style="width:70px; text-align:center; border-color: ${dexColor}40;"
                                    min="0">
@@ -538,6 +547,7 @@ function renderSettingsForm() {
     $('#jeda-time-group').val(appSettings.jedaTimeGroup || 2000);
     $('#jeda-koin').val(appSettings.jedaKoin || 500);
     $('#walletMeta').val(appSettings.walletMeta || '');
+    // ✅ apiKey0x UI input removed - now managed in secrets.js
     $(`input[name=\"koin-group\"][value=\"${appSettings.scanPerKoin || 5}\"]`).prop('checked', true);
     $(`input[name=\"waktu-tunggu\"][value=\"${appSettings.speedScan || 2}\"]`).prop('checked', true);
 
@@ -620,6 +630,35 @@ function bootApp() {
             saveToLocalStorage('SETTING_SCANNER', s);
         }
     } catch (_) { }
+
+    // ✅ CLEANUP: Remove disabled/inactive DEX from JedaDexs (e.g., fly, rubic, etc.)
+    try {
+        const s = getFromLocalStorage('SETTING_SCANNER', {});
+        if (s && typeof s === 'object' && s.JedaDexs) {
+            // Get list of active DEX from CONFIG_DEXS (not disabled)
+            const activeDexKeys = Object.keys(CONFIG_DEXS || {}).filter(key => {
+                const cfg = CONFIG_DEXS[key];
+                return !cfg.disabled;
+            });
+
+            // Remove DEX keys that are no longer active
+            let hasChanges = false;
+            Object.keys(s.JedaDexs).forEach(dexKey => {
+                if (!activeDexKeys.includes(dexKey)) {
+                    console.log(`[Cleanup] Removing inactive DEX from settings: ${dexKey}`);
+                    delete s.JedaDexs[dexKey];
+                    hasChanges = true;
+                }
+            });
+
+            // Save if changes were made
+            if (hasChanges) {
+                saveToLocalStorage('SETTING_SCANNER', s);
+            }
+        }
+    } catch (e) {
+        console.warn('[Cleanup] Failed to clean up inactive DEX:', e.message);
+    }
     const state = computeAppReadiness();
     // REFACTORED
     if (typeof applyThemeForMode === 'function') applyThemeForMode();

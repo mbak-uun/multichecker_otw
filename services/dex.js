@@ -6,7 +6,7 @@
  * - Strategy-based price quoting per aggregator (Kyber, 1inch, 0x/Matcha, Odos, OKX)
  * - getPriceDEX builds request and parses response per DEX
  */
-(function initDEXService(global){
+(function initDEXService(global) {
   const root = global || (typeof window !== 'undefined' ? window : {});
   const App = root.App || (root.App = {});
 
@@ -93,7 +93,7 @@
       const feeUSD = (gasLimit * gasPriceGwei * gasInfo.nativeTokenPrice) / 1e9;
 
       return Number.isFinite(feeUSD) && feeUSD > 0 ? feeUSD : 0;
-    } catch(e) {
+    } catch (e) {
       // console.error('[DEX] Error calculating gas fee:', e);
       return 0;
     }
@@ -106,6 +106,50 @@
     }
     // Fallback if getFeeSwap not available
     return 0;
+  }
+
+  // ============================================================================
+  // 0x API CONFIGURATION
+  // ============================================================================
+  /**
+   * 0x API (Matcha) Configuration
+   * Official documentation: https://0x.org/docs/api
+   *
+   * Get your API key from: https://dashboard.0x.org
+   *
+   * The API key should be stored in SavedSettingData.apiKey0x or as fallback
+   */
+  function get0xApiKey() {
+    try {
+      // ✅ SINGLE SOURCE OF TRUTH: Read from secrets.js
+      // The get0xApiKey() function is available via window.get0xApiKey from secrets.js
+      if (typeof root.get0xApiKey === 'function') {
+        const apiKey = root.get0xApiKey();
+        if (apiKey) {
+          return apiKey;
+        }
+      }
+
+      // Direct access to DEX_API_KEYS from secrets.js
+      if (root.DEX_API_KEYS && root.DEX_API_KEYS.ZEROX) {
+        return root.DEX_API_KEYS.ZEROX;
+      }
+
+      // Fallback: Try to get from settings (legacy - for backward compatibility)
+      const settings = (typeof getFromLocalStorage === 'function')
+        ? getFromLocalStorage('SETTING_SCANNER', {})
+        : {};
+
+      if (settings.apiKey0x) {
+        return settings.apiKey0x;
+      }
+
+      console.warn('[0x API] No API key found in secrets.js. Get one from https://dashboard.0x.org');
+      return null;
+    } catch (error) {
+      console.error('[0x API] Error getting API key:', error);
+      return null;
+    }
   }
 
   const dexStrategies = {
@@ -197,8 +241,7 @@
         const gasUsd = parseFloat(route.gasCostUSD || route.estimatedGasCostUSD || response?.gasCostUSD || 0);
         const FeeSwap = (Number.isFinite(gasUsd) && gasUsd > 0) ? gasUsd : getFeeSwap(chainName);
         return { amount_out, FeeSwap, dexTitle: 'PARASWAP' };
-      },
-      useProxy: false
+      }
     },
     paraswap6: {
       buildRequest: ({ codeChain, sc_input, sc_output, amount_in_big, des_input, des_output, SavedSettingData }) => {
@@ -236,8 +279,7 @@
           dexTitle: 'PARASWAP',
           routeTool: 'PARASWAP V6'
         };
-      },
-      useProxy: false
+      }
     },
     'hinkal-odos': {
       /**
@@ -315,11 +357,30 @@
           dexTitle: 'ODOS',
           routeTool: 'HINKAL-ODOS'  // Track that it came via Hinkal proxy
         };
-      },
-      useProxy: false
+      }
     },
     fly: {
       buildRequest: ({ chainName, sc_input, sc_output, sc_input_in, sc_output_in, amount_in_big }) => {
+        /**
+         * Fly.trade (Magpie) Aggregator API v3
+         * Docs: https://docs.fly.trade/developers/api-reference/on-chain-swap
+         *
+         * Required Parameters:
+         * - fromTokenAddress: Token to swap from (0x0000... for native)
+         * - toTokenAddress: Token to swap to (0x0000... for native)
+         * - amount: Amount in smallest unit (wei)
+         * - slippage: Slippage tolerance (e.g., 0.005 for 0.5%)
+         * - fromAddress: Wallet initiating swap
+         * - toAddress: Wallet receiving tokens
+         * - gasless: true/false (Magpie handles gas vs user pays)
+         *
+         * Optional Parameters:
+         * - network: Chain name (ethereum, bsc, polygon, etc.)
+         * - enableRFQ: Enable RFQ protocols (default: false)
+         * - affiliateAddress: Partner fee wallet
+         * - affiliateFeeInPercentage: Fee % (e.g., 0.01 for 1%)
+         */
+
         // Map chain name to Fly.trade network parameter
         const chainNetworkMap = {
           'bsc': 'bsc',
@@ -335,32 +396,83 @@
           'zksync': 'zksync',
           'solana': 'solana'
         };
+
         const chainLower = String(chainName || '').toLowerCase();
         const net = chainNetworkMap[chainLower] || chainLower;
+
         // Solana uses base58 addresses (case-sensitive), use original addresses
         const isSolana = chainLower === 'solana';
         const fromAddr = isSolana ? sc_input_in : sc_input;
         const toAddr = isSolana ? sc_output_in : sc_output;
-        // Use public endpoint (no API key required)
-        const url = `https://api.fly.trade/aggregator/quote?network=${net}&fromTokenAddress=${fromAddr}&toTokenAddress=${toAddr}&sellAmount=${String(amount_in_big)}&slippage=0.1&gasless=false`;
+
+        // Get wallet address from settings (required by API)
+        const walletAddr = (typeof root !== 'undefined' && root.SavedSettingData?.walletMeta)
+          ? root.SavedSettingData.walletMeta
+          : '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'; // Fallback to Vitalik's address
+
+        // Build parameters according to official documentation
+        const params = new URLSearchParams({
+          network: net,                    // Chain name (optional but recommended)
+          fromTokenAddress: fromAddr,       // Source token address (required)
+          toTokenAddress: toAddr,           // Destination token address (required)
+          amount: String(amount_in_big),    // Amount in wei (required) - ✅ FIXED: was 'sellAmount'
+          slippage: '0.01',                 // 1% slippage (required)
+          fromAddress: walletAddr,          // Sender wallet (required)
+          toAddress: walletAddr,            // Receiver wallet (required)
+          gasless: 'false',                 // User pays gas (required)
+          enableRFQ: 'false'                // Disable RFQ protocols (optional)
+        });
+
+        const url = `https://api.fly.trade/aggregator/quote?${params.toString()}`;
+
+        console.log(`[FLY] Request: ${chainName} ${fromAddr} -> ${toAddr}`);
+
         return {
           url,
-          method: 'GET'
+          method: 'GET',
+          headers: {}
         };
       },
       parseResponse: (response, { chainName, des_output }) => {
-        const rawOut = response?.amountOut;
+        /**
+         * Fly.trade Response Structure:
+         * {
+         *   "quote-id": "...",
+         *   "toTokenAmount": "123456789",  // Output amount in wei
+         *   "fees": [
+         *     { "type": "gas", "value": "0.05" },  // Gas fee in USD
+         *     { "type": "protocol", "value": "0.01" }
+         *   ],
+         *   "distributions": [...],  // Route distribution across DEXes
+         *   "targetAddress": "0x..."  // Contract address for approval
+         * }
+         */
+
+        // Parse toTokenAmount from response (in wei)
+        const rawOut = response?.toTokenAmount;
         const outNum = parseFloat(rawOut);
-        if (!Number.isFinite(outNum) || outNum <= 0) throw new Error('Invalid FlyTrade amountOut');
-        // Normalisasi ke unit token keluaran (selaras strategi lain)
+
+        if (!Number.isFinite(outNum) || outNum <= 0) {
+          throw new Error('Invalid Fly.trade toTokenAmount');
+        }
+
+        // Convert from wei to token units
         const amount_out = outNum / Math.pow(10, des_output);
-        // Gas fee dari response.fees[0].value (dalam USD)
+
+        // Extract gas fee from response (in USD)
         const gasFee = response?.fees?.find(f => f.type === 'gas');
         const feeDex = parseFloat(gasFee?.value || 0);
         const FeeSwap = (Number.isFinite(feeDex) && feeDex > 0) ? feeDex : getFeeSwap(chainName);
-        return { amount_out, FeeSwap, dexTitle: 'FLY' };
-      },
-      useProxy: true // Public endpoint - gunakan CORS proxy
+
+        console.log(`[FLY] Response: ${amount_out} tokens, Gas: $${FeeSwap}`);
+
+        return {
+          amount_out,
+          FeeSwap,
+          dexTitle: 'FLY',
+          quoteId: response?.['quote-id']  // Store quote-id for transaction execution
+        };
+      }
     },
     // ZeroSwap aggregator untuk 1inch
     'zero-1inch': {
@@ -390,7 +502,7 @@
     'zero': {
       buildRequest: (...args) => dexStrategies['zero-1inch'].buildRequest(...args),
       parseResponse: (...args) => dexStrategies['zero-1inch'].parseResponse(...args)
-    },    
+    },
     // Hinkal proxy untuk 1inch (privacy-focused)
     'hinkal-1inch': {
       buildRequest: ({ sc_input, sc_output, amount_in_big, SavedSettingData, codeChain }) => {
@@ -445,8 +557,8 @@
     },
     // Alias untuk hinkal-1inch
     'hinkal': {
-        buildRequest: (...args) => dexStrategies['hinkal-1inch'].buildRequest(...args),
-        parseResponse: (...args) => dexStrategies['hinkal-1inch'].parseResponse(...args)
+      buildRequest: (...args) => dexStrategies['hinkal-1inch'].buildRequest(...args),
+      parseResponse: (...args) => dexStrategies['hinkal-1inch'].parseResponse(...args)
     },
     'zero-kyber': {
       buildRequest: ({ sc_input, sc_output, amount_in_big, des_input, des_output, codeChain }) => {
@@ -473,72 +585,129 @@
     },
     '0x': {
       buildRequest: ({ chainName, sc_input_in, sc_output_in, amount_in_big, codeChain, sc_output, sc_input, SavedSettingData }) => {
+        /**
+         * 0x Swap API - Official Documentation
+         * Docs: https://0x.org/docs/api
+         * Dashboard: https://dashboard.0x.org
+         *
+         * IMPORTANT: 0x officially supports EVM chains only (NOT Solana)
+         * - For Solana, use DZAP as configured fallback
+         * - Supported chains: https://0x.org/docs/developer-resources/supported-chains
+         */
+
+        // Solana is NOT officially supported by 0x API - should use fallback
+        if (chainName && String(chainName).toLowerCase() === 'solana') {
+          throw new Error('0x API does not support Solana - use DZAP fallback');
+        }
+
         const userAddr = SavedSettingData?.walletMeta || '0x0000000000000000000000000000000000000000';
-        // ⚠️ IMPORTANT: Matcha Solana endpoint is UNDOCUMENTED
-        // - 0x Swap API officially supports only EVM chains (NOT Solana)
-        // - Matcha frontend has Solana support but uses internal/undocumented API
-        // - This endpoint may be unstable or change without notice
-        // - For Solana, DZAP is configured as automatic fallback (see resolveFetchPlan)
-        // - References:
-        //   - 0x Supported Chains: https://0x.org/docs/developer-resources/supported-chains
-        //   - Matcha Solana Launch: https://www.theblock.co/post/349429/0x-dex-aggregator-matcha-solana-cross-chain-avoid-memecoin-rug-pulls
-        const url = chainName.toLowerCase() === 'solana'
-          ? `https://matcha.xyz/api/swap/quote/solana?sellTokenAddress=${sc_input_in}&buyTokenAddress=${sc_output_in}&sellAmount=${amount_in_big}&dynamicSlippage=true&slippageBps=50&userPublicKey=Eo6CpSc1ViboPva7NZ1YuxUnDCgqnFDXzcDMDAF6YJ1L`
-          : `https://matcha.xyz/api/swap/price?chainId=${codeChain}&buyToken=${sc_output}&sellToken=${sc_input}&sellAmount=${amount_in_big}&slippageBps=50&taker=${userAddr}`;
-        return { url, method: 'GET' };
+
+        // Get 0x API key
+        const apiKey = get0xApiKey();
+        if (!apiKey) {
+          throw new Error('0x API key required. Get one from https://dashboard.0x.org');
+        }
+
+        // Build request URL with official 0x API endpoint
+        // ✅ UPDATED: Using /swap/allowance-holder/quote endpoint (official v2 API)
+        // Docs: https://0x.org/docs/api#tag/Swap/operation/swap::allowanceHolder::getQuote
+        const baseUrl = 'https://api.0x.org/swap/allowance-holder/quote';
+
+        const params = new URLSearchParams({
+          chainId: String(codeChain),           // Chain ID as string (required)
+          sellToken: sc_input_in,                // Sell token address (checksummed, required)
+          buyToken: sc_output_in,                // Buy token address (checksummed, required)
+          sellAmount: String(amount_in_big),     // Amount in base units (required)
+          taker: userAddr,                       // Taker address (required)
+          slippageBps: '100'                     // 1% slippage (default: 100 basis points)
+        });
+
+        const url = `${baseUrl}?${params.toString()}`;
+
+        // Required headers per official documentation
+        const headers = {
+          '0x-api-key': apiKey,
+          '0x-version': 'v2'
+        };
+
+        console.log(`[0x API] Request: ${chainName} ${sc_input_in} -> ${sc_output_in}`);
+
+        return { url, method: 'GET', headers };
       },
       parseResponse: (response, { des_output, des_input, chainName }) => {
-        if (!response?.buyAmount) throw new Error("Invalid 0x response structure");
+        /**
+         * Parse 0x API response (allowance-holder endpoint)
+         * Response format: https://0x.org/docs/api#tag/Swap/operation/swap::allowanceHolder::getQuote
+         *
+         * Key fields:
+         * - buyAmount: Amount of buyToken (in base units)
+         * - minBuyAmount: Minimum amount accounting for slippage
+         * - allowanceTarget: Contract address for token approval
+         * - transaction: { gas, gasPrice, value, to, data }
+         * - fees: { integratorFee, zeroExFee, gasFee }
+         * - route: { fills[], tokens[] } - Liquidity routing details
+         * - issues: { allowance, balance, simulationIncomplete, invalidSourcesPassed }
+         */
 
-        // ===== SOLANA MATCHA RESPONSE FORMAT =====
-        // For Solana, response includes route.tokens with decimals info
-        // Example response: { buyAmount: "16986", sellAmount: "10000000", route: { tokens: [...] } }
-        let actualDesOutput = des_output;
-        let actualDesInput = des_input;
+        if (!response?.buyAmount) {
+          throw new Error("Invalid 0x API response - missing buyAmount");
+        }
 
-        // Extract decimals from response for Solana (more accurate)
-        if (chainName.toLowerCase() === 'solana' && response.route?.tokens) {
-          try {
-            // response.route.tokens adalah array of tokens dalam route
-            // Index terakhir biasanya adalah buyToken
-            const tokens = response.route.tokens;
-            if (tokens.length > 0) {
-              // Cari buyToken dan sellToken dari array tokens
-              // Biasanya sellToken adalah tokens[0], buyToken adalah tokens[tokens.length-1]
-              const buyTokenInfo = tokens[tokens.length - 1];
-              const sellTokenInfo = tokens[0];
+        // Parse buyAmount from response (already in base units)
+        const buyAmount = parseFloat(response.buyAmount);
+        const amount_out = buyAmount / Math.pow(10, des_output);
 
-              if (buyTokenInfo?.decimals !== undefined) {
-                actualDesOutput = Number(buyTokenInfo.decimals);
-                console.log(`[MATCHA SOLANA] Using buyToken decimals from response: ${actualDesOutput}`);
-              }
-
-              if (sellTokenInfo?.decimals !== undefined) {
-                actualDesInput = Number(sellTokenInfo.decimals);
-              }
+        // Calculate gas fee from response (if available)
+        let FeeSwap = getFeeSwap(chainName);
+        try {
+          if (response.fees && response.fees.gasFee) {
+            const gasFeeUsd = parseFloat(response.fees.gasFee.amount || 0);
+            if (Number.isFinite(gasFeeUsd) && gasFeeUsd > 0) {
+              FeeSwap = gasFeeUsd;
             }
-          } catch (e) {
-            console.warn('[MATCHA SOLANA] Failed to extract decimals from response, using default:', e);
+          } else if (response.transaction && response.transaction.gas && response.transaction.gasPrice) {
+            // Fallback: Calculate from gas * gasPrice (need native token price)
+            const gasLimit = parseFloat(response.transaction.gas);
+            const gasPrice = parseFloat(response.transaction.gasPrice);
+            // This would need native token price conversion - skip for now
+          }
+        } catch (e) {
+          console.warn('[0x API] Could not parse gas fee from response, using default');
+        }
+
+        // Log response details for debugging
+        console.log(`[0x API] Response parsed:`, {
+          buyAmount: response.buyAmount,
+          minBuyAmount: response.minBuyAmount,
+          amountOut: amount_out.toFixed(6),
+          decimals: des_output,
+          gas: response.transaction?.gas,
+          gasPrice: response.transaction?.gasPrice,
+          sources: response.route?.fills?.length || 0,
+          chainName
+        });
+
+        // Log warnings if present
+        if (response.issues) {
+          const issueKeys = Object.keys(response.issues || {}).filter(k => response.issues[k]);
+          if (issueKeys.length > 0) {
+            console.warn(`[0x API] Response issues:`, issueKeys.join(', '));
           }
         }
 
-        // Calculate amount_out with correct decimals
-        const amount_out = parseFloat(response.buyAmount) / Math.pow(10, actualDesOutput);
-
-        // For debugging: log rate calculation for Solana
-        if (chainName.toLowerCase() === 'solana' && response.sellAmount) {
-          try {
-            const sellAmountActual = parseFloat(response.sellAmount) / Math.pow(10, actualDesInput);
-            const rateUSDT = amount_out / sellAmountActual;
-            console.log(`[MATCHA SOLANA] Sell: ${sellAmountActual} tokens, Buy: ${amount_out} USDT, Rate: ${rateUSDT} USDT per token`);
-          } catch (e) {
-            // Silent fail for debugging
+        // Log liquidity sources used
+        if (response.route?.fills) {
+          const sources = response.route.fills
+            .map(f => f.source || f.type)
+            .filter((v, i, a) => v && a.indexOf(v) === i);
+          if (sources.length > 0) {
+            console.log(`[0x API] Liquidity sources:`, sources.join(', '));
           }
         }
 
         return {
-          amount_out: amount_out,
-          FeeSwap: getFeeSwap(chainName),
+          amount_out,
+          FeeSwap,
           dexTitle: '0X'
         };
       }
@@ -673,7 +842,7 @@
               }
             }
           }
-        } catch(e) {
+        } catch (e) {
           // Fallback to default gas fee if calculation fails
         }
 
@@ -706,7 +875,7 @@
    * - gasEstimateValue: Gas cost in USD
    * - pathId: Quote identifier (valid for 60 seconds)
    */
-  function createOdosStrategy(version){
+  function createOdosStrategy(version) {
     const endpoint = `https://api.odos.xyz/sor/quote/${version}`;
     return {
       buildRequest: ({ codeChain, SavedSettingData, amount_in_big, sc_input_in, sc_output_in }) => {
@@ -845,7 +1014,7 @@
             FeeSwap: FeeSwap,
             dexTitle: dexName.toUpperCase()
           });
-        } catch(e) {
+        } catch (e) {
           continue;
         }
       }
@@ -960,7 +1129,7 @@
               const firstStep = route.steps[0];
               providerName = firstStep.toolDetails?.name || firstStep.tool || 'LIFI';
             }
-          } catch(_) {}
+          } catch (_) { }
 
           // Format sama seperti single DEX result
           subResults.push({
@@ -968,7 +1137,7 @@
             FeeSwap: FeeSwap,
             dexTitle: providerName.toUpperCase()
           });
-        } catch(e) {
+        } catch (e) {
           continue;
         }
       }
@@ -997,10 +1166,146 @@
   };
 
   // =============================
+  // SWING Strategy - Multi-DEX Aggregator (Top 3 Routes)
+  // =============================
+  dexStrategies.swing = {
+    buildRequest: ({ codeChain, sc_input, sc_output, amount_in_big, sc_input_in, sc_output_in }) => {
+      // Swing uses chain slugs instead of chain IDs
+      const chainSlugMap = {
+        1: 'ethereum',
+        56: 'bsc',
+        137: 'polygon',
+        42161: 'arbitrum',
+        10: 'optimism',
+        8453: 'base',
+        43114: 'avalanche'
+      };
+
+      const chainSlug = chainSlugMap[Number(codeChain)];
+      if (!chainSlug) {
+        throw new Error(`Swing does not support chain ID ${codeChain}. Supported: Ethereum, BSC, Polygon, Arbitrum, Optimism, Base, Avalanche`);
+      }
+
+      // ✅ CRITICAL: Swing API requires native token to use 0x0000... address
+      // Detect wrapped native tokens (WETH, WBNB, etc.) and convert to 0x0000...
+      const wrappedNativeAddresses = {
+        '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': '0x0000000000000000000000000000000000000000', // WETH (Ethereum)
+        '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c': '0x0000000000000000000000000000000000000000', // WBNB (BSC)
+        '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270': '0x0000000000000000000000000000000000000000', // WMATIC (Polygon)
+        '0x82af49447d8a07e3bd95bd0d56f35241523fbab1': '0x0000000000000000000000000000000000000000', // WETH (Arbitrum)
+        '0x4200000000000000000000000000000000000006': '0x0000000000000000000000000000000000000000', // WETH (Base)
+        '0x4200000000000000000000000000000000000006': '0x0000000000000000000000000000000000000000', // WETH (Optimism)
+        '0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7': '0x0000000000000000000000000000000000000000'  // WAVAX (Avalanche)
+      };
+
+      // Convert wrapped native to 0x0000... if detected
+      let fromToken = sc_input.toLowerCase();
+      let toToken = sc_output.toLowerCase();
+
+      if (wrappedNativeAddresses[fromToken]) {
+        fromToken = wrappedNativeAddresses[fromToken];
+      }
+      if (wrappedNativeAddresses[toToken]) {
+        toToken = wrappedNativeAddresses[toToken];
+      }
+
+      const params = new URLSearchParams({
+        fromChain: chainSlug,
+        toChain: chainSlug,
+        fromToken: fromToken,
+        toToken: toToken,
+        amount: amount_in_big.toString(),
+        type: 'swap',
+        fromWallet: '',
+        toWallet: ''
+      });
+
+      // ✅ PROJECT ID: Using 'galaxy-exchange' demo project (all chains enabled)
+      // Custom project IDs require chain configuration at https://platform.swing.xyz/
+      let selectedProjectId = 'galaxy-exchange'; // Default fallback
+      let totalProjects = 1;
+
+      try {
+        if (typeof root !== 'undefined' && typeof root.getRandomSwingProjectId === 'function') {
+          selectedProjectId = root.getRandomSwingProjectId();
+          totalProjects = root.SWING_PROJECT_IDS?.length || 1;
+        } else if (typeof root !== 'undefined' && root.SWING_PROJECT_IDS) {
+          // Direct access if helper function not available
+          const projectIds = root.SWING_PROJECT_IDS;
+          const idx = Math.floor(Math.random() * projectIds.length);
+          selectedProjectId = projectIds[idx];
+          totalProjects = projectIds.length;
+        }
+      } catch (e) {
+        console.warn('[SWING] Failed to get projectId from secrets.js, using default:', e.message);
+      }
+
+      console.log(`[SWING] Using projectId: ${selectedProjectId} (1 of ${totalProjects} projects)`);
+
+      return {
+        url: `https://platform.swing.xyz/api/v1/projects/${selectedProjectId}/quote?${params.toString()}`,
+        method: 'GET',
+        headers: {}
+      };
+    },
+    parseResponse: (response, { des_output, chainName }) => {
+      // Parse Swing response - return top 3 routes with single-DEX style calculation
+      const routes = response?.routes;
+
+      if (!routes || !Array.isArray(routes) || routes.length === 0) {
+        throw new Error("Swing routes not found in response");
+      }
+
+      // Parse all routes into array
+      const subResults = [];
+      for (const route of routes) {
+        try {
+          if (!route || !route.quote || !route.quote.amount) continue;
+
+          const amount_out = parseFloat(route.quote.amount) / Math.pow(10, des_output);
+          const gasUsd = parseFloat(route.gasUSD || 0);
+          const FeeSwap = (Number.isFinite(gasUsd) && gasUsd > 0) ? gasUsd : getFeeSwap(chainName);
+
+          // Get provider name from quote.integration
+          const providerName = route.quote.integration || 'Unknown';
+
+          // Format same as single DEX result
+          subResults.push({
+            amount_out: amount_out,
+            FeeSwap: FeeSwap,
+            dexTitle: providerName.toUpperCase()
+          });
+        } catch (e) {
+          continue;
+        }
+      }
+
+      if (subResults.length === 0) {
+        throw new Error("No valid Swing routes found");
+      }
+
+      // Sort by amount_out (descending) and get top 3
+      const maxProviders = (typeof window !== 'undefined' && window.CONFIG_DEXS?.swing?.maxProviders) || 3;
+      subResults.sort((a, b) => b.amount_out - a.amount_out);
+      const topN = subResults.slice(0, maxProviders);
+
+      console.log(`[SWING] Returning top ${maxProviders} routes from ${subResults.length} available routes`);
+
+      // Return multi-DEX format with top N routes
+      return {
+        amount_out: topN[0].amount_out,
+        FeeSwap: topN[0].FeeSwap,
+        dexTitle: 'SWING',
+        subResults: topN,
+        isMultiDex: true
+      };
+    }
+  };
+
+  // =============================
   // RANGO Strategy - Multi-Chain DEX Aggregator (Top 3 Routes)
   // =============================
   dexStrategies.rango = {
-    useProxy: true, // ✅ Enable CORS proxy to avoid CORS errors
     buildRequest: ({ chainName, sc_input_in, sc_output_in, amount_in_big, des_input, symbol_in, symbol_out, SavedSettingData }) => {
       // Rango API - Multi-chain aggregator dengan 70+ DEXs & bridges
       // Reference: https://docs.rango.exchange/api-integration/main-api-multi-step/api-reference/get-best-route
@@ -1098,12 +1403,12 @@
         slippage: "1", // 1% slippage (Rango uses "1" not "1.0")
         contractCall: false,
         swapperGroups: [
-          "Across","AllBridge","Arbitrum Bridge","Bridgers","Chainflip",
-          "Circle","Circle V2","DeBridge","Garden","Hyperliquid","IBC",
-          "Layer Zero","Maya Protocol","Mayan","NearIntent","Optimism Bridge",
-          "Orbiter","Pluton","Rainbow Bridge","RelayProtocol","SWFT",
-          "Satellite","Shimmer Bridge","Stargate","Stargate Economy",
-          "Symbiosis","TeleSwap","ThorChain","XO Swap","XY Finance","Zuno"
+          "Across", "AllBridge", "Arbitrum Bridge", "Bridgers", "Chainflip",
+          "Circle", "Circle V2", "DeBridge", "Garden", "Hyperliquid", "IBC",
+          "Layer Zero", "Maya Protocol", "Mayan", "NearIntent", "Optimism Bridge",
+          "Orbiter", "Pluton", "Rainbow Bridge", "RelayProtocol", "SWFT",
+          "Satellite", "Shimmer Bridge", "Stargate", "Stargate Economy",
+          "Symbiosis", "TeleSwap", "ThorChain", "XO Swap", "XY Finance", "Zuno"
         ],
         swappersGroupsExclude: true, // Exclude bridges, focus on DEXs
         enableCentralizedSwappers: true // Enable CEX routes if available
@@ -1214,7 +1519,7 @@
               const firstSwap = route.swaps[0];
               providerName = firstSwap.swapperId || firstSwap.swapperTitle || 'RANGO';
             }
-          } catch(_) {}
+          } catch (_) { }
 
           // Format same as LIFI result
           subResults.push({
@@ -1223,7 +1528,7 @@
             dexTitle: providerName.toUpperCase()
           });
 
-        } catch(e) {
+        } catch (e) {
           console.warn('[RANGO] Error parsing route:', e);
           continue;
         }
@@ -1335,7 +1640,7 @@
         if (!Number.isFinite(FeeSwap) || FeeSwap <= 0) {
           FeeSwap = 0.001; // Default minimal fee for Solana
         }
-      } catch(e) {
+      } catch (e) {
         FeeSwap = 0.001;
       }
 
@@ -1404,7 +1709,7 @@
         if (!Number.isFinite(FeeSwap) || FeeSwap <= 0) {
           FeeSwap = 0.001; // Default minimal fee for Solana
         }
-      } catch(e) {
+      } catch (e) {
         FeeSwap = 0.001;
       }
 
@@ -1479,7 +1784,7 @@
             solPrice = solGasInfo.nativeTokenPrice;
           }
         }
-      } catch(_) {}
+      } catch (_) { }
 
       // Take top 3 quotes for display (like LIFI/DZAP)
       const top3 = quotes.slice(0, 3).map(quote => {
@@ -1549,7 +1854,6 @@
   const RUBIC_MIN_INTERVAL = 1000; // Warn if requests are < 1000ms apart (max 1 req/sec recommended)
 
   dexStrategies.rubic = {
-    useProxy: true, // ✅ Enable CORS proxy to avoid 429/500 errors
     buildRequest: ({ sc_input_in, sc_output_in, amount_in_big, des_input, chainName }) => {
       // 🚀 THROTTLING CHECK: Track request timing (silent, for potential future rate limiting)
       const now = Date.now();
@@ -1700,7 +2004,7 @@
             nativePrice = gasInfo.nativeTokenPrice;
           }
         }
-      } catch(_) {}
+      } catch (_) { }
 
       // Take top 3 routes for display (like LIFI/DZAP/Kamino)
       const top3 = routes.slice(0, 3).map((route, idx) => {
@@ -1714,7 +2018,7 @@
           const gasUsd = parseFloat(route.fees?.gasTokenFees?.gas?.totalUsdAmount || 0);
           const protocolUsd = parseFloat(route.fees?.gasTokenFees?.protocol?.fixedUsdAmount || 0);
           FeeSwap = gasUsd + protocolUsd;
-        } catch(_) {
+        } catch (_) {
           // Fallback: estimate from gas limit
           const gasLimit = parseFloat(route.fees?.gasTokenFees?.gas?.gasLimit || 0);
           const gasPrice = parseFloat(route.fees?.gasTokenFees?.gas?.gasPrice || 0);
@@ -1798,10 +2102,10 @@
   // -----------------------------
   // Helper: resolve fetch plan per DEX + arah
   // -----------------------------
-  function actionKey(a){ return String(a||'').toLowerCase() === 'pairtotoken' ? 'pairtotoken' : 'tokentopair'; }
-  function resolveFetchPlan(dexType, action, chainName){
+  function actionKey(a) { return String(a || '').toLowerCase() === 'pairtotoken' ? 'pairtotoken' : 'tokentopair'; }
+  function resolveFetchPlan(dexType, action, chainName) {
     try {
-      const key = String(dexType||'').toLowerCase();
+      const key = String(dexType || '').toLowerCase();
       const cfg = (root.CONFIG_DEXS || {})[key] || {};
       const map = cfg.fetchdex || {};
       const ak = actionKey(action);
@@ -1847,7 +2151,7 @@
       }
 
       return { primary, alternative };
-    } catch(_){ return { primary: null, alternative: null }; }
+    } catch (_) { return { primary: null, alternative: null }; }
   }
 
   // ========== REQUEST DEDUPLICATION & CACHING ==========
@@ -1883,7 +2187,7 @@
           });
           return;
         }
-      } catch(_) {}
+      } catch (_) { }
 
       // ========== CACHE KEY GENERATION ==========
       // Generate unique cache key based on request parameters
@@ -1942,7 +2246,7 @@
 
       const amount_in_big = BigInt(Math.round(Math.pow(10, des_input) * amount_in));
 
-      const runStrategy = (strategyName) => new Promise((res, rej) => {
+      const runStrategy = (strategyName) => new Promise(async (res, rej) => {
         try {
           const sname = String(strategyName || '').toLowerCase();
           // DZAP dan SWOOP sekarang hanya digunakan sebagai fallback alternatif
@@ -1962,20 +2266,45 @@
               const entry = root.DEX.get(dexType);
               if (entry && entry.strategy) sKey = String(entry.strategy).toLowerCase();
             }
-          } catch(_) {}
+          } catch (_) { }
 
           const strategy = dexStrategies[sKey];
           if (!strategy) return rej(new Error(`Unsupported strategy: ${sKey}`));
 
           const requestParams = { chainName, sc_input, sc_output, amount_in_big, des_output, SavedSettingData, codeChain, action, des_input, sc_input_in, sc_output_in };
-          const { url, method, data, headers } = strategy.buildRequest(requestParams);
+
+          // ✅ FIX: Support async buildRequest (for Matcha JWT)
+          let buildResult;
+          try {
+            buildResult = await Promise.resolve(strategy.buildRequest(requestParams));
+          } catch (buildErr) {
+            return rej(new Error(`buildRequest failed: ${buildErr.message}`));
+          }
+          const { url, method, data, headers } = buildResult;
 
           // Apply proxy if configured for this DEX
-          const cfg = (typeof DEX !== 'undefined' && DEX.get) ? (DEX.get(dexType) || {}) : {};
-          const strategyAllowsProxy = strategy?.useProxy !== false;
-          const useProxy = !!cfg.proxy && strategyAllowsProxy;
+          // ✅ SINGLE SOURCE OF TRUTH: Read proxy setting from config.js only
+          const cfg = (root.CONFIG_DEXS && root.CONFIG_DEXS[dexType]) ? root.CONFIG_DEXS[dexType] : {};
+
+          // ✅ CRITICAL FIX: Explicit check for proxy = true
+          // If proxy is explicitly set to false, DO NOT use proxy
+          // If proxy is undefined or not set, also DO NOT use proxy (default: no proxy)
+          // Only use proxy if explicitly set to true
+          const useProxy = cfg.proxy === true; // MUST be explicitly true
+
           const proxyPrefix = (root.CONFIG_PROXY && root.CONFIG_PROXY.PREFIX) ? String(root.CONFIG_PROXY.PREFIX) : '';
           const finalUrl = (useProxy && proxyPrefix && typeof url === 'string' && !url.startsWith(proxyPrefix)) ? (proxyPrefix + url) : url;
+
+          // Debug logging for proxy configuration
+          console.log(`[${dexType.toUpperCase()} PROXY]`, {
+            dexType,
+            configExists: !!root.CONFIG_DEXS?.[dexType],
+            proxyValueInConfig: cfg.proxy,
+            useProxy,
+            willUseProxy: useProxy && !!proxyPrefix && !url.startsWith(proxyPrefix),
+            originalUrl: url.substring(0, 80) + '...',
+            finalUrl: finalUrl.substring(0, 80) + '...'
+          });
 
           $.ajax({
             url: finalUrl, method, dataType: 'json', timeout: timeoutMilliseconds, headers, data,
@@ -1995,7 +2324,7 @@
             },
             error: function (xhr, textStatus) {
               let status = 0;
-              try { status = Number(xhr && xhr.status) || 0; } catch(_) {}
+              try { status = Number(xhr && xhr.status) || 0; } catch (_) { }
               // Heuristik: jika body JSON menyimpan status upstream (mis. 429) walau XHR 200/parsererror
               try {
                 const txt = xhr && xhr.responseText;
@@ -2004,15 +2333,15 @@
                     const parsed = JSON.parse(txt);
                     const upstream = Number(parsed.status || parsed.statusCode || parsed.code);
                     if (Number.isFinite(upstream) && upstream >= 400) status = upstream;
-                  } catch(_) {}
+                  } catch (_) { }
                 }
-              } catch(_) {}
-              const isParser = String(textStatus||'').toLowerCase() === 'parsererror';
+              } catch (_) { }
+              const isParser = String(textStatus || '').toLowerCase() === 'parsererror';
               let coreMsg;
               if (textStatus === 'timeout') coreMsg = 'Request Timeout';
               else if (status === 200) coreMsg = isParser ? 'Parser Error (200)' : 'XHR Error (200)';
               else if (status > 0) coreMsg = describeHttpStatus(status);
-              else coreMsg = `Error: ${textStatus||'unknown'}`;
+              else coreMsg = `Error: ${textStatus || 'unknown'}`;
 
               const label = status > 0 ? (status === 200 ? '[XHR ERROR 200]' : `[HTTP ${status}]`) : '';
               // FIX: Swap token & pair address untuk arah PairtoToken (DEX→CEX)
@@ -2020,16 +2349,16 @@
               const tokenAddr = isPairtoToken ? sc_output_in : sc_input_in;
               const pairAddr = isPairtoToken ? sc_input_in : sc_output_in;
               const linkDEX = generateDexLink(dexType, chainName.toLowerCase(), codeChain, NameToken, tokenAddr, NamePair, pairAddr);
-              rej({ statusCode: status, pesanDEX: `${String(sKey||'').toUpperCase()}: ${label} ${coreMsg}` , DEX: String(sKey||'').toUpperCase(), dexURL: linkDEX, textStatus });
+              rej({ statusCode: status, pesanDEX: `${String(sKey || '').toUpperCase()}: ${label} ${coreMsg}`, DEX: String(sKey || '').toUpperCase(), dexURL: linkDEX, textStatus });
             },
           });
         } catch (error) {
-          rej({ statusCode: 500, pesanDEX: `Request Build Error: ${error.message}`, DEX: String(strategyName||'').toUpperCase() });
+          rej({ statusCode: 500, pesanDEX: `Request Build Error: ${error.message}`, DEX: String(strategyName || '').toUpperCase() });
         }
       });
 
       const plan = resolveFetchPlan(dexType, action, chainName);
-      const primary = plan.primary || String(dexType||'').toLowerCase();
+      const primary = plan.primary || String(dexType || '').toLowerCase();
       const alternative = plan.alternative || null;
 
       // ========== CREATE INFLIGHT REQUEST PROMISE ==========
@@ -2047,7 +2376,7 @@
           const code = Number(e1 && e1.statusCode);
           const primaryKey = String(primary || '').toLowerCase();
           // Treat ODOS variants + Hinkal proxy sebagai satu keluarga
-          const isOdosFamily = ['odos','odos2','odos3','hinkal'].includes(primaryKey);
+          const isOdosFamily = ['odos', 'odos2', 'odos3', 'hinkal'].includes(primaryKey);
           const noResp = !Number.isFinite(code) || code === 0;
           const isNoRespFallback = noResp && (isOdosFamily || primaryKey === 'kyber' || primaryKey === '1inch');
 
@@ -2110,7 +2439,7 @@
     const force = options && options.force ? String(options.force).toLowerCase() : null; // 'swoop' | 'dzap' | null
 
     // untuk okx,0x,kyber,paraswap,odos gunakan fallback SWOOP
-    function fallbackSWOOP(){
+    function fallbackSWOOP() {
       return new Promise((resolve, reject) => {
         const dexLower = String(dexType || '').toLowerCase();
         const slugMap = {
@@ -2140,7 +2469,7 @@
             resolve({ dexTitle: dexType, sc_input, des_input, sc_output, des_output, FeeSwap, dex: dexType, amount_out });
           },
           error: function (xhr, textStatus) {
-            let status = 0; try { status = Number(xhr && xhr.status) || 0; } catch(_) {}
+            let status = 0; try { status = Number(xhr && xhr.status) || 0; } catch (_) { }
             try {
               const txt = xhr && xhr.responseText;
               if (txt && typeof txt === 'string' && txt.length) {
@@ -2148,15 +2477,15 @@
                   const parsed = JSON.parse(txt);
                   const upstream = Number(parsed.status || parsed.statusCode || parsed.code);
                   if (Number.isFinite(upstream) && upstream >= 400) status = upstream;
-                } catch(_) {}
+                } catch (_) { }
               }
-            } catch(_) {}
-            const isParser = String(textStatus||'').toLowerCase() === 'parsererror';
+            } catch (_) { }
+            const isParser = String(textStatus || '').toLowerCase() === 'parsererror';
             let coreMsg;
             if (textStatus === 'timeout') coreMsg = 'Request Timeout';
             else if (status === 200) coreMsg = isParser ? 'Parser Error (200)' : 'XHR Error (200)';
             else if (status > 0) coreMsg = describeHttpStatus(status);
-            else coreMsg = `Error: ${textStatus||'unknown'}`;
+            else coreMsg = `Error: ${textStatus || 'unknown'}`;
             const prefix = status > 0 ? (status === 200 ? '[XHR ERROR 200]' : `[HTTP ${status}]`) : '';
             const isDark = (typeof window !== 'undefined' && window.isDarkMode && window.isDarkMode()) || (typeof document !== 'undefined' && document.body && document.body.classList.contains('dark-mode'));
             const errColor = isDark ? '#7e3636' : '#ffcccc';
@@ -2167,7 +2496,7 @@
     }
 
     // untuk okx,zerox(0x),kyber,paraswap,odos gunakan fallback DZAP
-    function fallbackDZAP(){
+    function fallbackDZAP() {
       return new Promise((resolve, reject) => {
         const SavedSettingData = getFromLocalStorage('SETTING_SCANNER', {});
         const fromAmount = String(BigInt(Math.round(Number(amount_in) * Math.pow(10, des_input))));
@@ -2221,7 +2550,7 @@
           dataType: 'json',
           contentType: 'application/json',
           data: JSON.stringify(body),
-          success: function(response){
+          success: function (response) {
             // Struktur respons Dzap bersarang dan memiliki key dinamis.
             const responseKey = Object.keys(response || {})[0];
             const quoteData = response?.[responseKey];
@@ -2262,8 +2591,8 @@
               routeTool: String(rawTool).toUpperCase()
             });
           },
-          error: function(xhr, textStatus){
-            let status = 0; try { status = Number(xhr && xhr.status) || 0; } catch(_) {}
+          error: function (xhr, textStatus) {
+            let status = 0; try { status = Number(xhr && xhr.status) || 0; } catch (_) { }
             try {
               const txt = xhr && xhr.responseText;
               if (txt && typeof txt === 'string' && txt.length) {
@@ -2271,15 +2600,15 @@
                   const parsed = JSON.parse(txt);
                   const upstream = Number(parsed.status || parsed.statusCode || parsed.code);
                   if (Number.isFinite(upstream) && upstream >= 400) status = upstream;
-                } catch(_) {}
+                } catch (_) { }
               }
-            } catch(_) {}
-            const isParser = String(textStatus||'').toLowerCase() === 'parsererror';
+            } catch (_) { }
+            const isParser = String(textStatus || '').toLowerCase() === 'parsererror';
             let coreMsg;
             if (textStatus === 'timeout') coreMsg = 'Request Timeout';
             else if (status === 200) coreMsg = isParser ? 'Parser Error (200)' : 'XHR Error (200)';
             else if (status > 0) coreMsg = describeHttpStatus(status);
-            else coreMsg = `Error: ${textStatus||'unknown'}`;
+            else coreMsg = `Error: ${textStatus || 'unknown'}`;
             const prefix = status > 0 ? (status === 200 ? '[XHR ERROR 200]' : `[HTTP ${status}]`) : '';
             const isDark = (typeof window !== 'undefined' && window.isDarkMode && window.isDarkMode()) || (typeof document !== 'undefined' && document.body && document.body.classList.contains('dark-mode'));
             const errColor = isDark ? '#7e3636' : '#ffcccc';
@@ -2295,13 +2624,13 @@
       const dexLower = String(dexType || '').toLowerCase();
       const dexConfig = (root.CONFIG_DEXS || {})[dexLower];
       if (dexConfig && dexConfig.fetchdex && dexConfig.fetchdex.alternative) {
-        const actionKey = String(action||'').toLowerCase() === 'pairtotoken' ? 'pairtotoken' : 'tokentopair';
+        const actionKey = String(action || '').toLowerCase() === 'pairtotoken' ? 'pairtotoken' : 'tokentopair';
         const altStrategy = dexConfig.fetchdex.alternative[actionKey];
         if (altStrategy) {
           configFallback = String(altStrategy).toLowerCase();
         }
       }
-    } catch(_) {}
+    } catch (_) { }
 
     // Fallback global jika tidak ada alternative per-DEX
     if (!configFallback) {
@@ -2329,7 +2658,7 @@
   }
 
   // Lightweight DEX registry for link builders and policy
-  (function initDexRegistry(){
+  (function initDexRegistry() {
     const REG = new Map();
     // Alias mapping untuk normalize nama DEX yang berbeda
     const ALIASES = {
@@ -2341,12 +2670,12 @@
       'hinkal': 'odos',
       'okxdex': 'okx'
     };
-    function norm(n){
-      const lower = String(n||'').toLowerCase();
+    function norm(n) {
+      const lower = String(n || '').toLowerCase();
       return ALIASES[lower] || lower;
     }
     const DexAPI = {
-      register(name, def){
+      register(name, def) {
         const key = norm(name);
         if (!key) return;
         const entry = {
@@ -2363,9 +2692,9 @@
         if ('allowFallback' in entry) root.CONFIG_DEXS[key].allowFallback = entry.allowFallback;
         if ('proxy' in entry) root.CONFIG_DEXS[key].proxy = entry.proxy;
       },
-      get(name){ return REG.get(norm(name)) || null; },
-      list(){ return Array.from(REG.keys()); },
-      normalize(name){ return norm(name); }
+      get(name) { return REG.get(norm(name)) || null; },
+      list() { return Array.from(REG.keys()); },
+      normalize(name) { return norm(name); }
     };
 
     // Seed from existing CONFIG_DEXS if present (builder, allowFallback, strategy)
@@ -2374,16 +2703,16 @@
         const d = root.CONFIG_DEXS[k] || {};
         DexAPI.register(k, { builder: d.builder, allowFallback: !!d.allowFallback, strategy: d.STRATEGY || null, proxy: !!d.proxy });
       });
-    } catch(_){}
+    } catch (_) { }
 
     root.DEX = DexAPI;
 
-    // Register FlyTrade dengan proxy enabled
+    // Register FlyTrade tanpa proxy (direct API endpoint)
     DexAPI.register('fly', {
       allowFallback: false,
-      proxy: true,
-      builder: function({ chainName, codeChain, tokenAddress, pairAddress }) {
-        return `https://fly.trade/swap?network=${String(chainName||'').toLowerCase()}&from=${pairAddress}&to=${tokenAddress}`;
+      proxy: false,
+      builder: function ({ chainName, codeChain, tokenAddress, pairAddress }) {
+        return `https://fly.trade/swap?network=${String(chainName || '').toLowerCase()}&from=${pairAddress}&to=${tokenAddress}`;
       }
     });
   })();

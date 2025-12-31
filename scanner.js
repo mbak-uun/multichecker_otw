@@ -395,15 +395,17 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
     sendStatusTELE(ConfigScan.nickname, 'ONLINE');
 
     // Ambil parameter jeda dan kecepatan dari settings.
-    // OPTIMIZED: Kurangi default jedaKoin untuk scan lebih cepat (500→150ms)
-    let scanPerKoin = parseInt(ConfigScan.scanPerKoin || 1);
-    let jedaKoin = parseInt(ConfigScan.jedaKoin || 150);
-    let jedaTimeGroup = parseInt(ConfigScan.jedaTimeGroup || 1000);
+    // ✅ FIXED: Gunakan CONFIG_UI.SETTINGS.defaults sebagai fallback (bukan hardcoded)
+    const configDefaults = (window.CONFIG_UI?.SETTINGS?.defaults) || {};
+
+    let scanPerKoin = parseInt(ConfigScan.scanPerKoin || configDefaults.tokensPerBatch || 3);
+    let jedaKoin = parseInt(ConfigScan.jedaKoin || configDefaults.delayPerToken || 200);
+    let jedaTimeGroup = parseInt(ConfigScan.jedaTimeGroup || configDefaults.delayBetweenGrup || 400);
     // Jeda tambahan agar urutan fetch mengikuti pola lama (tanpa mengubah logika hasil)
     // Catatan: gunakan nilai dari SETTING_SCANNER
     // - Jeda DEX: per-DEX dari ConfigScan.JedaDexs[dex] (Jeda CEX dihapus)
-    // OPTIMIZED: Kurangi speedScan untuk timeout lebih cepat (2s → 1s)
-    let speedScan = Math.round(parseFloat(ConfigScan.speedScan || 1) * 1000);
+    // ✅ FIXED: Gunakan configDefaults.timeoutCount untuk timeout
+    let speedScan = parseInt(ConfigScan.TimeoutCount || configDefaults.timeoutCount || 10000);
 
     // Jeda per-DEX untuk rate limiting (dapat di-set via settings, default 0 = no delay)
     // User dapat mengatur delay berbeda untuk setiap DEX jika ada rate limit

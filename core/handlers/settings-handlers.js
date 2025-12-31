@@ -55,6 +55,7 @@
         const jedaTimeGroup = parseInt($('#jeda-time-group').val(), 10);
         const jedaKoin = parseInt($('#jeda-koin').val(), 10);
         const walletMeta = $('#walletMeta').val().trim();
+        // ✅ apiKey0x removed - now managed in secrets.js
         const scanPerKoin = $('input[name="koin-group"]:checked').val();
         const speedScan = $('input[name="waktu-tunggu"]:checked').val();
 
@@ -108,6 +109,7 @@
 
         const settingData = {
             nickname, jedaTimeGroup, jedaKoin, walletMeta,
+            // ✅ apiKey0x removed - now managed in secrets.js
             scanPerKoin: parseInt(scanPerKoin, 10),
             speedScan: parseFloat(speedScan),
             JedaDexs,

@@ -1647,16 +1647,30 @@
         // - Rekomendasi: 5-10 untuk RPC publik strict, 15-25 untuk RPC premium
         const BATCH_SIZE = 5; // Process 8 tokens per batch (aman untuk RPC publik strict)
 
+        // ✅ FIXED: Read snapshot delays from user settings (not hardcoded)
+        // Load settings from localStorage/IndexedDB
+        let savedSettings = {};
+        try {
+            if (typeof window.getFromLocalStorage === 'function') {
+                savedSettings = window.getFromLocalStorage('SETTING_SCANNER', {});
+            }
+        } catch (e) {
+            console.warn('[Snapshot] Failed to load settings:', e.message);
+        }
+
+        // Get config defaults as fallback
+        const configDefaults = (window.CONFIG_UI?.SETTINGS?.defaults) || {};
+
         // BATCH_DELAY: Jeda waktu (ms) antar batch untuk menghindari rate limit
         // - 0ms: Tidak ada jeda (hanya untuk RPC premium/unlimited)
         // - 1000-1500ms: Aman untuk RPC publik strict (recommended)
         // - 500-800ms: Untuk RPC publik normal
-        const BATCH_DELAY = 300; // Jeda 1200ms (1.2 detik) antar batch
+        const BATCH_DELAY = parseInt(savedSettings.snapshotBatchDelay || configDefaults.snapshotBatchDelay || 300);
 
         // WEB3_REQUEST_DELAY: Jeda waktu (ms) antar Web3 request DALAM batch
         // - 0ms: Semua request parallel (risiko rate limit)
         // - 100-200ms: Aman untuk RPC publik strict
-        const WEB3_REQUEST_DELAY = 150; // Jeda 150ms antar Web3 request dalam batch
+        const WEB3_REQUEST_DELAY = parseInt(savedSettings.snapshotRequestDelay || configDefaults.snapshotRequestDelay || 150);
 
         console.log(`[Web3 Fetch] Config: BATCH_SIZE=${BATCH_SIZE}, BATCH_DELAY=${BATCH_DELAY}ms, WEB3_REQUEST_DELAY=${WEB3_REQUEST_DELAY}ms`);
         // ==========================================

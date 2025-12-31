@@ -1,5 +1,5 @@
 // Token Price Monitor Application - Updated for Frontend API Calls
-const DexList = [ 'Matcha','KyberSwap','1inch','ODOS','OKXDEX','LIFI'];
+const DexList = ['Matcha', 'KyberSwap', '1inch', 'ODOS', 'OKXDEX', 'LIFI'];
 const CexList = ['Binance', 'MEXC', 'Gateio', 'INDODAX'];
 
 const CexShortMap = {
@@ -16,7 +16,7 @@ class TokenPriceMonitor {
         this.apiBaseUrl = window.location.origin + '/api';
         this.tokens = this.loadTokens();
         this.settings = this.loadSettings();
-        this.currentEditingToken = null;        
+        this.currentEditingToken = null;
         this.searchKeyword = '';
         this.sortAscending = true;
         this.selectedChains = JSON.parse(localStorage.getItem('MULTIALL_CHAINS')) || [];
@@ -36,7 +36,7 @@ class TokenPriceMonitor {
         this.bindEvents();
         this.loadSettingsForm();
         this.fetchGasTokenPrices();
-        this.SearchCTokenMonitoring(); 
+        this.SearchCTokenMonitoring();
         this.generateEmptyTable();
         this.fetchUSDTtoIDRRate();
         this.initializeChainCheckbox();
@@ -52,16 +52,16 @@ class TokenPriceMonitor {
                 $('.sort-toggle').removeClass('uk-button-primary');
                 $inp.closest('.sort-toggle').addClass('uk-button-primary');
             }
-        } catch(_) {}
+        } catch (_) { }
 
-         // ✅ Set timeout global dari settings ke window
+        // ✅ Set timeout global dari settings ke window
         const timeoutValue = this.settings?.TimeoutCount || 4000;
         window.timeoutApi = timeoutValue;
 
         const lastWalletUpdate = localStorage.getItem("MULTIALL_ACTIONS");
         $('#infostatus').html(lastWalletUpdate ? lastWalletUpdate : "???");
 
-         // 🚫 Jika setting belum valid, nonaktifkan semua tombol
+        // 🚫 Jika setting belum valid, nonaktifkan semua tombol
         if (this.isSettingInvalid()) {
             $('#CheckPrice').prop('disabled', true);
             $('#autorunBtn').prop('disabled', true);
@@ -137,7 +137,7 @@ class TokenPriceMonitor {
             e.preventDefault();
         });
 
-       $(document).off('click', '.btn-save-inline').on('click', '.btn-save-inline', (e) => {
+        $(document).off('click', '.btn-save-inline').on('click', '.btn-save-inline', (e) => {
             const btn = $(e.currentTarget);
             const tokenId = btn.data('token-id');
 
@@ -169,8 +169,8 @@ class TokenPriceMonitor {
             this.logAction(`UBAH DATA KOIN ${(token.symbol).toUpperCase()}`);
             console.log(`📝 Menyimpan field dari token ${token.symbol}:`, token);
 
-             this.loadTokenTable();
-             this.updateStats();
+            this.loadTokenTable();
+            this.updateStats();
         });
 
         $(document).off('change', '.update-cex-checkbox').on('change', '.update-cex-checkbox', (e) => {
@@ -197,7 +197,7 @@ class TokenPriceMonitor {
             const alertType = isChecked ? 'primary' : 'danger';
             this.showAlert(`${emoji} ${cexName} ${isChecked ? 'ditambahkan ke' : 'dihapus dari'} token ${token.symbol}`, alertType);
 
-             this.logAction(`UBAH DATA KOIN`);
+            this.logAction(`UBAH DATA KOIN`);
         });
 
         $(document).off('change', '.update-dex-checkbox').on('change', '.update-dex-checkbox', (e) => {
@@ -261,14 +261,14 @@ class TokenPriceMonitor {
             this.dexErrorCount = {};
             DexList.forEach(d => this.dexErrorCount[d] = 0);
             DexList.forEach(d => this.updateDexErrorBadge(d));
-            
+
             // Inisialisasi sekali saja di luar loop (bukan tiap iterasi sinyal)
             this.highestPNLSignal = {}; // ✅ Reset setiap scan baru
 
             // Aktifkan tab Price Monitoring
             $('#mainTabs a[href="#priceMonitoring"]').tab('show');
-            
-           // Nonaktifkan klik pada tab lain (bukan disembunyikan)
+
+            // Nonaktifkan klik pada tab lain (bukan disembunyikan)
             const disableTab = (selector) => {
                 const tabBtn = $(`#tabIconController button[data-bs-target="${selector}"]`);
                 tabBtn.addClass('disabled').css({
@@ -347,7 +347,7 @@ class TokenPriceMonitor {
             }
         });
 
-       $('#StopScan,#reload').on('click', () => {
+        $('#StopScan,#reload').on('click', () => {
             clearInterval(this.autorunTimer);
             $('#autorunCountdown').remove();
 
@@ -364,35 +364,35 @@ class TokenPriceMonitor {
 
         $('#WalletCEX').on('click', () => {
             if (confirm("Apakah Anda yakin ingin UPDATE WALLET CEX?")) {
-                 $('#CheckPrice').prop('disabled', true);
-                 $('#autorunBtn').prop('disabled', true);
+                $('#CheckPrice').prop('disabled', true);
+                $('#autorunBtn').prop('disabled', true);
                 checkAllCEXWalletsPerChain();
-                 // Nonaktifkan klik pada tab lain (bukan disembunyikan)
-           
-                 const disableTab = (selector) => {
-                const tabBtn = $(`#tabIconController button[data-bs-target="${selector}"]`);
-                tabBtn.addClass('disabled').css({
-                    'pointer-events': 'none',
-                    'opacity': 0.5
-                });
-            };
-            
-            disableTab('#priceMonitoring');
-            disableTab('#tokenManagement');
-            disableTab('#apiSettings');
-            disableTab('#portfolioTab');
-            disableTab('#WalletCEX');
+                // Nonaktifkan klik pada tab lain (bukan disembunyikan)
+
+                const disableTab = (selector) => {
+                    const tabBtn = $(`#tabIconController button[data-bs-target="${selector}"]`);
+                    tabBtn.addClass('disabled').css({
+                        'pointer-events': 'none',
+                        'opacity': 0.5
+                    });
+                };
+
+                disableTab('#priceMonitoring');
+                disableTab('#tokenManagement');
+                disableTab('#apiSettings');
+                disableTab('#portfolioTab');
+                disableTab('#WalletCEX');
             }
         });
 
 
-      //  Save token button
+        //  Save token button
         $('#saveTokenBtn').on('click', (e) => {
-            e.preventDefault();     
+            e.preventDefault();
             this.saveToken();
         });
 
-        $(document).on('click', 'a.nav-link.active[href="#priceMonitoring"]', function(e) {
+        $(document).on('click', 'a.nav-link.active[href="#priceMonitoring"]', function (e) {
             e.preventDefault(); // Mencegah default tab switching jika perlu
             location.reload();  // Melakukan reload halaman
         });
@@ -400,7 +400,7 @@ class TokenPriceMonitor {
 
         // Save settings button
         $('#saveSettingsBtn').on('click', (e) => {
-            e.preventDefault();     
+            e.preventDefault();
             this.saveSettings();
         });
 
@@ -561,7 +561,7 @@ class TokenPriceMonitor {
                     ? a.symbol.localeCompare(b.symbol)
                     : b.symbol.localeCompare(a.symbol));
                 this.generateEmptyTable();
-            } catch(_) {}
+            } catch (_) { }
         });
 
     }
@@ -596,7 +596,7 @@ class TokenPriceMonitor {
         }, 1000);
     }
 
-   initPairSymbolAutocomplete() {
+    initPairSymbolAutocomplete() {
         const PAIR_LIST = [
             { symbolPair: 'USDT', scAddressPair: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F', desPair: '6', chain: 'POLYGON' },
             { symbolPair: 'POL', scAddressPair: '0x0000000000000000000000000000000000001010', desPair: '18', chain: 'POLYGON' },
@@ -655,107 +655,107 @@ class TokenPriceMonitor {
     }
 
     async fetchGasTokenPrices() {
-    const binanceURL = 'https://api-gcp.binance.com/api/v3/ticker/price?symbols=["BNBUSDT","ETHUSDT","MATICUSDT","BTCUSDT"]';
-    $('#gasTokenPrices').html(`<small class="text-white">Loading Gwei info...</small>`);
+        const binanceURL = 'https://api-gcp.binance.com/api/v3/ticker/price?symbols=["BNBUSDT","ETHUSDT","MATICUSDT","BTCUSDT"]';
+        $('#gasTokenPrices').html(`<small class="text-white">Loading Gwei info...</small>`);
 
-    const response = await $.getJSON(binanceURL).catch(err => {
-        $('#gasTokenPrices').html('<span class="text-danger">Gagal ambil harga.</span>');
-        throw new Error('Gagal ambil harga token dari Binance');
-    });
+        const response = await $.getJSON(binanceURL).catch(err => {
+            $('#gasTokenPrices').html('<span class="text-danger">Gagal ambil harga.</span>');
+            throw new Error('Gagal ambil harga token dari Binance');
+        });
 
-    if (!response) {
-        throw new Error("Respon harga token kosong dari Binance");
-    }
-
-    const tokenPrices = {};
-    response.forEach(item => {
-        const symbol = item.symbol.replace("USDT", "");
-        tokenPrices[symbol] = parseFloat(item.price);
-
-        if (symbol === 'BTC') $('#btcPrice').text(`$${tokenPrices[symbol].toFixed(2)}`);
-        if (symbol === 'BNB') $('#bnbPrice').text(`$${tokenPrices[symbol].toFixed(2)}`);
-        if (symbol === 'ETH') $('#ethPrice').text(`$${tokenPrices[symbol].toFixed(2)}`);
-        if (symbol === 'MATIC') $('#maticPrice').text(`$${tokenPrices[symbol].toFixed(2)}`);
-    });
-
-    const Web3 = window.Web3;
-    const gasTextParts = [];
-    const gasTokenInfo = {};
-
-    // 🔍 Ambil selectedChains dari localStorage
-    let selectedChains = [];
-    try {
-        const stored = localStorage.getItem("MULTIALL_CHAINS");
-        if (stored) {
-            selectedChains = JSON.parse(stored).map(c => c.toLowerCase());
-        }
-    } catch (e) {
-        console.warn("MULTIALL_CHAINS invalid:", e);
-    }
-
-    // 🔗 Filter hanya chain yang terpilih
-    const supportedChains = Object.keys(CHAIN_CONFIG)
-        .filter(key => CHAIN_CONFIG[key].rpc && selectedChains.includes(key.toLowerCase()))
-        .map(key => ({
-            key,
-            label: CHAIN_CONFIG[key].short,
-            symbol: CHAIN_CONFIG[key].symbol,
-            gasLimit: CHAIN_CONFIG[key].gasLimit
-        }));
-
-    let successCount = 0;
-
-    for (const chain of supportedChains) {
-        const key = chain.key || chain.symbol;
-        const symbol = chain.symbol;
-        const rpcUrl = CHAIN_CONFIG[key.toLowerCase()]?.rpc || '';
-        let tokenPrice = tokenPrices[symbol];
-
-        if (!tokenPrice && symbol === 'POL') {
-            tokenPrice = tokenPrices['MATIC'];
+        if (!response) {
+            throw new Error("Respon harga token kosong dari Binance");
         }
 
-        if (!rpcUrl || !tokenPrice) {
-            gasTextParts.push(`<span class='badge bg-light text-dark fs-8'>${chain.label} [n/a]</span>`);
-            continue;
-        }
+        const tokenPrices = {};
+        response.forEach(item => {
+            const symbol = item.symbol.replace("USDT", "");
+            tokenPrices[symbol] = parseFloat(item.price);
 
+            if (symbol === 'BTC') $('#btcPrice').text(`$${tokenPrices[symbol].toFixed(2)}`);
+            if (symbol === 'BNB') $('#bnbPrice').text(`$${tokenPrices[symbol].toFixed(2)}`);
+            if (symbol === 'ETH') $('#ethPrice').text(`$${tokenPrices[symbol].toFixed(2)}`);
+            if (symbol === 'MATIC') $('#maticPrice').text(`$${tokenPrices[symbol].toFixed(2)}`);
+        });
+
+        const Web3 = window.Web3;
+        const gasTextParts = [];
+        const gasTokenInfo = {};
+
+        // 🔍 Ambil selectedChains dari localStorage
+        let selectedChains = [];
         try {
-            const web3 = new Web3(new Web3.providers.HttpProvider(rpcUrl));
-            const block = await web3.eth.getBlock("pending");
-            const baseFee = block?.baseFeePerGas ? parseInt(block.baseFeePerGas) : await web3.eth.getGasPrice();
+            const stored = localStorage.getItem("MULTIALL_CHAINS");
+            if (stored) {
+                selectedChains = JSON.parse(stored).map(c => c.toLowerCase());
+            }
+        } catch (e) {
+            console.warn("MULTIALL_CHAINS invalid:", e);
+        }
 
-            const gwei = (baseFee / 1e9) * 2;
-            const gasUSDT = (gwei * chain.gasLimit * tokenPrice) / 1e9;
+        // 🔗 Filter hanya chain yang terpilih
+        const supportedChains = Object.keys(CHAIN_CONFIG)
+            .filter(key => CHAIN_CONFIG[key].rpc && selectedChains.includes(key.toLowerCase()))
+            .map(key => ({
+                key,
+                label: CHAIN_CONFIG[key].short,
+                symbol: CHAIN_CONFIG[key].symbol,
+                gasLimit: CHAIN_CONFIG[key].gasLimit
+            }));
 
-            console.log(`🟢 ${chain.label} | Gwei: ${gwei.toFixed(2)} | Token: ${symbol} | Price: $${tokenPrice} | Fee ≈ $${gasUSDT.toFixed(4)}`);
-            
-            gasTextParts.push(
-                `<span class='badge bg-secondary text-white fs-8 fw-bold'>🔥 ${chain.label} [${gwei.toFixed(2)} | $${gasUSDT.toFixed(4)}]</span>`
-            );
+        let successCount = 0;
 
-            gasTokenInfo[key] = {
-                symbol,
-                gwei,
-                tokenPrice,
-                gasFeeUSDT: gasUSDT,
-                gasLimit: chain.gasLimit
-            };
+        for (const chain of supportedChains) {
+            const key = chain.key || chain.symbol;
+            const symbol = chain.symbol;
+            const rpcUrl = CHAIN_CONFIG[key.toLowerCase()]?.rpc || '';
+            let tokenPrice = tokenPrices[symbol];
 
-            successCount++;
-        } catch (err) {
-            console.error(`❌ Gagal ambil data gas untuk ${chain.label}:`, err);
-            gasTextParts.push(`<span class='badge bg-danger fs-8'>${chain.label} [err]</span>`);
+            if (!tokenPrice && symbol === 'POL') {
+                tokenPrice = tokenPrices['MATIC'];
+            }
+
+            if (!rpcUrl || !tokenPrice) {
+                gasTextParts.push(`<span class='badge bg-light text-dark fs-8'>${chain.label} [n/a]</span>`);
+                continue;
+            }
+
+            try {
+                const web3 = new Web3(new Web3.providers.HttpProvider(rpcUrl));
+                const block = await web3.eth.getBlock("pending");
+                const baseFee = block?.baseFeePerGas ? parseInt(block.baseFeePerGas) : await web3.eth.getGasPrice();
+
+                const gwei = (baseFee / 1e9) * 2;
+                const gasUSDT = (gwei * chain.gasLimit * tokenPrice) / 1e9;
+
+                console.log(`🟢 ${chain.label} | Gwei: ${gwei.toFixed(2)} | Token: ${symbol} | Price: $${tokenPrice} | Fee ≈ $${gasUSDT.toFixed(4)}`);
+
+                gasTextParts.push(
+                    `<span class='badge bg-secondary text-white fs-8 fw-bold'>🔥 ${chain.label} [${gwei.toFixed(2)} | $${gasUSDT.toFixed(4)}]</span>`
+                );
+
+                gasTokenInfo[key] = {
+                    symbol,
+                    gwei,
+                    tokenPrice,
+                    gasFeeUSDT: gasUSDT,
+                    gasLimit: chain.gasLimit
+                };
+
+                successCount++;
+            } catch (err) {
+                console.error(`❌ Gagal ambil data gas untuk ${chain.label}:`, err);
+                gasTextParts.push(`<span class='badge bg-danger fs-8'>${chain.label} [err]</span>`);
+            }
+        }
+
+        $('#gasTokenPrices').html(gasTextParts.join(" "));
+        localStorage.setItem('MULTIALL_GAS', JSON.stringify(gasTokenInfo));
+
+        if (successCount === 0) {
+            throw new Error("Gagal mengambil data gas untuk semua chain.");
         }
     }
-
-    $('#gasTokenPrices').html(gasTextParts.join(" "));
-    localStorage.setItem('MULTIALL_GAS', JSON.stringify(gasTokenInfo));
-
-    if (successCount === 0) {
-        throw new Error("Gagal mengambil data gas untuk semua chain.");
-    }
-}
 
     async fetchGasTokenPricesLAMA() {
         const binanceURL = 'https://api-gcp.binance.com/api/v3/ticker/price?symbols=["BNBUSDT","ETHUSDT","MATICUSDT","BTCUSDT"]';
@@ -820,7 +820,7 @@ class TokenPriceMonitor {
                 const gasUSDT = (gwei * chain.gasLimit * tokenPrice) / 1e9;
 
                 console.log(`🟢 ${chain.label} | Gwei: ${gwei.toFixed(2)} | Token: ${symbol} | Price: $${tokenPrice} | Fee ≈ $${gasUSDT.toFixed(4)}`);
-                
+
                 gasTextParts.push(
                     `<span class='badge bg-secondary text-white fs-8 fw-bold'>🔥 ${chain.label} [${gwei.toFixed(2)} | $${gasUSDT.toFixed(4)}]</span>`
                 );
@@ -1024,7 +1024,7 @@ class TokenPriceMonitor {
         }
 
         // 🧩 ID target kolom
-        
+
         const orderbookRightId = `orderbook_dex_to_cex_${cexName.toLowerCase()}_${chain}_${quote.toLowerCase()}_${base.toLowerCase()}`;
         const orderbookLeftId = `orderbook_cex_to_dex_${cexName.toLowerCase()}_${chain}_${base.toLowerCase()}_${quote.toLowerCase()}`;
 
@@ -1051,16 +1051,21 @@ class TokenPriceMonitor {
     }
 
     loadSettings() {
+        // ✅ Priority: localStorage > config defaults > hardcoded fallback
         const settings = localStorage.getItem('MULTIALL_SETTING');
-        const parsedSettings = settings ? JSON.parse(settings) : {
-            tokensPerBatch: 3, // jumlah anggota
-            UserName: 'XXX', // jeda antar member
-            delayBetweenGrup: 400, // jeda batch
-            TimeoutCount: 4000,
-            PNLFilter: 0,
-            WalletAddress: '-'
+        const stored = settings ? JSON.parse(settings) : {};
+        const configDefaults = CONFIG_SCANNER?.SETTINGS?.defaults || {};
+
+        const parsedSettings = {
+            tokensPerBatch: stored.tokensPerBatch || configDefaults.tokensPerBatch || 3,
+            UserName: stored.UserName || 'XXX',
+            delayBetweenGrup: stored.delayBetweenGrup || configDefaults.delayBetweenGrup || 400,
+            TimeoutCount: stored.TimeoutCount || configDefaults.timeoutCount || 4000,
+            PNLFilter: stored.PNLFilter || configDefaults.pnlFilter || 0,
+            WalletAddress: stored.WalletAddress || '-'
         };
-         // Tampilkan info config ke elemen #infoConfig
+
+        // Tampilkan info config ke elemen #infoConfig
         const shortened = this.shortenAddress(parsedSettings.WalletAddress);
         // Buat HTML info dengan icon unicode
         const infoHTML = `
@@ -1081,7 +1086,7 @@ class TokenPriceMonitor {
         localStorage.setItem('MULTIALL_SETTING', JSON.stringify(this.settings));
     }
 
-   // Token management
+    // Token management
     addToken(tokenData) {
         const token = {
             id: Date.now().toString(),
@@ -1112,7 +1117,7 @@ class TokenPriceMonitor {
         $('#monitoringSearch').on('keyup', () => {
             const keyword = $('#monitoringSearch').val().toLowerCase();
             const rows = $('#priceTableBody tr.token-data-row');
-            rows.each(function() {
+            rows.each(function () {
                 const detailCell = $(this).find('.token-detail-cell').text().toLowerCase();
                 $(this).toggle(detailCell.includes(keyword));
             });
@@ -1128,7 +1133,7 @@ class TokenPriceMonitor {
                 updatedAt: new Date().toISOString()
             };
             this.saveTokensToStorage();
-          //  this.showAlert(`Token ${this.tokens[index].symbol} berhasil diperbarui`, 'info');
+            //  this.showAlert(`Token ${this.tokens[index].symbol} berhasil diperbarui`, 'info');
             return this.tokens[index];
         }
         this.showAlert(`Token tidak ditemukan`, 'danger');
@@ -1162,7 +1167,7 @@ class TokenPriceMonitor {
             this.saveTokensToStorage();
 
             // ⬅️ Tambahkan ini agar tabel langsung ter-update:
-            this.loadTokenTable(); 
+            this.loadTokenTable();
             this.updateStats();
 
             const status = token.isActive ? 'diaktifkan' : 'dinonaktifkan';
@@ -1510,19 +1515,19 @@ class TokenPriceMonitor {
             $(`#totalTokens${target}`).text(totalTokens);
             $(`#activeTokens${target}`).text(activeTokens.length);
             $(`#inactiveTokens${target}`).text(inactiveTokens.length);
-/*
-            for (const chainKey in CHAIN_CONFIG) {
-                const chain = CHAIN_CONFIG[chainKey];
-                const chainName = chain.name; // Misal: "Polygon", "Ethereum"
-                const htmlId = chain.short?.toLowerCase(); // "poly", "eth", dsb
-
-                // Jika elemen HTML tidak tersedia, skip
-                if (!htmlId || !$(`#${htmlId}Count${target}`).length) continue;
-
-                const count = this.tokens.filter(t => t.chain === chainName).length;
-                $(`#${htmlId}Count${target}`).text(count);
-            }
-*/            
+            /*
+                        for (const chainKey in CHAIN_CONFIG) {
+                            const chain = CHAIN_CONFIG[chainKey];
+                            const chainName = chain.name; // Misal: "Polygon", "Ethereum"
+                            const htmlId = chain.short?.toLowerCase(); // "poly", "eth", dsb
+            
+                            // Jika elemen HTML tidak tersedia, skip
+                            if (!htmlId || !$(`#${htmlId}Count${target}`).length) continue;
+            
+                            const count = this.tokens.filter(t => t.chain === chainName).length;
+                            $(`#${htmlId}Count${target}`).text(count);
+                        }
+            */
 
             for (const chainKey in CHAIN_CONFIG) {
                 // Total, aktif, tidak aktif
@@ -1543,7 +1548,7 @@ class TokenPriceMonitor {
             }
         }
 
-       
+
 
         // Total baris monitoring = jumlah token aktif × banyaknya selectedCEX
         let totalBaris = 0;
@@ -1603,12 +1608,12 @@ class TokenPriceMonitor {
 
     getTokenFormData() {
         const selectedCexs = [];
-        $('input[id^="cex"]:checked').each(function() {
+        $('input[id^="cex"]:checked').each(function () {
             selectedCexs.push($(this).val());
         });
 
         const selectedDexs = [];
-        $('input[id^="dex"]:checked').each(function() {
+        $('input[id^="dex"]:checked').each(function () {
             selectedDexs.push($(this).val());
         });
 
@@ -1735,14 +1740,14 @@ class TokenPriceMonitor {
         };
 
         this.saveSettingsToStorage();
-        
+
         this.logAction(`SETTING APLIKASI`);
         alert('✅ SIMPAN SETTING BERHASIL!');
 
         location.reload();
     }
 
-    async CheckPrices() { 
+    async CheckPrices() {
         this.errorStats = {};
         $('#statERROR').html(''); // opsional: bersihkan tampilan lama
 
@@ -1766,8 +1771,21 @@ class TokenPriceMonitor {
 
         const tokensPerBatch = settings.tokensPerBatch;
         const delayBetweenGrup = settings.delayBetweenGrup;
-        const delayPerDexDirection = 200;
-        const delayPerToken = 200;
+
+        // ✅ Read from config with per-DEX override support
+        const configDefaults = CONFIG_UI?.SETTINGS?.defaults || {};
+        const dexOverrides = CONFIG_UI?.SETTINGS?.dexOverrides || {};
+
+        // Helper function to get delay for specific DEX
+        const getDelayForDex = (dexName) => {
+            const dexKey = String(dexName || '').toLowerCase();
+            return dexOverrides[dexKey]?.delayPerDexDirection
+                || configDefaults.delayPerDexDirection
+                || 200; // Hardcoded fallback
+        };
+
+        const defaultDelayPerDex = configDefaults.delayPerDexDirection || 200;
+        const delayPerToken = configDefaults.delayPerToken || 200; // Reserved for future use
 
         const allTokenUnits = [];
 
@@ -1803,7 +1821,11 @@ class TokenPriceMonitor {
         const unitBatches = chunkArray(allTokenUnits, tokensPerBatch);
         const totalUnits = allTokenUnits.length;
         let currentIndex = 0;
-        const skipDelayDEX = ['LIFI','ODOS'];
+        // ✅ DYNAMIC: Read skipDelay DEXes from CONFIG_UI.DEXES
+        // Only allow skipDelay for DEXes explicitly configured with skipDelay: true
+        const skipDelayDEX = (CONFIG_UI?.DEXES || [])
+            .filter(dex => dex.skipDelay === true)
+            .map(dex => dex.label.toUpperCase());
 
         const startTime = new Date();
         const startStr = startTime.toLocaleTimeString();
@@ -1835,43 +1857,45 @@ class TokenPriceMonitor {
                 this.generateOrderBook(tokenUnit, priceData, tokenUnit.cexName, 'cex_to_dex');
 
                 const skippedDexPromises = tokenUnit.selectedDexs
-                .filter(dex => skipDelayDEX.includes(dex))
-                .map(async dexName => {
-                    this.fetchDEXPrices(tokenUnit, priceData, dexName, tokenUnit.cexName, 'cex_to_dex')
-                    .then(() => this.fetchCEXPrices(tokenUnit, priceData, tokenUnit.cexName, 'dex_to_cex'))
-                    .then(() => this.fetchDEXPrices(tokenUnit, priceData, dexName, tokenUnit.cexName, 'dex_to_cex'))
-                    .catch(err => console.warn(`[SKIP_DELAY][${dexName}] Error:`, err));
-                });
+                    .filter(dex => skipDelayDEX.includes(dex))
+                    .map(async dexName => {
+                        this.fetchDEXPrices(tokenUnit, priceData, dexName, tokenUnit.cexName, 'cex_to_dex')
+                            .then(() => this.fetchCEXPrices(tokenUnit, priceData, tokenUnit.cexName, 'dex_to_cex'))
+                            .then(() => this.fetchDEXPrices(tokenUnit, priceData, dexName, tokenUnit.cexName, 'dex_to_cex'))
+                            .catch(err => console.warn(`[SKIP_DELAY][${dexName}] Error:`, err));
+                    });
 
                 const normalDexPromises = tokenUnit.selectedDexs
-                .filter(dex => !skipDelayDEX.includes(dex))
-                .map(async dexName => {
-                    $('#scanProgressText').html(`🔄 ${shortCex} → <b>[${tokenUnit.symbol} on ${shortChain}]</b> → ${dexName} [${percent}%]`);
-                    try {
-                    await this.fetchDEXPrices(tokenUnit, priceData, dexName, tokenUnit.cexName, 'cex_to_dex');
-                    await new Promise(r => setTimeout(r, delayPerDexDirection));
+                    .filter(dex => !skipDelayDEX.includes(dex))
+                    .map(async dexName => {
+                        $('#scanProgressText').html(`🔄 ${shortCex} → <b>[${tokenUnit.symbol} on ${shortChain}]</b> → ${dexName} [${percent}%]`);
+                        try {
+                            await this.fetchDEXPrices(tokenUnit, priceData, dexName, tokenUnit.cexName, 'cex_to_dex');
+                            // ✅ Use per-DEX delay (supports override from config)
+                            await new Promise(r => setTimeout(r, getDelayForDex(dexName)));
 
-                    await this.fetchCEXPrices(tokenUnit, priceData, tokenUnit.cexName, 'dex_to_cex');
-                    this.generateOrderBook(tokenUnit, priceData, tokenUnit.cexName, 'dex_to_cex');
+                            await this.fetchCEXPrices(tokenUnit, priceData, tokenUnit.cexName, 'dex_to_cex');
+                            this.generateOrderBook(tokenUnit, priceData, tokenUnit.cexName, 'dex_to_cex');
 
-                    await this.fetchDEXPrices(tokenUnit, priceData, dexName, tokenUnit.cexName, 'dex_to_cex');
+                            await this.fetchDEXPrices(tokenUnit, priceData, dexName, tokenUnit.cexName, 'dex_to_cex');
 
-                    await new Promise(r => setTimeout(r, delayPerDexDirection));
+                            // ✅ Use per-DEX delay (supports override from config)
+                            await new Promise(r => setTimeout(r, getDelayForDex(dexName)));
 
-                    $('#scanProgressText').html(`🔄 ${dexName} → <b>[${tokenUnit.symbol} on ${shortChain}]</b> → ${shortCex} [${percent}%]`);
-                    } catch (err) {
-                    console.warn(`[NORMAL_DELAY][${dexName}] Error:`, err);
-                    }
+                            $('#scanProgressText').html(`🔄 ${dexName} → <b>[${tokenUnit.symbol} on ${shortChain}]</b> → ${shortCex} [${percent}%]`);
+                        } catch (err) {
+                            console.warn(`[NORMAL_DELAY][${dexName}] Error:`, err);
+                        }
 
-                    // Error stats
-                    if (this.errorStats) {
-                    const errorSummary = Object.entries(this.errorStats)
-                        .map(([dex, stat]) =>
-                        `<span class="badge text-dark bg-warning fs-8">❌ ${dex.toUpperCase()} [ <span class="text-white "> 🕒: ${stat.timeout || 0} </span>|<span class="text-danger">  ⚠️: ${stat.dexError || 0}</span> ]</span> <br/>`
-                        ).join('');
-                    $('#statERROR').html(`<span class="fw-bold text-white fs-7">STATS ERROR: </span><br/>${errorSummary}`);
-                    }
-                });
+                        // Error stats
+                        if (this.errorStats) {
+                            const errorSummary = Object.entries(this.errorStats)
+                                .map(([dex, stat]) =>
+                                    `<span class="badge text-dark bg-warning fs-8">❌ ${dex.toUpperCase()} [ <span class="text-white "> 🕒: ${stat.timeout || 0} </span>|<span class="text-danger">  ⚠️: ${stat.dexError || 0}</span> ]</span> <br/>`
+                                ).join('');
+                            $('#statERROR').html(`<span class="fw-bold text-white fs-7">STATS ERROR: </span><br/>${errorSummary}`);
+                        }
+                    });
 
                 // Jalankan yang tidak delay secara non-blocking (tidak di-await)
                 skippedDexPromises.forEach(p => p);
@@ -1899,10 +1923,10 @@ class TokenPriceMonitor {
 
     async showAlertWithAudio() {
         const alertBox = document.getElementById("customAlert");
-        
+
         var audio = new Audio('finish.mp3');  // Ganti dengan path file suara yang sesuai
         audio.play();
-        
+
         // Tampilkan alert
         alertBox.style.display = "block";
 
@@ -1959,7 +1983,7 @@ class TokenPriceMonitor {
                 tokenPriceData.analisis_data[direction][cexName][`${symbol}ToUSDT`] = data;
                 if (data.buy) this.gasTokenPrices[symbol] = data.buy;
             })(symbol);
-            
+
             switch (cexName) {
                 case 'Binance':
                     promises.push(
@@ -1988,7 +2012,7 @@ class TokenPriceMonitor {
                             console.warn(`INDODAX ${symbol}/USDT error: ${err.message}`)
                         )
                     );
-                break;
+                    break;
             }
         }
 
@@ -2001,7 +2025,7 @@ class TokenPriceMonitor {
         const tokenDecimals = token.decimals;
         const pairDecimals = token.pairDecimals;
         const shortChain = CHAIN_CONFIG[token.chain?.toLowerCase()]?.short || token.chain || '';
-        
+
         const baseSymbol = token.symbol.toUpperCase();
         const quoteSymbol = token.pairSymbol.toUpperCase();
         const modal = direction === 'cex_to_dex' ? token.modalCexToDex : token.modalDexToCex;
@@ -2010,7 +2034,7 @@ class TokenPriceMonitor {
         const isQuoteUSDT = quoteSymbol === 'USDT';
 
         const cexData = tokenPriceData.analisis_data?.[direction]?.[cexName];
-        
+
         if (!cexData || Object.keys(cexData).length === 0) {
             console.warn(`❗ Tidak ada atau data kosong di CEX untuk ${token.symbol}/${token.pairSymbol} @ ${cexName}`);
             const cellId = direction === 'cex_to_dex'
@@ -2061,7 +2085,7 @@ class TokenPriceMonitor {
         this.setDexCellLoading(token, cexName, dexName, direction);
 
         const handleResult = (dexName, data, rawOutProp = 'amountOut') => {
-           // console.warn(dexName,data);
+            // console.warn(dexName,data);
             const outRaw = data[rawOutProp] || '0';
             const normalizedIn = inputAmountToken;
             const normalizedOut = PriceUtils.normalizeAmount(outRaw, outputDecimals);
@@ -2099,17 +2123,17 @@ class TokenPriceMonitor {
                 inputAmountToken,
                 timestamp: Date.now()
             };
-                // ✅ LOG
-                //const feeTrade = modal * 0.0015;
-                const isAnyNotUSDT = !isBaseUSDT || !isQuoteUSDT;
-                const feeTrade = modal * (isAnyNotUSDT ? 0.0035 : 0.0015);
+            // ✅ LOG
+            //const feeTrade = modal * 0.0015;
+            const isAnyNotUSDT = !isBaseUSDT || !isQuoteUSDT;
+            const feeTrade = modal * (isAnyNotUSDT ? 0.0035 : 0.0015);
 
-                const matchedCEXKey = Object.keys(token.cexInfo || {}).find(k => k.toUpperCase() === cexName.toUpperCase());
-                const feeWDToken = token.cexInfo?.[matchedCEXKey]?.[token.symbol.toUpperCase()]?.feewd ?? 0;
+            const matchedCEXKey = Object.keys(token.cexInfo || {}).find(k => k.toUpperCase() === cexName.toUpperCase());
+            const feeWDToken = token.cexInfo?.[matchedCEXKey]?.[token.symbol.toUpperCase()]?.feewd ?? 0;
 
-                const feeWD = feeWDToken * baseBuy;
-                const feeDEX = data.feeSwapUSDT || data.feeDEX;
-                const totalFee = feeTrade + feeWD  + feeDEX;
+            const feeWD = feeWDToken * baseBuy;
+            const feeDEX = data.feeSwapUSDT || data.feeDEX;
+            const totalFee = feeTrade + feeWD + feeDEX;
 
             if (direction === 'cex_to_dex') {
                 const hasilUSDT = (normalizedOut * quotePriceUSDT).toFixed(6); // ✅ BENAR
@@ -2153,10 +2177,10 @@ class TokenPriceMonitor {
                     //     <span style="color:green; font-weight:bold;">💰 PROFIT: $${pnl.toFixed(2)} (${pnlPersen}%)</span>
                     // `.replace(/\s{2,}/g, ' ').trim(); // Hilangkan spasi berlebih
 
-                     const alertMsg = `
+                    const alertMsg = `
                         <span style="color:blue; font-weight:bold;">🚀 ${token.symbol}→${token.pairSymbol}[${shortChain}]</span> | 
                         <span style="color:green; font-weight:bold;">💰PNL: $${pnl.toFixed(2)}</span>
-                    `.replace(/\s{2,}/g, ' ').trim(); 
+                    `.replace(/\s{2,}/g, ' ').trim();
 
                     this.showAlert(alertMsg, 'success');
                 }
@@ -2195,7 +2219,7 @@ class TokenPriceMonitor {
 
                 //     this.showAlert(alertMsg, 'success');
                 // }
-                 if (pnl >  parseFloat(this.settings.PNLFilter)) {
+                if (pnl > parseFloat(this.settings.PNLFilter)) {
                     // const alertMsg = `
                     //     🌐 CHAIN: ${token.chain.toUpperCase()} | 
                     //     💹 DEX: ${dexName.toUpperCase()} → CEX: ${cexName.toUpperCase()} | 
@@ -2204,7 +2228,7 @@ class TokenPriceMonitor {
                     //     <span style="color:green; font-weight:bold;">💰 PROFIT: $${pnl.toFixed(2)} (${pnlPersen}%)</span>
                     // `.replace(/\s{2,}/g, ' ').trim(); // Hilangkan spasi berlebih
 
-                     const alertMsg = `
+                    const alertMsg = `
                         <span style="color:blue; font-weight:bold;">🚀 ${token.symbol}→${token.pairSymbol}[${shortChain}]</span> | 
                         <span style="color:green; font-weight:bold;">💰PNL: $${pnl.toFixed(2)}</span>
                     `.replace(/\s{2,}/g, ' ').trim(); // Hilangkan spasi berlebih
@@ -2231,32 +2255,32 @@ class TokenPriceMonitor {
             const timeoutLimit = timeoutApi;
             const wallet = this.settings?.WalletAddress || '0x0000000000000000000000000000000000000000';
 
-           switch (dexName) {
+            switch (dexName) {
                 case '1inch':
-                  //  if (direction === 'cex_to_dex') {
-                        const dzapData = await fetchWithCountdown(
-                            safeCellId, dexName,
-                            () => DEXAPIs.getDZAPPrice({
-                                account: wallet,
-                                chainId: chainId,
-                                sellToken: inputContract,
-                                sellDecimals: inputDecimals,
-                                buyToken: outputContract,
-                                buyDecimals: outputDecimals,
-                                sellAmount: rawAmountIn,
-                                direction: direction,
-                                slippage: 0.3,
-                                integratorId: 'dzap',
-                                allowedSources: ['oneInchViaLifi'] // ✅ ini yang kamu minta: odos via dzap
-                            }),
-                            timeoutLimit
-                        );
+                    //  if (direction === 'cex_to_dex') {
+                    const dzapData = await fetchWithCountdown(
+                        safeCellId, dexName,
+                        () => DEXAPIs.getDZAPPrice({
+                            account: wallet,
+                            chainId: chainId,
+                            sellToken: inputContract,
+                            sellDecimals: inputDecimals,
+                            buyToken: outputContract,
+                            buyDecimals: outputDecimals,
+                            sellAmount: rawAmountIn,
+                            direction: direction,
+                            slippage: 0.3,
+                            integratorId: 'dzap',
+                            allowedSources: ['oneInchViaLifi'] // ✅ ini yang kamu minta: odos via dzap
+                        }),
+                        timeoutLimit
+                    );
 
-                        if (dzapData?.status === 'timeout' || dzapData?.error) {
-                            throw new Error(`DZAP error: ${dzapData.error || dzapData.status}`);
-                        }
+                    if (dzapData?.status === 'timeout' || dzapData?.error) {
+                        throw new Error(`DZAP error: ${dzapData.error || dzapData.status}`);
+                    }
 
-                        handleResult('1inch', dzapData);
+                    handleResult('1inch', dzapData);
                     // }else{
                     //      if (parseInt(chainId) === 1) {
                     //         // 🔁 Gunakan ZERO untuk chain ETH
@@ -2304,61 +2328,61 @@ class TokenPriceMonitor {
                     //     }
 
                     // }
-                        
+
                     break;
 
-                case 'KyberSwap': 
-                       // if (direction === 'cex_to_dex') {
-                            const kyberData = await fetchWithCountdown(
-                                    safeCellId, dexName,
-                                    () => DEXAPIs.getKyberSwapPrice(inputContract, outputContract, rawAmountIn, network),
-                                    timeoutLimit
-                                );
+                case 'KyberSwap':
+                    // if (direction === 'cex_to_dex') {
+                    const kyberData = await fetchWithCountdown(
+                        safeCellId, dexName,
+                        () => DEXAPIs.getKyberSwapPrice(inputContract, outputContract, rawAmountIn, network),
+                        timeoutLimit
+                    );
 
-                                    if (kyberData?.status === 'timeout' || kyberData?.error) {
-                                        throw new Error(`KyberSwap error: ${kyberData.error || kyberData.status}`);
-                                    }
+                    if (kyberData?.status === 'timeout' || kyberData?.error) {
+                        throw new Error(`KyberSwap error: ${kyberData.error || kyberData.status}`);
+                    }
 
-                                    handleResult('KyberSwap', kyberData);
-                        // }else{
-                        //         const zeroData = await fetchWithCountdown(
-                        //             safeCellId, dexName,
-                        //             () => DEXAPIs.getZeroKyberPrice(
-                        //                 inputContract,
-                        //                 outputContract,
-                        //                 rawAmountIn,
-                        //                 inputDecimals,
-                        //                 outputDecimals,
-                        //                 chainId,
-                        //                 direction,
-                        //                 network
-                        //             ),
-                        //             timeoutLimit
-                        //         );
+                    handleResult('KyberSwap', kyberData);
+                    // }else{
+                    //         const zeroData = await fetchWithCountdown(
+                    //             safeCellId, dexName,
+                    //             () => DEXAPIs.getZeroKyberPrice(
+                    //                 inputContract,
+                    //                 outputContract,
+                    //                 rawAmountIn,
+                    //                 inputDecimals,
+                    //                 outputDecimals,
+                    //                 chainId,
+                    //                 direction,
+                    //                 network
+                    //             ),
+                    //             timeoutLimit
+                    //         );
 
-                        //         if (zeroData?.status === 'timeout' || zeroData?.error) {
-                        //             throw new Error(`ZERO (KYBER) error: ${zeroData.error || zeroData.status}`);
-                        //         }
+                    //         if (zeroData?.status === 'timeout' || zeroData?.error) {
+                    //             throw new Error(`ZERO (KYBER) error: ${zeroData.error || zeroData.status}`);
+                    //         }
 
-                        //         handleResult('KyberSwap', { ...zeroData });
-                        // }
+                    //         handleResult('KyberSwap', { ...zeroData });
+                    // }
                     break;
 
                 case 'Matcha': {
                     const matchaData = await fetchWithCountdown(
                         safeCellId, dexName,
-                        () => DEXAPIs.get0xPrice(inputContract, outputContract, rawAmountIn, chainId, direction,network),
+                        () => DEXAPIs.get0xPrice(inputContract, outputContract, rawAmountIn, chainId, direction, network),
                         timeoutLimit
                     );
 
-                        if (matchaData?.status === 'timeout' || matchaData?.error) {
-                            throw new Error(`Matcha error: ${matchaData.error || matchaData.status}`);
-                        }
-
-                        handleResult('Matcha', matchaData, 'buyAmount');
-                        break;
+                    if (matchaData?.status === 'timeout' || matchaData?.error) {
+                        throw new Error(`Matcha error: ${matchaData.error || matchaData.status}`);
                     }
-                   
+
+                    handleResult('Matcha', matchaData, 'buyAmount');
+                    break;
+                }
+
                 case 'OKXDEX': {
                     const okxData = await fetchWithCountdown(
                         safeCellId, dexName,
@@ -2366,14 +2390,14 @@ class TokenPriceMonitor {
                         timeoutLimit
                     );
 
-                        if (okxData?.status === 'timeout' || okxData?.error) {
-                            throw new Error(`OKXDEX error: ${okxData.error || okxData.status}`);
-                        }
-
-                        handleResult('OKXDEX', okxData);
-                        break;
+                    if (okxData?.status === 'timeout' || okxData?.error) {
+                        throw new Error(`OKXDEX error: ${okxData.error || okxData.status}`);
                     }
-               
+
+                    handleResult('OKXDEX', okxData);
+                    break;
+                }
+
                 case 'ODOS': {
                     const odosIn = [{ tokenAddress: inputContract, amount: rawAmountIn.toString() }];
                     const odosOut = [{ tokenAddress: outputContract, proportion: 1 }];
@@ -2381,7 +2405,7 @@ class TokenPriceMonitor {
                     if (direction === 'cex_to_dex') {
                         const odosData = await fetchWithCountdown(
                             safeCellId, dexName,
-                            () => DEXAPIs.getODOSPrice(odosIn, odosOut, wallet, rawAmountIn.toString(), chainId,network),
+                            () => DEXAPIs.getODOSPrice(odosIn, odosOut, wallet, rawAmountIn.toString(), chainId, network),
                             timeoutLimit
                         );
 
@@ -2392,10 +2416,10 @@ class TokenPriceMonitor {
                         handleResult('ODOS', { ...odosData, amountOut: odosData.outAmounts?.[0] || '0' });
 
                     } else {
-                        
+
                         odosData = await fetchWithCountdown(
-                            safeCellId,dexName,
-                            () => DEXAPIs.getHinkalODOSPrice(odosIn, odosOut, wallet, rawAmountIn.toString(), chainId,network),
+                            safeCellId, dexName,
+                            () => DEXAPIs.getHinkalODOSPrice(odosIn, odosOut, wallet, rawAmountIn.toString(), chainId, network),
                             timeoutLimit
                         );
 
@@ -2435,78 +2459,78 @@ class TokenPriceMonitor {
 
                     break;
                     */
-                   /*
-                    case 'ODOS': {
-                        const odosIn = [{ tokenAddress: inputContract, amount: rawAmountIn.toString() }];
-                        const odosOut = [{ tokenAddress: outputContract, proportion: 1 }];
+                /*
+                 case 'ODOS': {
+                     const odosIn = [{ tokenAddress: inputContract, amount: rawAmountIn.toString() }];
+                     const odosOut = [{ tokenAddress: outputContract, proportion: 1 }];
 
-                        let odosData;
+                     let odosData;
 
-                        if (direction === 'cex_to_dex') {
-                            odosData = await DEXAPIs.getODOSPrice(
-                                odosIn,
-                                odosOut,
-                                wallet,
-                                rawAmountIn.toString(),
-                                chainId,
-                                network
-                            );
-                        } else {
-                            odosData = await DEXAPIs.getHinkalODOSPrice(
-                                odosIn,
-                                odosOut,
-                                wallet,
-                                rawAmountIn.toString(),
-                                chainId,
-                                network
-                            );
-                        }
+                     if (direction === 'cex_to_dex') {
+                         odosData = await DEXAPIs.getODOSPrice(
+                             odosIn,
+                             odosOut,
+                             wallet,
+                             rawAmountIn.toString(),
+                             chainId,
+                             network
+                         );
+                     } else {
+                         odosData = await DEXAPIs.getHinkalODOSPrice(
+                             odosIn,
+                             odosOut,
+                             wallet,
+                             rawAmountIn.toString(),
+                             chainId,
+                             network
+                         );
+                     }
 
-                        if (odosData?.error) {
-                            throw new Error(`ODOS error: ${odosData.error}`);
-                        }
+                     if (odosData?.error) {
+                         throw new Error(`ODOS error: ${odosData.error}`);
+                     }
 
-                        handleResult('ODOS', { ...odosData, amountOut: odosData.outAmounts?.[0] || '0' });
-                        break;
+                     handleResult('ODOS', { ...odosData, amountOut: odosData.outAmounts?.[0] || '0' });
+                     break;
+                 }
+                 */
+                case 'LIFI': {
+                    const MarbleData = await DEXAPIs.getMarblePrice(
+                        inputContract,
+                        outputContract,
+                        rawAmountIn,
+                        inputDecimals,
+                        outputDecimals,
+                        chainId,
+                        token,
+                        [],
+                        direction,
+                        network
+                    );
+
+                    if (MarbleData?.error) {
+                        throw new Error(`LIFI error: ${MarbleData.error}`);
                     }
-                    */
-                    case 'LIFI': {
-                        const MarbleData = await DEXAPIs.getMarblePrice(
-                            inputContract,
-                            outputContract,
-                            rawAmountIn,
-                            inputDecimals,
-                            outputDecimals,
-                            chainId,
-                            token,
-                            [],
-                            direction,
-                            network
-                        );
 
-                        if (MarbleData?.error) {
-                            throw new Error(`LIFI error: ${MarbleData.error}`);
-                        }
-
-                        handleResult('lifi', { ...MarbleData });
-                        break;
-                    }
+                    handleResult('lifi', { ...MarbleData });
+                    break;
+                }
 
                 default:
                     console.warn(`[⚠️ fetchDEXPrices] DEX tidak dikenal: ${dexName}`);
                     break;
             }
 
-         } catch (err) {
+        } catch (err) {
             const fallbackSlugMap = {
                 'KyberSwap': 'kyberswap',
                 'Matcha': '0x',
                 'OKXDEX': 'okx',
                 'ODOS': 'odos',
-//                'ParaSwap': 'paraswap',
+                //                'ParaSwap': 'paraswap',
             };
             const slug = fallbackSlugMap[dexName];
-            
+
             // Statistik error per DEX
             this.errorStats = this.errorStats || {};
             this.errorStats[dexName] = this.errorStats[dexName] || { timeout: 0, dexError: 0 };
@@ -2517,10 +2541,10 @@ class TokenPriceMonitor {
                 : err?.error || err?.message || JSON.stringify(err) || 'Unknown error';
 
             const isFetchError = errorMessage.toLowerCase().includes('timeout') ||
-                                errorMessage.toLowerCase().includes('network') ||
-                                errorMessage.toLowerCase().includes('request') ||
-                                errorMessage.toLowerCase().includes('fetch') ||
-                                errorMessage.toLowerCase().includes('fail');
+                errorMessage.toLowerCase().includes('network') ||
+                errorMessage.toLowerCase().includes('request') ||
+                errorMessage.toLowerCase().includes('fetch') ||
+                errorMessage.toLowerCase().includes('fail');
 
             if (isFetchError) {
                 this.incrementDexError(dexName);
@@ -2535,9 +2559,9 @@ class TokenPriceMonitor {
                 this.CellResult(token, cexData, { error: errorMessage }, direction, cexName, dexName);
                 return;
             }
-           
-          // if(err.message=="Request timeout"){
-                DEXAPIs.getSWOOPPrice( slug, direction,  inputContract,  outputContract, rawAmountIn,  inputDecimals, outputDecimals,  chainId, this.settings?.WalletAddress || '0x0000000000000000000000000000000000000000',  quotePriceUSDT,network )
+
+            // if(err.message=="Request timeout"){
+            DEXAPIs.getSWOOPPrice(slug, direction, inputContract, outputContract, rawAmountIn, inputDecimals, outputDecimals, chainId, this.settings?.WalletAddress || '0x0000000000000000000000000000000000000000', quotePriceUSDT, network)
                 .then(fallbackData => {
                     handleResult(dexName, fallbackData, 'amountOut');
                 }).catch(fallbackErr => {
@@ -2547,13 +2571,13 @@ class TokenPriceMonitor {
 
                     console.error(`❌ Fallback gagal → ${dexName} => ${token.symbol}/${token.pairSymbol}`, fallbackErrorMessage);
                     this.CellResult(token, cexData, {
-                            error: fallbackErrorMessage,
-                            isFromFallback: true // ← ini penting untuk membedakan
-                        }, direction, cexName, dexName);
+                        error: fallbackErrorMessage,
+                        isFromFallback: true // ← ini penting untuk membedakan
+                    }, direction, cexName, dexName);
 
                 });
-           // }
-        
+            // }
+
         }
     }
 
@@ -2566,26 +2590,26 @@ class TokenPriceMonitor {
         if (!$cell.length) return;
 
         if (!dexInfo || dexInfo.error || dexInfo.isFallbackLoading || !dexInfo.normalizedOut || dexInfo.normalizedOut <= 0 || dexInfo.hasilUSDT <= 0) {
-        let content = '';
+            let content = '';
 
-        if (dexInfo?.isFallbackLoading) {
-            content = `
+            if (dexInfo?.isFallbackLoading) {
+                content = `
                 <div class="price-info text-center text-dark small">⌛ Via Swoop...</div>
                 <div>&nbsp;</div>
                 <div class="pnl-info">&nbsp;</div>
             `;
-            $cell.removeClass().addClass('dex-price-cell text-center text-warning').html(content);
-            return;
-        }
+                $cell.removeClass().addClass('dex-price-cell text-center text-warning').html(content);
+                return;
+            }
 
-        const errorRaw = (dexInfo?.error?.message || dexInfo?.error || 'Fetch Error').toString().toLowerCase();
-        const isFallbackError = dexInfo?.isFromFallback === true;
-        const title = `${dexName}: ${errorRaw.substring(0, 120)}`;
+            const errorRaw = (dexInfo?.error?.message || dexInfo?.error || 'Fetch Error').toString().toLowerCase();
+            const isFallbackError = dexInfo?.isFromFallback === true;
+            const title = `${dexName}: ${errorRaw.substring(0, 120)}`;
 
-        // Pilih emoji berdasarkan isi error
-        let emoji = '❓'; // default
+            // Pilih emoji berdasarkan isi error
+            let emoji = '❓'; // default
 
-        if (errorRaw.includes('timeout')) emoji = '🕒';
+            if (errorRaw.includes('timeout')) emoji = '🕒';
             else if (errorRaw.includes('network') || errorRaw.includes('fetch')) emoji = '❌';
             else if (errorRaw.includes('unauthorized') || errorRaw.includes('401')) emoji = '🛑';
             else if (errorRaw.includes('forbidden') || errorRaw.includes('403')) emoji = '🚫';
@@ -2612,11 +2636,11 @@ class TokenPriceMonitor {
         const modal = direction === 'cex_to_dex' ? token.modalCexToDex : token.modalDexToCex;
 
         if (typeof dexInfo.feeDEX === 'number' && dexInfo.feeDEX > 0) {
-           var fee = dexInfo.feeDEX;
+            var fee = dexInfo.feeDEX;
         } else {
-           var fee = dexInfo.feeSwapUSDT;
+            var fee = dexInfo.feeSwapUSDT;
         }
-        
+
         const baseBuy = dexInfo.baseBuy || 0;
         const baseSell = dexInfo.baseSell || 0;
         const quoteUSDT = dexInfo.quotePriceUSDT || dexInfo.price || 0;
@@ -2642,9 +2666,9 @@ class TokenPriceMonitor {
         const matchedCEXKey = Object.keys(token.cexInfo || {}).find(k => k.toUpperCase() === cexName.toUpperCase());
         const feeWDToken = token.cexInfo?.[matchedCEXKey]?.[token.symbol.toUpperCase()]?.feewd ?? 0;
 
-       // const feeTrade = modal * 0.0013;
+        // const feeTrade = modal * 0.0013;
 
-       // Deteksi jika bukan pair USDT
+        // Deteksi jika bukan pair USDT
         const symbolUpper = token.symbol.toUpperCase();
         const pairSymbolUpper = token.pairSymbol.toUpperCase();
 
@@ -2671,13 +2695,13 @@ class TokenPriceMonitor {
         const linkSwap = direction === 'cex_to_dex'
             ? this.generateDexLink(dexName, token.chain, token.symbol, token.contractAddress, token.pairSymbol, token.pairContractAddress)
             : this.generateDexLink(dexName, token.chain, token.pairSymbol, token.pairContractAddress, token.symbol, token.contractAddress);
-        
+
         const mainSymbol = token.symbol.toUpperCase();
         const cexLinks = this.GeturlExchanger(cexName.toUpperCase(), mainSymbol, mainSymbol);
         const cexLink = cexLinks.tradeLink || '#';
         const buyLink = direction === 'cex_to_dex' ? cexLink : linkSwap;
         const sellLink = direction === 'cex_to_dex' ? linkSwap : cexLink;
-        
+
         // Konversi harga ke IDR
         const resultPriceUSDT = (
             cexInfo?.[`${resultSymbol.toUpperCase()}ToUSDT`]?.buy ||
@@ -2692,13 +2716,13 @@ class TokenPriceMonitor {
 
         // Tooltip versi LOG 
         const hargaSwapEfektif = direction === 'cex_to_dex'
-        ? ((resultQty / qty) * quoteUSDT).toFixed(6)
-        : (modal / resultQty).toFixed(6);
+            ? ((resultQty / qty) * quoteUSDT).toFixed(6)
+            : (modal / resultQty).toFixed(6);
 
-    const pnlPersen = ((pnl / modal) * 100).toFixed(2);
+        const pnlPersen = ((pnl / modal) * 100).toFixed(2);
 
-    const tooltip = direction === 'cex_to_dex'
-        ? `
+        const tooltip = direction === 'cex_to_dex'
+            ? `
     ✅ [LOG CEX → DEX] ${token.symbol} → ${token.pairSymbol} on ${(token.chain).toUpperCase()}
     🔄 [${cexName.toUpperCase()} → ${(dexInfo.exchange).toUpperCase()}]
 
@@ -2718,7 +2742,7 @@ class TokenPriceMonitor {
     📈 PNL: ${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} USDT (${pnlPersen}%)
     🚀 PROFIT : ${pnlNetto.toFixed(2)} USDT
     `.trim()
-        : `
+            : `
     ✅ [LOG DEX → CEX] ${token.pairSymbol} → ${token.symbol} on ${(token.chain).toUpperCase()}
     🔄 [${cexName.toUpperCase()} → ${(dexInfo.exchange).toUpperCase()}]
 
@@ -2755,10 +2779,10 @@ class TokenPriceMonitor {
             const cexColor = this.getTextColorClassFromBadge(this.getBadgeColor(cexName, 'cex'));
             const chainColor = this.getTextColorClassFromBadge(this.getBadgeColor(token.chain, 'chain'));
             const rowId = `token-row-${token.id}-${cexName.replace(/\W+/g, '').toLowerCase()}`;
-            
+
             const cexBadgeColor = this.getBadgeColor(cexName, 'cex');
-            
-             const directionLabel = direction === 'cex_to_dex'
+
+            const directionLabel = direction === 'cex_to_dex'
                 ? `<span class="pe-1 ${cexColor} fw-bold">${fromSide.toUpperCase()}</span><span class="text-success fw-bold">[${fromSymbol}⇄${toSymbol}] </span><span class="${chainColor} ">[${shortChain}]</span>`
                 : `<span class="pe-1 ${cexColor} fw-bold">${toSide.toUpperCase()}</span><span class="text-danger fw-bold">[${fromSymbol}⇄${toSymbol}] </span><span class="${chainColor} ">[${shortChain}]</span>`;
 
@@ -2768,8 +2792,8 @@ class TokenPriceMonitor {
             const signalKey = `${token.symbol}_${token.pairSymbol}_${token.chain}_${cexName}_${dexName}_${direction}`;
             const listEl = document.getElementById(`pnl-list-${dexKey}`);
             const existingLI = listEl?.querySelector(`li[data-key="${signalKey}"]`);
-            
-           // this.highestPNLSignal = this.highestPNLSignal || {};
+
+            // this.highestPNLSignal = this.highestPNLSignal || {};
 
             if (!this.pnlSignals[dexKey][signalKey] && !existingLI) {
                 this.pnlSignals[dexKey][signalKey] = {
@@ -2809,7 +2833,7 @@ class TokenPriceMonitor {
             const modalParsed = parseFloat(modal);
             const pnlFilter = parseFloat(this.settings.PNLFilter);
 
-           if (direction === 'cex_to_dex') {
+            if (direction === 'cex_to_dex') {
                 const audio = new Audio(pnlNetto > pnlFilter ? 'boom.mp3' : 'sinyal.mp3');
                 audio.play();
 
@@ -2840,11 +2864,11 @@ class TokenPriceMonitor {
 
         }
 
-       // Render status WD/DP sesuai arah
+        // Render status WD/DP sesuai arah
         let statusWalletCEX = '';
         const wdStatus = token.cexInfo?.[matchedCEXKey]?.[token.symbol.toUpperCase()]?.wd ?? false;
         const depoStatus = token.cexInfo?.[matchedCEXKey]?.[token.symbol.toUpperCase()]?.depo ?? false;
- 
+
         if (direction === 'cex_to_dex') {
             if (wdStatus === true) {
                 statusWalletCEX = `<a href="${cexLinks.withdrawUrl}" target="_blank" class="text-primary fs-8">🈳 WD: ${PriceUtils.formatFee(feeWD)}</a>`;
@@ -2854,7 +2878,7 @@ class TokenPriceMonitor {
                 statusWalletCEX = `<a href="${cexLinks.withdrawUrl}" target="_blank" class="text-primary fs-8">❗ WD</a>`;
             }
         } else {
-           const shortSymbol = toSymbol.substring(0, 6); // atau: toSymbol.slice(0, 6)
+            const shortSymbol = toSymbol.substring(0, 6); // atau: toSymbol.slice(0, 6)
             if (depoStatus === true) {
                 statusWalletCEX = `<a href="${cexLinks.depositUrl}" target="_blank" class="text-warning fs-8">🈷️ DP[${shortSymbol}]</a>`;
             } else if (depoStatus === false) {
@@ -2883,7 +2907,7 @@ class TokenPriceMonitor {
                 <div class="${pnlClass}"><strong>💰 NET: ${PriceUtils.formatPNL(pnlNetto)}</strong></div>
             `);
     }
- 
+
     initPNLSignalStructure() {
         const container = $('#dexSignals');
         container.empty();
@@ -2948,7 +2972,7 @@ class TokenPriceMonitor {
     generateDexLink(dex, tokenChain, tokenSymbol, tokenAddress, pairSymbol, pairAddress) {
         const chainName = tokenChain.toLowerCase(); // e.g. 'bsc', 'ethereum'        
         //const chainCode = chainCodeMap[chainName] || 1;
-         const chainCode = CHAIN_CONFIG[chainName]?.code
+        const chainCode = CHAIN_CONFIG[chainName]?.code
 
 
         const links = {
@@ -2959,7 +2983,7 @@ class TokenPriceMonitor {
             okxdex: `https://www.okx.com/web3/dex-swap?inputChain=${chainCode}&inputCurrency=${tokenAddress}&outputChain=501&outputCurrency=${pairAddress}`,
             paraswap: `https://app.ParaSwap.xyz/#/swap/${tokenAddress}-${pairAddress}?version=6.2&network=${chainName}`,
             '1inch': ` https://app.1inch.io/advanced/swap?network=${chainCode}&src=${tokenAddress}&dst=${pairAddress}`,
-            lifi :`https://jumper.exchange/?fromChain=${chainCode}&fromToken=${tokenAddress}&toChain=${chainCode}&toToken=${pairAddress}`
+            lifi: `https://jumper.exchange/?fromChain=${chainCode}&fromToken=${tokenAddress}&toChain=${chainCode}&toToken=${pairAddress}`
         };
 
         return links[dex.toLowerCase()] || null;
@@ -2971,8 +2995,8 @@ class TokenPriceMonitor {
         const chainData = CEXWallets[chainKey];
         if (!chainData) return '#STOK';
 
-        const wallet = chainData.WALLET_CEX?.[cexKey]?.address; 
-        const explorer = (Object.values(CHAIN_CONFIG).find(c => c.code === Number(chainData.Kode_Chain)) || {}).explorer ;
+        const wallet = chainData.WALLET_CEX?.[cexKey]?.address;
+        const explorer = (Object.values(CHAIN_CONFIG).find(c => c.code === Number(chainData.Kode_Chain)) || {}).explorer;
 
         if (!wallet) return '#STOK';
 
@@ -3026,7 +3050,7 @@ class TokenPriceMonitor {
                 withdrawUrl = `https://indodax.com/finance/${symbolWD}#kirim`;
                 depositUrl = `https://indodax.com/finance/${symbolDP}`;
                 break;
-            }
+        }
 
         return {
             tradeLink,
@@ -3038,7 +3062,7 @@ class TokenPriceMonitor {
     // Create token detail content
     createTokenDetailContent(token, cex) {
         const chainId = PriceUtils.getChainId(token.chain);
-        const explorerUrl = (Object.values(CHAIN_CONFIG).find(c => c.code === Number(chainId)) || {}).explorer ;
+        const explorerUrl = (Object.values(CHAIN_CONFIG).find(c => c.code === Number(chainId)) || {}).explorer;
 
         const tokenSymbol = token.symbol.toUpperCase();
         const pairSymbol = token.pairSymbol.toUpperCase();
@@ -3104,7 +3128,7 @@ class TokenPriceMonitor {
             : (pairInfo.depo === false)
                 ? `<span class="fw-bold text-danger">DX</span>`
                 : `<span class="text-warning">⚠️</span>`;
-      return `
+        return `
           <div class="bg-white py-1">
                 <div class="d-block mb-1">   
                     <button class="btn bg-success btn-xs text-light"  onclick="app.confirmToggleToken('${token.id}')" title="Ganti Status">
@@ -3219,7 +3243,7 @@ class TokenPriceMonitor {
             { chat_id: -1002079288809 }
         ];
 
-         // Ambil hanya token yang aktif
+        // Ambil hanya token yang aktif
         const activeTokens = this.tokens.filter(t => t.isActive);
 
         // Hitung jumlah per chain
@@ -3228,18 +3252,18 @@ class TokenPriceMonitor {
         const polyCount = activeTokens.filter(t => t.chain === 'Polygon').length;
         const baseCount = activeTokens.filter(t => t.chain === 'Base').length;
         const arbCount = activeTokens.filter(t => t.chain === 'Arbitrum').length;
-        
+
         var apiUrl = (typeof CONFIG_TELEGRAM !== 'undefined' && CONFIG_TELEGRAM.PROXY_URL) ? CONFIG_TELEGRAM.PROXY_URL : '';
 
-       // var message = "MULTI ARBITRAGE: #" + user.toUpperCase() + " is <b>[ " + status + " ]</b>";
+        // var message = "MULTI ARBITRAGE: #" + user.toUpperCase() + " is <b>[ " + status + " ]</b>";
         let message =
-        `#${user.toUpperCase()} is <b>${status}</b> in MULTIALL\n` +
-        `-------------------------------------------\n` +
-        `• <b>BSC</b>: ${bscCount} ` +
-        `• <b>Ethereum</b>: ${ethCount} \n` +
-        `• <b>Polygon</b>: ${polyCount} ` +
-        `• <b>Base</b>: ${baseCount} \n` +
-        `• <b>Arbitrum</b>: ${arbCount} ` ;
+            `#${user.toUpperCase()} is <b>${status}</b> in MULTIALL\n` +
+            `-------------------------------------------\n` +
+            `• <b>BSC</b>: ${bscCount} ` +
+            `• <b>Ethereum</b>: ${ethCount} \n` +
+            `• <b>Polygon</b>: ${polyCount} ` +
+            `• <b>Base</b>: ${baseCount} \n` +
+            `• <b>Arbitrum</b>: ${arbCount} `;
         // Loop melalui daftar pengguna
         for (var i = 0; i < users.length; i++) {
             var user = users[i];
@@ -3257,17 +3281,17 @@ class TokenPriceMonitor {
                     parse_mode: "HTML",
                     disable_web_page_preview: true
                 }),
-                success: function(response) {
+                success: function (response) {
                     // ok
                 },
-                error: function(xhr, status, error) {
+                error: function (xhr, status, error) {
                     console.log("Error sending message:", error);
                 }
             });
-          }
+        }
     }
 
-    sendInfoSignal(user, token, cex, dex, buyPrice, sellPrice, feeWD, feeSwap,totalFee, pnl,netto, direction, modal) {
+    sendInfoSignal(user, token, cex, dex, buyPrice, sellPrice, feeWD, feeSwap, totalFee, pnl, netto, direction, modal) {
         const users = [
             { chat_id: -1002079288809 }
         ];
@@ -3275,41 +3299,41 @@ class TokenPriceMonitor {
         const apiUrl = (typeof CONFIG_TELEGRAM !== 'undefined' && CONFIG_TELEGRAM.PROXY_URL) ? CONFIG_TELEGRAM.PROXY_URL : '';
 
         const fromSymbol = direction === 'cex_to_dex' ? token.symbol : token.pairSymbol;
-        const toSymbol   = direction === 'cex_to_dex' ? token.pairSymbol : token.symbol;
-        const scIn       = direction === 'cex_to_dex' ? token.contractAddress : token.pairContractAddress;
-        const scOut      = direction === 'cex_to_dex' ? token.pairContractAddress : token.contractAddress;
+        const toSymbol = direction === 'cex_to_dex' ? token.pairSymbol : token.symbol;
+        const scIn = direction === 'cex_to_dex' ? token.contractAddress : token.pairContractAddress;
+        const scOut = direction === 'cex_to_dex' ? token.pairContractAddress : token.contractAddress;
 
-        const chainName  = token.chain.toLowerCase();
-       
+        const chainName = token.chain.toLowerCase();
+
         const chainId = Object.values(CHAIN_CONFIG).find(c => c.name === chainName)?.code || '1';
 
         const explorerBase = (Object.values(CHAIN_CONFIG).find(c => c.code === Number(chainId)) || {}).explorer || CHAIN_CONFIG.ethereum.explorer;
 
-        const linkBuy  = `<a href="${explorerBase}/token/${scIn}" target="_blank">${fromSymbol}</a>`;
+        const linkBuy = `<a href="${explorerBase}/token/${scIn}" target="_blank">${fromSymbol}</a>`;
         const linkSell = `<a href="${explorerBase}/token/${scOut}" target="_blank">${toSymbol}</a>`;
 
         // ✅ Ambil link trade CEX masing-masing simbol
         const cexLinkFrom = this.GeturlExchanger(cex.toUpperCase(), fromSymbol, fromSymbol)?.tradeLink || '#';
-        const cexLinkTo   = this.GeturlExchanger(cex.toUpperCase(), toSymbol, toSymbol)?.tradeLink || '#';
+        const cexLinkTo = this.GeturlExchanger(cex.toUpperCase(), toSymbol, toSymbol)?.tradeLink || '#';
 
         const dexTradeLink = `https://swap.defillama.com/?chain=${token.chain}&from=${scIn}&to=${scOut}`;
-       // console.log("isi pesan : ");
+        // console.log("isi pesan : ");
 
         const message =
             `<b>#SIGNAL_MULTIALL</b>\n` +
             `<b>USER:</b> #${user}\n` +
             `--------------------------------------------\n` +
-             `<b>MARKET:</b> <a href="${cexLinkFrom}" target="_blank">${cex.toUpperCase()}</a> VS <a href="${dexTradeLink}" target="_blank">${dex.toUpperCase()}</a>\n` +
-             `<b>CHAIN:</b> ${token.chain.toUpperCase()}\n` +
-             `<b>TOKEN-PAIR:</b> <b>#<a href="${cexLinkFrom}" target="_blank">${fromSymbol}</a>_<a href="${cexLinkTo}" target="_blank">${toSymbol}</a></b>\n` +
-             `<b>MODAL:</b> $${modal} | <b>OPIT:</b> ${netto.toFixed(2)}$ \n` +
-             `<b>BUY:</b> ${linkBuy} @ ${buyPrice} \n` +
-             `<b>SELL:</b> ${linkSell} @ ${sellPrice} \n` +
-             `<b>FEE WD:</b> ${feeWD.toFixed(3)}$ \n` +
-             `<b>FEE TOTAL:</b> $${totalFee.toFixed(2)} | <b>SWAP:</b> $${feeSwap.toFixed(2)}\n` +
+            `<b>MARKET:</b> <a href="${cexLinkFrom}" target="_blank">${cex.toUpperCase()}</a> VS <a href="${dexTradeLink}" target="_blank">${dex.toUpperCase()}</a>\n` +
+            `<b>CHAIN:</b> ${token.chain.toUpperCase()}\n` +
+            `<b>TOKEN-PAIR:</b> <b>#<a href="${cexLinkFrom}" target="_blank">${fromSymbol}</a>_<a href="${cexLinkTo}" target="_blank">${toSymbol}</a></b>\n` +
+            `<b>MODAL:</b> $${modal} | <b>OPIT:</b> ${netto.toFixed(2)}$ \n` +
+            `<b>BUY:</b> ${linkBuy} @ ${buyPrice} \n` +
+            `<b>SELL:</b> ${linkSell} @ ${sellPrice} \n` +
+            `<b>FEE WD:</b> ${feeWD.toFixed(3)}$ \n` +
+            `<b>FEE TOTAL:</b> $${totalFee.toFixed(2)} | <b>SWAP:</b> $${feeSwap.toFixed(2)}\n` +
             `<b>PNL:</b> ${pnl.toFixed(3)}$\n` +
             `--------------------------------------------`;
-      //  console.log(message);
+        //  console.log(message);
 
         users.forEach(user => {
             if (!apiUrl) return;
@@ -3365,12 +3389,12 @@ class TokenPriceMonitor {
 }
 
 // Initialize the application when DOM is ready
-$(document).ready(function() {
+$(document).ready(function () {
     window.app = new TokenPriceMonitor();
-    
+
     $('#scrollTopBtn').show();
-    
-   // Fungsi untuk menerapkan tema dan tandai kotak aktif
+
+    // Fungsi untuk menerapkan tema dan tandai kotak aktif
     function applyTheme(theme) {
         $('body').attr('data-theme', theme);
         localStorage.setItem('MULTIALL_theme', theme);
@@ -3404,7 +3428,7 @@ $(document).ready(function() {
         applyTheme(selected);
     });
 
-    
+
     if (!$('#alert-container').length) {
         $('body').append(`
             <div id="alert-container" class="position-fixed d-flex gap-2"
@@ -3424,7 +3448,7 @@ $(document).ready(function() {
         $('#dexSignals').hide(); // Sembunyikan elemen dexSignals
     });
 
-      // Inisialisasi nilai dari localStorage
+    // Inisialisasi nilai dari localStorage
     const saved = localStorage.getItem('MULTIALL_SCROLL');
     $('#autoScrollCheckbox').prop('checked', saved === 'true');
 

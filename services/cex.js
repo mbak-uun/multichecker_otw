@@ -866,6 +866,16 @@
       const cexUpper = String(cex || '').toUpperCase();
       console.log(`[fetchAllCEXPrices] Fetching ALL prices from ${cexUpper}...`);
 
+      // ✅ FIXED: Load timeout from user settings (not hardcoded)
+      let timeoutMs = 10000; // Default fallback
+      try {
+          const savedSettings = getFromLocalStorage('SETTING_SCANNER', {});
+          const configDefaults = (window.CONFIG_UI?.SETTINGS?.defaults) || {};
+          timeoutMs = parseInt(savedSettings.TimeoutCount || configDefaults.timeoutCount || 10000);
+      } catch (e) {
+          console.warn('[fetchAllCEXPrices] Failed to load timeout setting, using default:', e.message);
+      }
+
       try {
           let url, parseResponse;
 
@@ -1045,8 +1055,8 @@
                   throw new Error(`CEX ${cexUpper} not supported for bulk price fetch`);
           }
 
-          // Fetch data with jQuery Ajax
-          const data = await $.ajax({ url, method: 'GET', timeout: 10000 });
+          // Fetch data with jQuery Ajax (✅ using user timeout setting)
+          const data = await $.ajax({ url, method: 'GET', timeout: timeoutMs });
 
           // Parse response
           const priceMap = parseResponse(data);
