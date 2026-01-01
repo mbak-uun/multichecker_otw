@@ -179,7 +179,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://bscscan.com/tx/${hash}`
             }
         },
-        DEXS: ["odos", "paraswap", "0x", "kyber", "lifi", "swing", "okx"],
+        DEXS: ["odos", "velora", "matcha", "kyber", "sushi", "lifi", "swing", "okx"],
         WALLET_CEX: {
             GATE: { address: '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX: 'BSC' },
             BINANCE: { address: '0x8894E0a0c962CB723c1976a4421c95949bE2D4E3', address2: '0xe2fc31F816A9b94326492132018C3aEcC4a93aE1', chainCEX: 'BSC' },
@@ -206,7 +206,7 @@ const CONFIG_CHAINS = {
         DATAJSON: 'https://monitoring-koin.vercel.app/JSON_KOIN/POLYGON.json',
         BaseFEEDEX: "MATICUSDT", // Corrected from POLUSDT
         GASLIMIT: 80000,
-        DEXS: ["odos", "paraswap", "0x", "kyber", "lifi", "swing", "okx"],
+        DEXS: ["odos", "velora", "matcha", "kyber", "sushi", "lifi", "swing", "okx"],
         LINKS: {
             explorer: {
                 token: (address) => `https://polygonscan.com/token/${address}`,
@@ -240,7 +240,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://arbiscan.io/tx/${hash}`
             }
         },
-        DEXS: ["odos", "paraswap", "0x", "kyber", "lifi", "swing", "okx"],
+        DEXS: ["odos", "velora", "matcha", "kyber", "sushi", "lifi", "swing", "okx"],
         WALLET_CEX: {
             GATE: { address: '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX: 'ARBITRUM' },
             BINANCE: { address: '0x290275e3db66394C52272398959845170E4DCb88', address2: '0xe7804c37c13166fF0b37F5aE0BB07A3aEbb6e245', chainCEX: 'ARBITRUM' },
@@ -265,7 +265,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://etherscan.io/tx/${hash}`
             }
         },
-        DEXS: ["odos", "paraswap", "0x", "kyber", "lifi", "swing", "okx"],
+        DEXS: ["odos", "velora", "matcha", "kyber", "sushi", "lifi", "swing", "okx"],
         WALLET_CEX: {
             GATE: { address: '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX: 'ETH' },
             BINANCE: { address: '0xDFd5293D8e347dFe59E90eFd55b2956a1343963d', address2: '0x28C6c06298d514Db089934071355E5743bf21d60', address3: '0x21a31Ee1afC51d94C2eFcCAa2092aD1028285549', chainCEX: 'ETH' },
@@ -293,7 +293,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://basescan.org/tx/${hash}`
             }
         },
-        DEXS: ["odos", "paraswap", "0x", "kyber", "lifi", "swing", "okx"],
+        DEXS: ["odos", "velora", "matcha", "kyber", "sushi", "lifi", "swing", "okx"],
         WALLET_CEX: {
             GATE: { address: '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX: 'BASE' },
             BINANCE: { address: '0xDFd5293D8e347dFe59E90eFd55b2956a1343963d', address2: '0x28C6c06298d514Db089934071355E5743bf21d60', chainCEX: 'BASE' },
@@ -330,7 +330,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://solscan.io/tx/${hash}`
             }
         },
-        DEXS: ["lifi", "0x", "okx", "jupiter", "dflow", "kamino"],
+        DEXS: ["lifi", "matcha", "okx", "jupiter", "dflow", "kamino"],
         WALLET_CEX: {
             GATE: { address: 'HiRpdAZifEsZGdzQ5Xo5wcnaH3D2Jj9SoNsUzcYNK78J', address2: 'u6PJ8DtQuPFnfmwHbGFULQ4u4EgjDiyYKjVEsynXq2w', chainCEX: 'SOL' },
             BINANCE: { address: '28nYGHJyUVcVdxZtzKByBXEj127XnrUkrE3VaGuWj1ZU', address2: '2ojv9BAiHUrvsm9gxDe7fJSzbNZSJcxZvf8dqmWGHG8S', chainCEX: 'SOL' },
@@ -363,12 +363,12 @@ const CONFIG_UI = {
     ],
     DEXES: [
         { key: 'odos', label: 'ODOS', badgeClass: 'bg-odos', fallbackSlug: 'odos', skipDelay: true },
-        { key: 'paraswap', label: 'ParaSwap', badgeClass: 'bg-paraswap', fallbackSlug: 'paraswap' },
-        { key: '0x', label: 'Matcha', badgeClass: 'bg-matcha', fallbackSlug: '0x' },
+        { key: 'velora', label: 'Velora', badgeClass: 'bg-velora', fallbackSlug: 'velora' },
+        { key: 'matcha', label: 'Matcha', badgeClass: 'bg-matcha', fallbackSlug: 'matcha' },
         { key: 'kyber', label: 'KyberSwap', badgeClass: 'bg-kyberswap', fallbackSlug: 'kyberswap' },
+        { key: 'sushi', label: 'SUSHI', badgeClass: 'bg-sushi', fallbackSlug: 'sushi' },
         { key: 'lifi', label: 'LIFI', badgeClass: 'bg-lifi', fallbackSlug: 'lifi' },
         { key: 'swing', label: 'Swing', badgeClass: 'bg-swing', fallbackSlug: 'swing' },
-        // { key: 'fly', label: 'FLY', badgeClass: 'bg-fly', fallbackSlug: 'fly' },
         { key: 'jupiter', label: 'Jupiter', badgeClass: 'bg-jupiter', fallbackSlug: 'jupiter' },
         { key: 'okx', label: 'OKX', badgeClass: 'bg-okx', fallbackSlug: 'okx' }
     ],
@@ -667,7 +667,26 @@ const CONFIG_DEXS = {
         allowFallback: true,
         // Note: Menggunakan Zero-Kyber untuk kedua arah agar tidak membebani SWOOP
     },
-    '0x': {
+    sushi: {
+        label: 'SUSHI',
+        badgeClass: 'bg-sushi',
+        proxy: true, // ✅ Enable proxy - SushiSwap API may have CORS restrictions
+        warna: "#fa52a0", // Pink/magenta SushiSwap brand color
+        builder: ({ chainName, tokenAddress, pairAddress }) =>
+            `https://www.sushi.com/swap?chainId=${chainName}&token0=${tokenAddress}&token1=${pairAddress}`,
+        fetchdex: {
+            primary: {
+                tokentopair: 'sushi',       // CEX→DEX: SushiSwap API v7
+                pairtotoken: 'sushi'        // DEX→CEX: SushiSwap API v7
+            },
+            alternative: {
+                tokentopair: 'swoop',   // Fallback CEX→DEX: SWOOP aggregator
+                pairtotoken: 'swoop'    // Fallback DEX→CEX: SWOOP aggregator
+            }
+        },
+        allowFallback: true,
+    },
+    matcha: {
         label: 'Matcha',
         badgeClass: 'bg-matcha',
         proxy: true, // ✅ Enable proxy - 0x API has CORS restrictions for browser requests
@@ -683,8 +702,8 @@ const CONFIG_DEXS = {
         fetchdex: {
             primary: {
                 //tokentopair: 'unidex-0x',          // CEX→DEX (Actionkiri): Matcha (0x) API langsung
-                tokentopair: '0x',
-                pairtotoken: '0x'    // DEX→CEX (ActionKanan): Unidex 0x API (lebih stabil)
+                tokentopair: 'matcha',
+                pairtotoken: 'matcha'    // DEX→CEX (ActionKanan): 0x API (Matcha backend)
             },
             alternative: {
                 tokentopair: 'swoop',   // Fallback CEX→DEX: SWOOP aggregator
@@ -779,9 +798,9 @@ const CONFIG_DEXS = {
     },
     */
     // ============ END DISABLED DEXes ============
-    paraswap: {
-        label: 'ParaSwap',
-        badgeClass: 'bg-paraswap',
+    velora: {
+        label: 'Velora',
+        badgeClass: 'bg-velora',
 
         warna: "#1c64f2ff",
         builder: ({ chainName, tokenAddress, pairAddress }) => {
@@ -792,8 +811,8 @@ const CONFIG_DEXS = {
         },
         fetchdex: {
             primary: {
-                tokentopair: 'paraswap6',   // CEX→DEX: ParaSwap API v6.2 (recommended by Velora)
-                pairtotoken: 'paraswap6'    // DEX→CEX: ParaSwap API v6.2 (v5 is deprecated)
+                tokentopair: 'velora6',   // CEX→DEX: Velora API v6.2 (ParaSwap backend)
+                pairtotoken: 'velora6'    // DEX→CEX: Velora API v6.2 (v5 is deprecated)
             },
             alternative: {
                 tokentopair: 'swoop',   // Fallback CEX→DEX: SWOOP aggregator
@@ -955,28 +974,6 @@ const CONFIG_DEXS = {
         allowFallback: false, // Swing is already a multi-DEX aggregator
         maxProviders: 2 // Display top 2 routes (sesuai config)
     },
-    /* FLY TRADE LIMIT KARENA CLOUD FLARE
-        fly: {
-            label: 'FLY',
-            badgeClass: 'bg-fly',
-            disabled: true,
-            proxy: false, // ✅ FlyTrade API public endpoint - NO proxy needed (CORS enabled)
-            warna: "#4e046dff", // fly purple
-            builder: ({ chainName, tokenAddress, pairAddress }) => {
-                const net = String(chainName || '').toLowerCase() || 'ethereum';
-                return `https://app.fly.trade/swap/${net}/${String(tokenAddress).toLowerCase()}/${net}/${String(pairAddress).toLowerCase()}`;
-            },
-            fetchdex: {
-                primary: {
-                    tokentopair: 'fly',
-                    pairtotoken: 'fly'
-                }
-            },
-            allowFallback: false,
-            isMultiDex: false // Single DEX aggregator (not multi-route like LIFI/Swing)
-        }
-    */
-
 };
 
 try {

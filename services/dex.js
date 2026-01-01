@@ -214,7 +214,7 @@
     //     return { amount_out, FeeSwap, dexTitle: '1INCH' };
     //   }
     // },
-    paraswap5: {
+    velora5: {
       buildRequest: ({ codeChain, sc_input, sc_output, amount_in_big, des_input, des_output }) => {
         const params = new URLSearchParams({
           network: String(codeChain || ''),
@@ -234,16 +234,16 @@
       parseResponse: (response, { des_output, chainName }) => {
         const route = response?.priceRoute;
         const destAmountStr = route?.destAmount;
-        if (!destAmountStr) throw new Error('Invalid ParaSwap response');
+        if (!destAmountStr) throw new Error('Invalid Velora response');
         const destAmountNum = parseFloat(destAmountStr);
-        if (!Number.isFinite(destAmountNum) || destAmountNum <= 0) throw new Error('Invalid ParaSwap dest amount');
+        if (!Number.isFinite(destAmountNum) || destAmountNum <= 0) throw new Error('Invalid Velora dest amount');
         const amount_out = destAmountNum / Math.pow(10, des_output);
         const gasUsd = parseFloat(route.gasCostUSD || route.estimatedGasCostUSD || response?.gasCostUSD || 0);
         const FeeSwap = (Number.isFinite(gasUsd) && gasUsd > 0) ? gasUsd : getFeeSwap(chainName);
-        return { amount_out, FeeSwap, dexTitle: 'PARASWAP' };
+        return { amount_out, FeeSwap, dexTitle: 'VELORA' };
       }
     },
-    paraswap6: {
+    velora6: {
       buildRequest: ({ codeChain, sc_input, sc_output, amount_in_big, des_input, des_output, SavedSettingData }) => {
         const userAddr = SavedSettingData?.walletMeta || '0x0000000000000000000000000000000000000000';
         const params = new URLSearchParams({
@@ -267,17 +267,17 @@
       parseResponse: (response, { des_output, chainName }) => {
         const route = response?.priceRoute;
         const destAmountStr = route?.destAmount;
-        if (!destAmountStr) throw new Error('Invalid ParaSwap v6 response');
+        if (!destAmountStr) throw new Error('Invalid Velora v6 response');
         const destAmountNum = parseFloat(destAmountStr);
-        if (!Number.isFinite(destAmountNum) || destAmountNum <= 0) throw new Error('Invalid ParaSwap v6 dest amount');
+        if (!Number.isFinite(destAmountNum) || destAmountNum <= 0) throw new Error('Invalid Velora v6 dest amount');
         const amount_out = destAmountNum / Math.pow(10, des_output);
         const gasUsd = parseFloat(route.gasCostUSD || route.estimatedGasCostUSD || response?.gasCostUSD || 0);
         const FeeSwap = (Number.isFinite(gasUsd) && gasUsd > 0) ? gasUsd : getFeeSwap(chainName);
         return {
           amount_out,
           FeeSwap,
-          dexTitle: 'PARASWAP',
-          routeTool: 'PARASWAP V6'
+          dexTitle: 'VELORA',
+          routeTool: 'VELORA V6'
         };
       }
     },
@@ -356,121 +356,6 @@
           FeeSwap,
           dexTitle: 'ODOS',
           routeTool: 'HINKAL-ODOS'  // Track that it came via Hinkal proxy
-        };
-      }
-    },
-    fly: {
-      buildRequest: ({ chainName, sc_input, sc_output, sc_input_in, sc_output_in, amount_in_big }) => {
-        /**
-         * Fly.trade (Magpie) Aggregator API v3
-         * Docs: https://docs.fly.trade/developers/api-reference/on-chain-swap
-         *
-         * Required Parameters:
-         * - fromTokenAddress: Token to swap from (0x0000... for native)
-         * - toTokenAddress: Token to swap to (0x0000... for native)
-         * - amount: Amount in smallest unit (wei)
-         * - slippage: Slippage tolerance (e.g., 0.005 for 0.5%)
-         * - fromAddress: Wallet initiating swap
-         * - toAddress: Wallet receiving tokens
-         * - gasless: true/false (Magpie handles gas vs user pays)
-         *
-         * Optional Parameters:
-         * - network: Chain name (ethereum, bsc, polygon, etc.)
-         * - enableRFQ: Enable RFQ protocols (default: false)
-         * - affiliateAddress: Partner fee wallet
-         * - affiliateFeeInPercentage: Fee % (e.g., 0.01 for 1%)
-         */
-
-        // Map chain name to Fly.trade network parameter
-        const chainNetworkMap = {
-          'bsc': 'bsc',
-          'polygon': 'polygon',
-          'arbitrum': 'arbitrum',
-          'ethereum': 'ethereum',
-          'base': 'base',
-          'avalanche': 'avalanche',
-          'optimism': 'optimism',
-          'fantom': 'fantom',
-          'linea': 'linea',
-          'scroll': 'scroll',
-          'zksync': 'zksync',
-          'solana': 'solana'
-        };
-
-        const chainLower = String(chainName || '').toLowerCase();
-        const net = chainNetworkMap[chainLower] || chainLower;
-
-        // Solana uses base58 addresses (case-sensitive), use original addresses
-        const isSolana = chainLower === 'solana';
-        const fromAddr = isSolana ? sc_input_in : sc_input;
-        const toAddr = isSolana ? sc_output_in : sc_output;
-
-        // Get wallet address from settings (required by API)
-        const walletAddr = (typeof root !== 'undefined' && root.SavedSettingData?.walletMeta)
-          ? root.SavedSettingData.walletMeta
-          : '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'; // Fallback to Vitalik's address
-
-        // Build parameters according to official documentation
-        const params = new URLSearchParams({
-          network: net,                    // Chain name (optional but recommended)
-          fromTokenAddress: fromAddr,       // Source token address (required)
-          toTokenAddress: toAddr,           // Destination token address (required)
-          amount: String(amount_in_big),    // Amount in wei (required) - ✅ FIXED: was 'sellAmount'
-          slippage: '0.01',                 // 1% slippage (required)
-          fromAddress: walletAddr,          // Sender wallet (required)
-          toAddress: walletAddr,            // Receiver wallet (required)
-          gasless: 'false',                 // User pays gas (required)
-          enableRFQ: 'false'                // Disable RFQ protocols (optional)
-        });
-
-        const url = `https://api.fly.trade/aggregator/quote?${params.toString()}`;
-
-        console.log(`[FLY] Request: ${chainName} ${fromAddr} -> ${toAddr}`);
-
-        return {
-          url,
-          method: 'GET',
-          headers: {}
-        };
-      },
-      parseResponse: (response, { chainName, des_output }) => {
-        /**
-         * Fly.trade Response Structure:
-         * {
-         *   "quote-id": "...",
-         *   "toTokenAmount": "123456789",  // Output amount in wei
-         *   "fees": [
-         *     { "type": "gas", "value": "0.05" },  // Gas fee in USD
-         *     { "type": "protocol", "value": "0.01" }
-         *   ],
-         *   "distributions": [...],  // Route distribution across DEXes
-         *   "targetAddress": "0x..."  // Contract address for approval
-         * }
-         */
-
-        // Parse toTokenAmount from response (in wei)
-        const rawOut = response?.toTokenAmount;
-        const outNum = parseFloat(rawOut);
-
-        if (!Number.isFinite(outNum) || outNum <= 0) {
-          throw new Error('Invalid Fly.trade toTokenAmount');
-        }
-
-        // Convert from wei to token units
-        const amount_out = outNum / Math.pow(10, des_output);
-
-        // Extract gas fee from response (in USD)
-        const gasFee = response?.fees?.find(f => f.type === 'gas');
-        const feeDex = parseFloat(gasFee?.value || 0);
-        const FeeSwap = (Number.isFinite(feeDex) && feeDex > 0) ? feeDex : getFeeSwap(chainName);
-
-        console.log(`[FLY] Response: ${amount_out} tokens, Gas: $${FeeSwap}`);
-
-        return {
-          amount_out,
-          FeeSwap,
-          dexTitle: 'FLY',
-          quoteId: response?.['quote-id']  // Store quote-id for transaction execution
         };
       }
     },
@@ -583,10 +468,10 @@
         return { amount_out, FeeSwap, dexTitle: 'KYBER' };
       }
     },
-    '0x': {
+    matcha: {
       buildRequest: ({ chainName, sc_input_in, sc_output_in, amount_in_big, codeChain, sc_output, sc_input, SavedSettingData }) => {
         /**
-         * 0x Swap API - Official Documentation
+         * Matcha API - Official 0x Documentation
          * Docs: https://0x.org/docs/api
          * Dashboard: https://dashboard.0x.org
          *
@@ -595,9 +480,9 @@
          * - Supported chains: https://0x.org/docs/developer-resources/supported-chains
          */
 
-        // Solana is NOT officially supported by 0x API - should use fallback
+        // Solana is NOT officially supported by Matcha API - should use fallback
         if (chainName && String(chainName).toLowerCase() === 'solana') {
-          throw new Error('0x API does not support Solana - use DZAP fallback');
+          throw new Error('Matcha API does not support Solana - use DZAP fallback');
         }
 
         const userAddr = SavedSettingData?.walletMeta || '0x0000000000000000000000000000000000000000';
@@ -630,7 +515,7 @@
           '0x-version': 'v2'
         };
 
-        console.log(`[0x API] Request: ${chainName} ${sc_input_in} -> ${sc_output_in}`);
+        console.log(`[Matcha API] Request: ${chainName} ${sc_input_in} -> ${sc_output_in}`);
 
         return { url, method: 'GET', headers };
       },
@@ -676,7 +561,7 @@
         }
 
         // Log response details for debugging
-        console.log(`[0x API] Response parsed:`, {
+        console.log(`[Matcha API] Response parsed:`, {
           buyAmount: response.buyAmount,
           minBuyAmount: response.minBuyAmount,
           amountOut: amount_out.toFixed(6),
@@ -701,18 +586,18 @@
             .map(f => f.source || f.type)
             .filter((v, i, a) => v && a.indexOf(v) === i);
           if (sources.length > 0) {
-            console.log(`[0x API] Liquidity sources:`, sources.join(', '));
+            console.log(`[Matcha API] Liquidity sources:`, sources.join(', '));
           }
         }
 
         return {
           amount_out,
           FeeSwap,
-          dexTitle: '0X'
+          dexTitle: 'MATCHA'
         };
       }
     },
-    'unidex-0x': {
+    'unidex-matcha': {
       buildRequest: ({ codeChain, sc_input_in, sc_output_in, amount_in_big, SavedSettingData, chainName }) => {
         const userAddr = SavedSettingData?.walletMeta || '0x0000000000000000000000000000000000000000';
 
@@ -787,12 +672,12 @@
 
         const FeeSwap = getFeeSwap(chainName);
 
-        // FIX: Gunakan 'UNIDEX-0X' sebagai routeTool untuk membedakan dari Matcha API biasa
+        // FIX: Gunakan 'UNIDEX-MATCHA' sebagai routeTool untuk membedakan dari Matcha API biasa
         return {
           amount_out,
           FeeSwap,
-          dexTitle: '0X',
-          routeTool: 'UNIDEX-0X'
+          dexTitle: 'MATCHA',
+          routeTool: 'UNIDEX-MATCHA'
         };
       }
     },
@@ -850,6 +735,83 @@
           amount_out,
           FeeSwap,
           dexTitle: 'OKX'
+        };
+      }
+    },
+    sushi: {
+      buildRequest: ({ codeChain, sc_input_in, sc_output_in, amount_in_big, SavedSettingData }) => {
+        /**
+         * Sushi API v7 - Official Documentation
+         * Docs: https://docs.sushi.com/api/swagger
+         * Examples: https://docs.sushi.com/api/examples/swap
+         *
+         * Endpoint: GET https://api.sushi.com/swap/v7/{chainId}
+         * Query params:
+         * - tokenIn: Input token address (required)
+         * - tokenOut: Output token address (required)
+         * - amount: Amount in base units (required)
+         * - maxSlippage: Slippage tolerance, e.g., "0.005" for 0.5% (optional, default: 0.5%)
+         * - sender: User wallet address (optional but recommended)
+         * - apiKey: Optional for higher rate limits (from sushi.com/portal)
+         */
+
+        const userAddr = SavedSettingData?.walletMeta || '0x0000000000000000000000000000000000000000';
+
+        // Build API URL
+        const baseUrl = `https://api.sushi.com/swap/v7/${codeChain}`;
+        const params = new URLSearchParams({
+          tokenIn: sc_input_in,
+          tokenOut: sc_output_in,
+          amount: String(amount_in_big),
+          maxSlippage: '0.005',  // 0.5% slippage
+          sender: userAddr
+        });
+
+        const url = `${baseUrl}?${params.toString()}`;
+
+        console.log(`[Sushi API] Request: Chain ${codeChain} ${sc_input_in} -> ${sc_output_in}`);
+
+        return { url, method: 'GET' };
+      },
+      parseResponse: (response, { des_output, chainName }) => {
+        /**
+         * Parse Sushi API response
+         *
+         * Response format:
+         * - assumedAmountOut: Expected output amount in base units (string)
+         * - swapPrice: Output amount divided by input amount
+         * - priceImpact: Price impact percentage
+         * - gasSpent: Gas cost estimate (number)
+         * - route: { legs[], status }
+         */
+
+        if (!response?.assumedAmountOut) {
+          throw new Error("Invalid Sushi API response - missing assumedAmountOut");
+        }
+
+        // Parse output amount from response (in base units)
+        const outputAmount = parseFloat(response.assumedAmountOut);
+        const amount_out = outputAmount / Math.pow(10, des_output);
+
+        // Get gas fee (gasSpent is already in USD)
+        let FeeSwap = getFeeSwap(chainName);
+        try {
+          if (response.gasSpent && parseFloat(response.gasSpent) > 0) {
+            FeeSwap = parseFloat(response.gasSpent);
+          }
+        } catch (e) {
+          console.warn('[Sushi API] Could not parse gas fee from response, using default');
+        }
+
+        // Log route info if available
+        if (response.route && response.route.legs) {
+          console.log(`[Sushi] Route has ${response.route.legs.length} legs, price impact: ${response.priceImpact || 'N/A'}%`);
+        }
+
+        return {
+          amount_out,
+          FeeSwap,
+          dexTitle: 'SUSHI'
         };
       }
     },
@@ -2093,11 +2055,12 @@
 
   // Back-compat alias: support legacy 'kyberswap' key
   dexStrategies.kyberswap = dexStrategies.kyber;
-  // ParaSwap aliases: v6.2 is recommended by Velora (v5 is deprecated)
-  dexStrategies.paraswap = dexStrategies.paraswap6;  // Default to v6
-  // Keep paraswap5 as-is (already defined above) - but note: v5 is deprecated by Velora
-  // Alias untuk Matcha (0x)
-  dexStrategies.matcha = dexStrategies['0x'];
+  // Velora aliases: v6.2 is recommended (v5 is deprecated)
+  dexStrategies.paraswap = dexStrategies.velora6;  // Backward compat: paraswap -> velora
+  dexStrategies.paraswap5 = dexStrategies.velora5;
+  dexStrategies.paraswap6 = dexStrategies.velora6;
+  // Backward compat alias: support legacy '0x' key -> matcha
+  dexStrategies['0x'] = dexStrategies.matcha;
 
   // -----------------------------
   // Helper: resolve fetch plan per DEX + arah

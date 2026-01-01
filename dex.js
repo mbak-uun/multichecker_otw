@@ -108,50 +108,6 @@
     return 0;
   }
 
-  // ============================================================================
-  // 0x API CONFIGURATION
-  // ============================================================================
-  /**
-   * 0x API (Matcha) Configuration
-   * Official documentation: https://0x.org/docs/api
-   *
-   * Get your API key from: https://dashboard.0x.org
-   *
-   * The API key should be stored in SavedSettingData.apiKey0x or as fallback
-   */
-  function get0xApiKey() {
-    try {
-      // ✅ SINGLE SOURCE OF TRUTH: Read from secrets.js
-      // The get0xApiKey() function is available via window.get0xApiKey from secrets.js
-      if (typeof root.get0xApiKey === 'function') {
-        const apiKey = root.get0xApiKey();
-        if (apiKey) {
-          return apiKey;
-        }
-      }
-
-      // Direct access to DEX_API_KEYS from secrets.js
-      if (root.DEX_API_KEYS && root.DEX_API_KEYS.ZEROX) {
-        return root.DEX_API_KEYS.ZEROX;
-      }
-
-      // Fallback: Try to get from settings (legacy - for backward compatibility)
-      const settings = (typeof getFromLocalStorage === 'function')
-        ? getFromLocalStorage('SETTING_SCANNER', {})
-        : {};
-
-      if (settings.apiKey0x) {
-        return settings.apiKey0x;
-      }
-
-      console.warn('[0x API] No API key found in secrets.js. Get one from https://dashboard.0x.org');
-      return null;
-    } catch (error) {
-      console.error('[0x API] Error getting API key:', error);
-      return null;
-    }
-  }
-
   const dexStrategies = {
     kyber: {
       buildRequest: ({ chainName, sc_input, sc_output, amount_in_big }) => {
@@ -214,7 +170,7 @@
     //     return { amount_out, FeeSwap, dexTitle: '1INCH' };
     //   }
     // },
-    paraswap5: {
+    velora5: {
       buildRequest: ({ codeChain, sc_input, sc_output, amount_in_big, des_input, des_output }) => {
         const params = new URLSearchParams({
           network: String(codeChain || ''),
@@ -240,10 +196,11 @@
         const amount_out = destAmountNum / Math.pow(10, des_output);
         const gasUsd = parseFloat(route.gasCostUSD || route.estimatedGasCostUSD || response?.gasCostUSD || 0);
         const FeeSwap = (Number.isFinite(gasUsd) && gasUsd > 0) ? gasUsd : getFeeSwap(chainName);
-        return { amount_out, FeeSwap, dexTitle: 'PARASWAP' };
-      }
+        return { amount_out, FeeSwap, dexTitle: 'VELORA' };
+      },
+      useProxy: false
     },
-    paraswap6: {
+    velora6: {
       buildRequest: ({ codeChain, sc_input, sc_output, amount_in_big, des_input, des_output, SavedSettingData }) => {
         const userAddr = SavedSettingData?.walletMeta || '0x0000000000000000000000000000000000000000';
         const params = new URLSearchParams({
@@ -279,200 +236,41 @@
           dexTitle: 'PARASWAP',
           routeTool: 'PARASWAP V6'
         };
-      }
+      },
+      useProxy: false
     },
     'hinkal-odos': {
-      /**
-       * Hinkal ODOS Proxy - Privacy-focused ODOS integration
-       * Endpoint: https://ethmainnet.server.hinkal.pro/OdosSwapData
-       *
-       * This proxy wraps the official ODOS API with privacy features.
-       * Request format matches official ODOS API (see createOdosStrategy above).
-       *
-       * Response wraps ODOS data in: { odosResponse: {...} }
-       * - odosResponse.outputTokens[0].amount: Output in wei
-       * - odosResponse.gasEstimateValue: Gas cost in USD
-       *
-       * NOTE: Typically 1-2 seconds faster than direct ODOS API v2/v3
-       */
-      buildRequest: ({ codeChain, SavedSettingData, amount_in_big, sc_input_in, sc_output_in }) => {
-        const wallet = SavedSettingData?.walletMeta || '0x0000000000000000000000000000000000000000';
-        // CRITICAL FIX: Use checksummed addresses (sc_input_in/sc_output_in)
+      // Hinkal ODOS proxy (pair-to-token per permintaan)
+      buildRequest: ({ codeChain, SavedSettingData, amount_in_big, sc_input, sc_output }) => {
+        const url = 'https://ethmainnet.server.hinkal.pro/OdosSwapData';
         return {
-          url: 'https://ethmainnet.server.hinkal.pro/OdosSwapData',
+          url,
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
           data: JSON.stringify({
             chainId: codeChain,
-            inputTokens: [{
-              tokenAddress: sc_input_in,  // ✅ Use checksummed address
-              amount: amount_in_big.toString()
-            }],
-            outputTokens: [{
-              tokenAddress: sc_output_in,  // ✅ Use checksummed address
-              proportion: 1
-            }],
-            userAddr: wallet,
+            inputTokens: [{ amount: amount_in_big.toString(), tokenAddress: sc_input }],
+            outputTokens: [{ proportion: 1, tokenAddress: sc_output }],
+            userAddr: SavedSettingData.walletMeta,
             slippageLimitPercent: 0.3,
-            referralCode: 0,
-            sourceBlacklist: [],        // Optional: exclude specific sources
-            sourceWhitelist: [],        // Optional: only use specific sources
-            simulate: false,            // Set to true for simulation mode
-            disableRFQs: true,         // Disable RFQ for reliability
-            compact: true              // Enable compact call data
+            sourceBlacklist: [],
+            sourceWhitelist: [],
+            simulate: false,
+            referralCode: 0
           })
         };
       },
       parseResponse: (response, { des_output, chainName }) => {
-        // Hinkal wraps ODOS response in odosResponse object
-        const odosData = response?.odosResponse;
-        if (!odosData) throw new Error('Invalid Hinkal-ODOS response: missing odosResponse');
-
-        // Parse output amount from outputTokens array (wei format)
-        const outRawStr = odosData.outputTokens?.[0]?.amount;
-        if (!outRawStr) throw new Error('Invalid Hinkal-ODOS response: missing outputTokens');
-
+        // Gunakan jumlah output mentah (wei) dari outputTokens; outValues adalah nilai (USD) dan tidak dipakai untuk unit token
+        const outRawStr = response?.odosResponse?.outputTokens?.[0]?.amount;
+        if (!outRawStr) throw new Error('Invalid Hinkal ODOS out amount');
         const outRaw = parseFloat(outRawStr);
-        if (!Number.isFinite(outRaw) || outRaw <= 0) {
-          throw new Error(`Invalid Hinkal-ODOS output amount: ${outRawStr}`);
-        }
-
+        if (!Number.isFinite(outRaw) || outRaw <= 0) throw new Error('Invalid Hinkal ODOS out amount');
         const amount_out = outRaw / Math.pow(10, des_output);
-
-        // Parse gas estimate (prefer odosResponse nested value)
-        const feeUsd = parseFloat(
-          odosData.gasEstimateValue ||
-          response?.gasEstimateValue ||
-          0
-        );
-        const FeeSwap = (Number.isFinite(feeUsd) && feeUsd > 0)
-          ? feeUsd
-          : getFeeSwap(chainName);
-
-        return {
-          amount_out,
-          FeeSwap,
-          dexTitle: 'ODOS',
-          routeTool: 'HINKAL-ODOS'  // Track that it came via Hinkal proxy
-        };
-      }
-    },
-    fly: {
-      buildRequest: ({ chainName, sc_input, sc_output, sc_input_in, sc_output_in, amount_in_big }) => {
-        /**
-         * Fly.trade (Magpie) Aggregator API v3
-         * Docs: https://docs.fly.trade/developers/api-reference/on-chain-swap
-         *
-         * Required Parameters:
-         * - fromTokenAddress: Token to swap from (0x0000... for native)
-         * - toTokenAddress: Token to swap to (0x0000... for native)
-         * - amount: Amount in smallest unit (wei)
-         * - slippage: Slippage tolerance (e.g., 0.005 for 0.5%)
-         * - fromAddress: Wallet initiating swap
-         * - toAddress: Wallet receiving tokens
-         * - gasless: true/false (Magpie handles gas vs user pays)
-         *
-         * Optional Parameters:
-         * - network: Chain name (ethereum, bsc, polygon, etc.)
-         * - enableRFQ: Enable RFQ protocols (default: false)
-         * - affiliateAddress: Partner fee wallet
-         * - affiliateFeeInPercentage: Fee % (e.g., 0.01 for 1%)
-         */
-
-        // Map chain name to Fly.trade network parameter
-        const chainNetworkMap = {
-          'bsc': 'bsc',
-          'polygon': 'polygon',
-          'arbitrum': 'arbitrum',
-          'ethereum': 'ethereum',
-          'base': 'base',
-          'avalanche': 'avalanche',
-          'optimism': 'optimism',
-          'fantom': 'fantom',
-          'linea': 'linea',
-          'scroll': 'scroll',
-          'zksync': 'zksync',
-          'solana': 'solana'
-        };
-
-        const chainLower = String(chainName || '').toLowerCase();
-        const net = chainNetworkMap[chainLower] || chainLower;
-
-        // Solana uses base58 addresses (case-sensitive), use original addresses
-        const isSolana = chainLower === 'solana';
-        const fromAddr = isSolana ? sc_input_in : sc_input;
-        const toAddr = isSolana ? sc_output_in : sc_output;
-
-        // Get wallet address from settings (required by API)
-        const walletAddr = (typeof root !== 'undefined' && root.SavedSettingData?.walletMeta)
-          ? root.SavedSettingData.walletMeta
-          : '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'; // Fallback to Vitalik's address
-
-        // Build parameters according to official documentation
-        const params = new URLSearchParams({
-          network: net,                    // Chain name (optional but recommended)
-          fromTokenAddress: fromAddr,       // Source token address (required)
-          toTokenAddress: toAddr,           // Destination token address (required)
-          amount: String(amount_in_big),    // Amount in wei (required) - ✅ FIXED: was 'sellAmount'
-          slippage: '0.01',                 // 1% slippage (required)
-          fromAddress: walletAddr,          // Sender wallet (required)
-          toAddress: walletAddr,            // Receiver wallet (required)
-          gasless: 'false',                 // User pays gas (required)
-          enableRFQ: 'false'                // Disable RFQ protocols (optional)
-        });
-
-        const url = `https://api.fly.trade/aggregator/quote?${params.toString()}`;
-
-        console.log(`[FLY] Request: ${chainName} ${fromAddr} -> ${toAddr}`);
-
-        return {
-          url,
-          method: 'GET',
-          headers: {}
-        };
+        const feeUsd = parseFloat(response?.odosResponse?.gasEstimateValue || response?.gasEstimateValue || 0);
+        const FeeSwap = (Number.isFinite(feeUsd) && feeUsd > 0) ? feeUsd : getFeeSwap(chainName);
+        return { amount_out, FeeSwap, dexTitle: 'ODOS' };
       },
-      parseResponse: (response, { chainName, des_output }) => {
-        /**
-         * Fly.trade Response Structure:
-         * {
-         *   "quote-id": "...",
-         *   "toTokenAmount": "123456789",  // Output amount in wei
-         *   "fees": [
-         *     { "type": "gas", "value": "0.05" },  // Gas fee in USD
-         *     { "type": "protocol", "value": "0.01" }
-         *   ],
-         *   "distributions": [...],  // Route distribution across DEXes
-         *   "targetAddress": "0x..."  // Contract address for approval
-         * }
-         */
-
-        // Parse toTokenAmount from response (in wei)
-        const rawOut = response?.toTokenAmount;
-        const outNum = parseFloat(rawOut);
-
-        if (!Number.isFinite(outNum) || outNum <= 0) {
-          throw new Error('Invalid Fly.trade toTokenAmount');
-        }
-
-        // Convert from wei to token units
-        const amount_out = outNum / Math.pow(10, des_output);
-
-        // Extract gas fee from response (in USD)
-        const gasFee = response?.fees?.find(f => f.type === 'gas');
-        const feeDex = parseFloat(gasFee?.value || 0);
-        const FeeSwap = (Number.isFinite(feeDex) && feeDex > 0) ? feeDex : getFeeSwap(chainName);
-
-        console.log(`[FLY] Response: ${amount_out} tokens, Gas: $${FeeSwap}`);
-
-        return {
-          amount_out,
-          FeeSwap,
-          dexTitle: 'FLY',
-          quoteId: response?.['quote-id']  // Store quote-id for transaction execution
-        };
-      }
+      useProxy: false
     },
     // ZeroSwap aggregator untuk 1inch
     'zero-1inch': {
@@ -583,148 +381,91 @@
         return { amount_out, FeeSwap, dexTitle: 'KYBER' };
       }
     },
-    '0x': {
+    matcha: {
       buildRequest: ({ chainName, sc_input_in, sc_output_in, amount_in_big, codeChain, sc_output, sc_input, SavedSettingData }) => {
-        /**
-         * 0x Swap API - Official Documentation
-         * Docs: https://0x.org/docs/api
-         * Dashboard: https://dashboard.0x.org
-         *
-         * IMPORTANT: 0x officially supports EVM chains only (NOT Solana)
-         * - For Solana, use DZAP as configured fallback
-         * - Supported chains: https://0x.org/docs/developer-resources/supported-chains
-         */
-
-        // Solana is NOT officially supported by 0x API - should use fallback
-        if (chainName && String(chainName).toLowerCase() === 'solana') {
-          throw new Error('0x API does not support Solana - use DZAP fallback');
-        }
-
         const userAddr = SavedSettingData?.walletMeta || '0x0000000000000000000000000000000000000000';
-
-        // Get 0x API key
-        const apiKey = get0xApiKey();
-        if (!apiKey) {
-          throw new Error('0x API key required. Get one from https://dashboard.0x.org');
-        }
-
-        // Build request URL with official 0x API endpoint
-        // ✅ UPDATED: Using /swap/allowance-holder/quote endpoint (official v2 API)
-        // Docs: https://0x.org/docs/api#tag/Swap/operation/swap::allowanceHolder::getQuote
-        const baseUrl = 'https://api.0x.org/swap/allowance-holder/quote';
-
-        const params = new URLSearchParams({
-          chainId: String(codeChain),           // Chain ID as string (required)
-          sellToken: sc_input_in,                // Sell token address (checksummed, required)
-          buyToken: sc_output_in,                // Buy token address (checksummed, required)
-          sellAmount: String(amount_in_big),     // Amount in base units (required)
-          taker: userAddr,                       // Taker address (required)
-          slippageBps: '100'                     // 1% slippage (default: 100 basis points)
-        });
-
-        const url = `${baseUrl}?${params.toString()}`;
-
-        // Required headers per official documentation
-        const headers = {
-          '0x-api-key': apiKey,
-          '0x-version': 'v2'
-        };
-
-        console.log(`[0x API] Request: ${chainName} ${sc_input_in} -> ${sc_output_in}`);
-
-        return { url, method: 'GET', headers };
+        // ⚠️ IMPORTANT: Matcha Solana endpoint is UNDOCUMENTED
+        // - Matcha (0x) Swap API officially supports only EVM chains (NOT Solana)
+        // - Matcha frontend has Solana support but uses internal/undocumented API
+        // - This endpoint may be unstable or change without notice
+        // - For Solana, DZAP is configured as automatic fallback (see resolveFetchPlan)
+        // - References:
+        //   - 0x Supported Chains: https://0x.org/docs/developer-resources/supported-chains
+        //   - Matcha Solana Launch: https://www.theblock.co/post/349429/0x-dex-aggregator-matcha-solana-cross-chain-avoid-memecoin-rug-pulls
+        const url = chainName.toLowerCase() === 'solana'
+          ? `https://matcha.xyz/api/swap/quote/solana?sellTokenAddress=${sc_input_in}&buyTokenAddress=${sc_output_in}&sellAmount=${amount_in_big}&dynamicSlippage=true&slippageBps=50&userPublicKey=Eo6CpSc1ViboPva7NZ1YuxUnDCgqnFDXzcDMDAF6YJ1L`
+          : `https://matcha.xyz/api/swap/price?chainId=${codeChain}&buyToken=${sc_output_in}&sellToken=${sc_input_in}&sellAmount=${amount_in_big}&slippageBps=50&taker=${userAddr}`;
+        return { url, method: 'GET' };
       },
       parseResponse: (response, { des_output, des_input, chainName }) => {
-        /**
-         * Parse 0x API response (allowance-holder endpoint)
-         * Response format: https://0x.org/docs/api#tag/Swap/operation/swap::allowanceHolder::getQuote
-         *
-         * Key fields:
-         * - buyAmount: Amount of buyToken (in base units)
-         * - minBuyAmount: Minimum amount accounting for slippage
-         * - allowanceTarget: Contract address for token approval
-         * - transaction: { gas, gasPrice, value, to, data }
-         * - fees: { integratorFee, zeroExFee, gasFee }
-         * - route: { fills[], tokens[] } - Liquidity routing details
-         * - issues: { allowance, balance, simulationIncomplete, invalidSourcesPassed }
-         */
+        if (!response?.buyAmount) throw new Error("Invalid Matcha response structure");
 
-        if (!response?.buyAmount) {
-          throw new Error("Invalid 0x API response - missing buyAmount");
-        }
+        // ===== SOLANA MATCHA RESPONSE FORMAT =====
+        // For Solana, response includes route.tokens with decimals info
+        // Example response: { buyAmount: "16986", sellAmount: "10000000", route: { tokens: [...] } }
+        let actualDesOutput = des_output;
+        let actualDesInput = des_input;
 
-        // Parse buyAmount from response (already in base units)
-        const buyAmount = parseFloat(response.buyAmount);
-        const amount_out = buyAmount / Math.pow(10, des_output);
+        // Extract decimals from response for Solana (more accurate)
+        if (chainName.toLowerCase() === 'solana' && response.route?.tokens) {
+          try {
+            // response.route.tokens adalah array of tokens dalam route
+            // Index terakhir biasanya adalah buyToken
+            const tokens = response.route.tokens;
+            if (tokens.length > 0) {
+              // Cari buyToken dan sellToken dari array tokens
+              // Biasanya sellToken adalah tokens[0], buyToken adalah tokens[tokens.length-1]
+              const buyTokenInfo = tokens[tokens.length - 1];
+              const sellTokenInfo = tokens[0];
 
-        // Calculate gas fee from response (if available)
-        let FeeSwap = getFeeSwap(chainName);
-        try {
-          if (response.fees && response.fees.gasFee) {
-            const gasFeeUsd = parseFloat(response.fees.gasFee.amount || 0);
-            if (Number.isFinite(gasFeeUsd) && gasFeeUsd > 0) {
-              FeeSwap = gasFeeUsd;
+              if (buyTokenInfo?.decimals !== undefined) {
+                actualDesOutput = Number(buyTokenInfo.decimals);
+                console.log(`[MATCHA SOLANA] Using buyToken decimals from response: ${actualDesOutput}`);
+              }
+
+              if (sellTokenInfo?.decimals !== undefined) {
+                actualDesInput = Number(sellTokenInfo.decimals);
+              }
             }
-          } else if (response.transaction && response.transaction.gas && response.transaction.gasPrice) {
-            // Fallback: Calculate from gas * gasPrice (need native token price)
-            const gasLimit = parseFloat(response.transaction.gas);
-            const gasPrice = parseFloat(response.transaction.gasPrice);
-            // This would need native token price conversion - skip for now
-          }
-        } catch (e) {
-          console.warn('[0x API] Could not parse gas fee from response, using default');
-        }
-
-        // Log response details for debugging
-        console.log(`[0x API] Response parsed:`, {
-          buyAmount: response.buyAmount,
-          minBuyAmount: response.minBuyAmount,
-          amountOut: amount_out.toFixed(6),
-          decimals: des_output,
-          gas: response.transaction?.gas,
-          gasPrice: response.transaction?.gasPrice,
-          sources: response.route?.fills?.length || 0,
-          chainName
-        });
-
-        // Log warnings if present
-        if (response.issues) {
-          const issueKeys = Object.keys(response.issues || {}).filter(k => response.issues[k]);
-          if (issueKeys.length > 0) {
-            console.warn(`[0x API] Response issues:`, issueKeys.join(', '));
+          } catch (e) {
+            console.warn('[MATCHA SOLANA] Failed to extract decimals from response, using default:', e);
           }
         }
 
-        // Log liquidity sources used
-        if (response.route?.fills) {
-          const sources = response.route.fills
-            .map(f => f.source || f.type)
-            .filter((v, i, a) => v && a.indexOf(v) === i);
-          if (sources.length > 0) {
-            console.log(`[0x API] Liquidity sources:`, sources.join(', '));
+        // Calculate amount_out with correct decimals
+        const amount_out = parseFloat(response.buyAmount) / Math.pow(10, actualDesOutput);
+
+        // For debugging: log rate calculation for Solana
+        if (chainName.toLowerCase() === 'solana' && response.sellAmount) {
+          try {
+            const sellAmountActual = parseFloat(response.sellAmount) / Math.pow(10, actualDesInput);
+            const rateUSDT = amount_out / sellAmountActual;
+            console.log(`[MATCHA SOLANA] Sell: ${sellAmountActual} tokens, Buy: ${amount_out} USDT, Rate: ${rateUSDT} USDT per token`);
+          } catch (e) {
+            // Silent fail for debugging
           }
         }
 
         return {
-          amount_out,
-          FeeSwap,
-          dexTitle: '0X'
+          amount_out: amount_out,
+          FeeSwap: getFeeSwap(chainName),
+          dexTitle: 'MATCHA'
         };
       }
     },
-    'unidex-0x': {
+    'unidex-matcha': {
       buildRequest: ({ codeChain, sc_input_in, sc_output_in, amount_in_big, SavedSettingData, chainName }) => {
         const userAddr = SavedSettingData?.walletMeta || '0x0000000000000000000000000000000000000000';
 
         // ========== SOLANA CHAIN: Use direct Matcha endpoint ==========
-        // Unidex 0x proxy doesn't support Solana (EVM only)
+        // Unidex Matcha proxy doesn't support Solana (EVM only)
         // For Solana, use direct Matcha Solana API instead
         if (chainName && chainName.toLowerCase() === 'solana') {
           const url = `https://matcha.xyz/api/swap/quote/solana?sellTokenAddress=${sc_input_in}&buyTokenAddress=${sc_output_in}&sellAmount=${amount_in_big}&dynamicSlippage=true&slippageBps=50&userPublicKey=Eo6CpSc1ViboPva7NZ1YuxUnDCgqnFDXzcDMDAF6YJ1L`;
           return { url, method: 'GET' };
         }
 
-        // ========== EVM CHAINS: Use Unidex 0x proxy ==========
+        // ========== EVM CHAINS: Use Unidex Matcha proxy ==========
         const affiliateAddress = '0x8c128f336B479b142429a5f351Af225457a987Fa';
         const feeRecipient = '0x8c128f336B479b142429a5f351Af225457a987Fa';
 
@@ -745,7 +486,7 @@
         };
       },
       parseResponse: (response, { des_output, des_input, chainName }) => {
-        if (!response?.buyAmount) throw new Error("Invalid Unidex 0x response structure");
+        if (!response?.buyAmount) throw new Error("Invalid Unidex Matcha response structure");
 
         // ========== SOLANA CHAIN: Use same parsing as direct Matcha ==========
         let actualDesOutput = des_output;
@@ -760,7 +501,7 @@
 
               if (buyTokenInfo?.decimals !== undefined) {
                 actualDesOutput = Number(buyTokenInfo.decimals);
-                console.log(`[UNIDEX-0X SOLANA] Using buyToken decimals from response: ${actualDesOutput}`);
+                console.log(`[UNIDEX-MATCHA SOLANA] Using buyToken decimals from response: ${actualDesOutput}`);
               }
 
               if (sellTokenInfo?.decimals !== undefined) {
@@ -768,7 +509,7 @@
               }
             }
           } catch (e) {
-            console.warn('[UNIDEX-0X SOLANA] Failed to extract decimals from response, using default:', e);
+            console.warn('[UNIDEX-MATCHA SOLANA] Failed to extract decimals from response, using default:', e);
           }
         }
 
@@ -779,7 +520,7 @@
           try {
             const sellAmountActual = parseFloat(response.sellAmount) / Math.pow(10, actualDesInput);
             const rateUSDT = amount_out / sellAmountActual;
-            console.log(`[UNIDEX-0X SOLANA] Sell: ${sellAmountActual} tokens, Buy: ${amount_out} USDT, Rate: ${rateUSDT} USDT per token`);
+            console.log(`[UNIDEX-MATCHA SOLANA] Sell: ${sellAmountActual} tokens, Buy: ${amount_out} USDT, Rate: ${rateUSDT} USDT per token`);
           } catch (e) {
             // Silent fail for debugging
           }
@@ -787,12 +528,12 @@
 
         const FeeSwap = getFeeSwap(chainName);
 
-        // FIX: Gunakan 'UNIDEX-0X' sebagai routeTool untuk membedakan dari Matcha API biasa
+        // FIX: Gunakan 'UNIDEX-MATCHA' sebagai routeTool untuk membedakan dari Matcha API biasa
         return {
           amount_out,
           FeeSwap,
-          dexTitle: '0X',
-          routeTool: 'UNIDEX-0X'
+          dexTitle: 'MATCHA',
+          routeTool: 'UNIDEX-MATCHA'
         };
       }
     },
@@ -854,92 +595,43 @@
       }
     },
   };
-  /**
-   * ODOS Strategy Factory - Official API Implementation
-   * Docs: https://docs.odos.xyz/build/quickstart/sor
-   *
-   * IMPORTANT: API v2 is being retired. Use v3 for new integrations.
-   *
-   * Request Format:
-   * - chainId: Blockchain network ID
-   * - inputTokens: Array of {tokenAddress, amount}
-   * - outputTokens: Array of {tokenAddress, proportion}
-   * - userAddr: User wallet address (checksummed)
-   * - slippageLimitPercent: Slippage tolerance (0.3 = 0.3%)
-   * - referralCode: Partner tracking (0 = default)
-   * - disableRFQs: Disable RFQ liquidity (true = more reliable)
-   * - compact: Enable compact call data (true = recommended)
-   *
-   * Response Format:
-   * - outAmounts: Array of output amounts in wei
-   * - gasEstimateValue: Gas cost in USD
-   * - pathId: Quote identifier (valid for 60 seconds)
-   */
   function createOdosStrategy(version) {
     const endpoint = `https://api.odos.xyz/sor/quote/${version}`;
     return {
-      buildRequest: ({ codeChain, SavedSettingData, amount_in_big, sc_input_in, sc_output_in }) => {
+      buildRequest: ({ codeChain, SavedSettingData, amount_in_big, sc_input, sc_output }) => {
         const wallet = SavedSettingData?.walletMeta || '0x0000000000000000000000000000000000000000';
-        // CRITICAL FIX: ODOS requires CHECKSUMMED addresses, use sc_input_in/sc_output_in (NOT lowercase!)
         return {
           url: endpoint,
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
           data: JSON.stringify({
             chainId: codeChain,
-            inputTokens: [{
-              tokenAddress: sc_input_in,  // ✅ Use checksummed address
-              amount: amount_in_big.toString()
-            }],
-            outputTokens: [{
-              tokenAddress: sc_output_in,  // ✅ Use checksummed address
-              proportion: 1
-            }],
+            compact: true,
+            disableRFQs: true,
             userAddr: wallet,
-            slippageLimitPercent: 0.3,
-            referralCode: 0,              // Partner tracking code
-            disableRFQs: true,            // Disable RFQ for reliability
-            compact: true                 // Enable compact call data
+            inputTokens: [{ amount: amount_in_big.toString(), tokenAddress: sc_input }],
+            outputTokens: [{ proportion: 1, tokenAddress: sc_output }],
+            slippageLimitPercent: 0.3
           })
         };
       },
       parseResponse: (response, { des_output, chainName }) => {
-        // Parse output amounts (array format)
         const rawOut = Array.isArray(response?.outAmounts) ? response.outAmounts[0] : response?.outAmounts;
-        if (!rawOut) throw new Error("Invalid ODOS response: missing outAmounts");
-
+        if (!rawOut) throw new Error("Invalid Odos response structure");
         const outNum = parseFloat(rawOut);
-        if (!Number.isFinite(outNum) || outNum <= 0) {
-          throw new Error(`Invalid ODOS output amount: ${rawOut}`);
-        }
-
-        // Parse gas estimate (USD value)
-        const gasEstimate = parseFloat(
-          response?.gasEstimateValue ||
-          response?.gasFeeUsd ||
-          response?.gasEstimateUSD ||
-          0
-        );
-        const FeeSwap = (Number.isFinite(gasEstimate) && gasEstimate > 0)
-          ? gasEstimate
-          : getFeeSwap(chainName);
-
+        if (!Number.isFinite(outNum) || outNum <= 0) throw new Error("Invalid Odos output amount");
+        const gasEstimate = parseFloat(response?.gasEstimateValue || response?.gasFeeUsd || response?.gasEstimateUSD || 0);
+        const FeeSwap = (Number.isFinite(gasEstimate) && gasEstimate > 0) ? gasEstimate : getFeeSwap(chainName);
         return {
           amount_out: outNum / Math.pow(10, des_output),
           FeeSwap,
-          dexTitle: 'ODOS',
-          routeTool: `ODOS-${version.toUpperCase()}`  // Track API version
+          dexTitle: 'ODOS'
         };
       }
     };
   }
-
-  // ODOS API Strategy Instances
-  dexStrategies.odos2 = createOdosStrategy('v2');  // Legacy (being retired)
-  dexStrategies.odos3 = createOdosStrategy('v3');  // Current (recommended)
-  dexStrategies.odos = dexStrategies.odos3;        // Default to v3
+  dexStrategies.odos2 = createOdosStrategy('v2');
+  dexStrategies.odos3 = createOdosStrategy('v3');
+  dexStrategies.odos = dexStrategies.odos3;
 
   // =============================
   // DZAP Strategy - Multi-DEX Aggregator
@@ -1061,28 +753,6 @@
         ? (SavedSettingData?.walletSolana || defaultSolAddr)
         : (SavedSettingData?.walletMeta || defaultEvmAddr);
 
-      // ✅ HARDCODED: Filter for EVM chains - DEX only (no bridges)
-      const options = {
-        slippage: 0.03,
-        order: 'RECOMMENDED',
-        allowSwitchChain: false
-      };
-
-      // ✅ EVM CHAINS: Strict whitelist - only allow specific DEX aggregators
-      if (!isSolana) {
-        options.exchanges = {
-          allow: [
-            '1inch',          // 1inch aggregator
-            'paraswap',       // Paraswap aggregator
-            '0x',             // Matcha/0x
-            'odos',           // Odos optimizer
-            'sushiswap',      // Sushiswap DEX
-            'kyberswap',      // KyberSwap
-            'okx'             // OKX aggregator (okx, bukan okxdex)
-          ]
-        };
-      }
-
       const body = {
         fromChainId: lifiChainId,
         toChainId: lifiChainId,
@@ -1091,7 +761,11 @@
         fromAmount: amount_in_big.toString(),
         fromAddress: userAddr,
         toAddress: userAddr,
-        options: options
+        options: {
+          slippage: 0.03,
+          order: 'RECOMMENDED',
+          allowSwitchChain: false
+        }
       };
 
       return {
@@ -1146,9 +820,9 @@
         throw new Error("No valid LIFI routes found");
       }
 
-      // Sort by amount_out (descending) dan ambil top 3 routes (sama dengan DZAP)
-      // ✅ FIX: Changed from 2 to 3 to show more multi-route options
-      const maxProviders = (typeof window !== 'undefined' && window.CONFIG_DEXS?.lifi?.maxProviders) || 3;
+      // Sort by amount_out (descending) dan ambil top N sesuai config
+      // ⚠️ LIMIT: LIFI hanya tampilkan 2 DEX (sesuai maxProviders di config.js)
+      const maxProviders = (typeof window !== 'undefined' && window.CONFIG_DEXS?.lifi?.maxProviders) || 2;
       subResults.sort((a, b) => b.amount_out - a.amount_out);
       const topN = subResults.slice(0, maxProviders);
 
@@ -1166,146 +840,10 @@
   };
 
   // =============================
-  // SWING Strategy - Multi-DEX Aggregator (Top 3 Routes)
-  // =============================
-  dexStrategies.swing = {
-    buildRequest: ({ codeChain, sc_input, sc_output, amount_in_big, sc_input_in, sc_output_in }) => {
-      // Swing uses chain slugs instead of chain IDs
-      const chainSlugMap = {
-        1: 'ethereum',
-        56: 'bsc',
-        137: 'polygon',
-        42161: 'arbitrum',
-        10: 'optimism',
-        8453: 'base',
-        43114: 'avalanche'
-      };
-
-      const chainSlug = chainSlugMap[Number(codeChain)];
-      if (!chainSlug) {
-        throw new Error(`Swing does not support chain ID ${codeChain}. Supported: Ethereum, BSC, Polygon, Arbitrum, Optimism, Base, Avalanche`);
-      }
-
-      // ✅ CRITICAL: Swing API requires native token to use 0x0000... address
-      // Detect wrapped native tokens (WETH, WBNB, etc.) and convert to 0x0000...
-      const wrappedNativeAddresses = {
-        '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': '0x0000000000000000000000000000000000000000', // WETH (Ethereum)
-        '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c': '0x0000000000000000000000000000000000000000', // WBNB (BSC)
-        '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270': '0x0000000000000000000000000000000000000000', // WMATIC (Polygon)
-        '0x82af49447d8a07e3bd95bd0d56f35241523fbab1': '0x0000000000000000000000000000000000000000', // WETH (Arbitrum)
-        '0x4200000000000000000000000000000000000006': '0x0000000000000000000000000000000000000000', // WETH (Base)
-        '0x4200000000000000000000000000000000000006': '0x0000000000000000000000000000000000000000', // WETH (Optimism)
-        '0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7': '0x0000000000000000000000000000000000000000'  // WAVAX (Avalanche)
-      };
-
-      // Convert wrapped native to 0x0000... if detected
-      let fromToken = sc_input.toLowerCase();
-      let toToken = sc_output.toLowerCase();
-
-      if (wrappedNativeAddresses[fromToken]) {
-        fromToken = wrappedNativeAddresses[fromToken];
-      }
-      if (wrappedNativeAddresses[toToken]) {
-        toToken = wrappedNativeAddresses[toToken];
-      }
-
-      const params = new URLSearchParams({
-        fromChain: chainSlug,
-        toChain: chainSlug,
-        fromToken: fromToken,
-        toToken: toToken,
-        amount: amount_in_big.toString(),
-        type: 'swap',
-        fromWallet: '',
-        toWallet: ''
-      });
-
-      // ✅ PROJECT ID: Using 'galaxy-exchange' demo project (all chains enabled)
-      // Custom project IDs require chain configuration at https://platform.swing.xyz/
-      let selectedProjectId = 'galaxy-exchange'; // Default fallback
-      let totalProjects = 1;
-
-      try {
-        if (typeof root !== 'undefined' && typeof root.getRandomSwingProjectId === 'function') {
-          selectedProjectId = root.getRandomSwingProjectId();
-          totalProjects = root.SWING_PROJECT_IDS?.length || 1;
-        } else if (typeof root !== 'undefined' && root.SWING_PROJECT_IDS) {
-          // Direct access if helper function not available
-          const projectIds = root.SWING_PROJECT_IDS;
-          const idx = Math.floor(Math.random() * projectIds.length);
-          selectedProjectId = projectIds[idx];
-          totalProjects = projectIds.length;
-        }
-      } catch (e) {
-        console.warn('[SWING] Failed to get projectId from secrets.js, using default:', e.message);
-      }
-
-      console.log(`[SWING] Using projectId: ${selectedProjectId} (1 of ${totalProjects} projects)`);
-
-      return {
-        url: `https://platform.swing.xyz/api/v1/projects/${selectedProjectId}/quote?${params.toString()}`,
-        method: 'GET',
-        headers: {}
-      };
-    },
-    parseResponse: (response, { des_output, chainName }) => {
-      // Parse Swing response - return top 3 routes with single-DEX style calculation
-      const routes = response?.routes;
-
-      if (!routes || !Array.isArray(routes) || routes.length === 0) {
-        throw new Error("Swing routes not found in response");
-      }
-
-      // Parse all routes into array
-      const subResults = [];
-      for (const route of routes) {
-        try {
-          if (!route || !route.quote || !route.quote.amount) continue;
-
-          const amount_out = parseFloat(route.quote.amount) / Math.pow(10, des_output);
-          const gasUsd = parseFloat(route.gasUSD || 0);
-          const FeeSwap = (Number.isFinite(gasUsd) && gasUsd > 0) ? gasUsd : getFeeSwap(chainName);
-
-          // Get provider name from quote.integration
-          const providerName = route.quote.integration || 'Unknown';
-
-          // Format same as single DEX result
-          subResults.push({
-            amount_out: amount_out,
-            FeeSwap: FeeSwap,
-            dexTitle: providerName.toUpperCase()
-          });
-        } catch (e) {
-          continue;
-        }
-      }
-
-      if (subResults.length === 0) {
-        throw new Error("No valid Swing routes found");
-      }
-
-      // Sort by amount_out (descending) and get top 3
-      const maxProviders = (typeof window !== 'undefined' && window.CONFIG_DEXS?.swing?.maxProviders) || 3;
-      subResults.sort((a, b) => b.amount_out - a.amount_out);
-      const topN = subResults.slice(0, maxProviders);
-
-      console.log(`[SWING] Returning top ${maxProviders} routes from ${subResults.length} available routes`);
-
-      // Return multi-DEX format with top N routes
-      return {
-        amount_out: topN[0].amount_out,
-        FeeSwap: topN[0].FeeSwap,
-        dexTitle: 'SWING',
-        subResults: topN,
-        isMultiDex: true
-      };
-    }
-  };
-
-  // =============================
   // RANGO Strategy - Multi-Chain DEX Aggregator (Top 3 Routes)
   // =============================
   dexStrategies.rango = {
+    useProxy: true, // ✅ Enable CORS proxy to avoid CORS errors
     buildRequest: ({ chainName, sc_input_in, sc_output_in, amount_in_big, des_input, symbol_in, symbol_out, SavedSettingData }) => {
       // Rango API - Multi-chain aggregator dengan 70+ DEXs & bridges
       // Reference: https://docs.rango.exchange/api-integration/main-api-multi-step/api-reference/get-best-route
@@ -1854,6 +1392,7 @@
   const RUBIC_MIN_INTERVAL = 1000; // Warn if requests are < 1000ms apart (max 1 req/sec recommended)
 
   dexStrategies.rubic = {
+    useProxy: true, // ✅ Enable CORS proxy to avoid 429/500 errors
     buildRequest: ({ sc_input_in, sc_output_in, amount_in_big, des_input, chainName }) => {
       // 🚀 THROTTLING CHECK: Track request timing (silent, for potential future rate limiting)
       const now = Date.now();
@@ -2093,11 +1632,14 @@
 
   // Back-compat alias: support legacy 'kyberswap' key
   dexStrategies.kyberswap = dexStrategies.kyber;
-  // ParaSwap aliases: v6.2 is recommended by Velora (v5 is deprecated)
-  dexStrategies.paraswap = dexStrategies.paraswap6;  // Default to v6
-  // Keep paraswap5 as-is (already defined above) - but note: v5 is deprecated by Velora
-  // Alias untuk Matcha (0x)
-  dexStrategies.matcha = dexStrategies['0x'];
+  // Velora aliases: v6.2 is recommended (v5 is deprecated)
+  dexStrategies.velora = dexStrategies.velora6;  // Default to v6
+  dexStrategies.paraswap = dexStrategies.velora6;  // Backward compat: paraswap -> velora
+  dexStrategies.paraswap5 = dexStrategies.velora5;
+  dexStrategies.paraswap6 = dexStrategies.velora6;
+  // Backward compat alias: support legacy '0x' key -> matcha
+  dexStrategies['0x'] = dexStrategies.matcha;
+  dexStrategies['unidex-0x'] = dexStrategies['unidex-matcha'];
 
   // -----------------------------
   // Helper: resolve fetch plan per DEX + arah
@@ -2112,16 +1654,16 @@
       let primary = map.primary && map.primary[ak] ? String(map.primary[ak]).toLowerCase() : null;
 
       // ========== MATCHA STRATEGY OVERRIDE ==========
-      // For ALL chains, Matcha (0x) should use direct endpoint first
-      // Config has primary='unidex-0x', but we want:
-      // - Primary: '0x' (direct matcha.xyz/api/swap/price or /quote/solana)
-      // - Alternative: 'unidex-0x' (fallback for EVM chains only)
+      // For ALL chains, Matcha should use direct endpoint first
+      // Config has primary='unidex-matcha', but we want:
+      // - Primary: 'matcha' (direct matcha.xyz/api/swap/price or /quote/solana)
+      // - Alternative: 'unidex-matcha' (fallback for EVM chains only)
       const isSolana = chainName && String(chainName).toLowerCase() === 'solana';
       const isMatcha = key === '0x' || key === 'matcha';
 
-      if (isMatcha && primary === 'unidex-0x') {
-        primary = '0x'; // Override: use direct Matcha endpoint
-        console.log(`[${chainName?.toUpperCase() || 'CHAIN'}] Matcha: Using direct 0x endpoint (not unidex-0x)`);
+      if (isMatcha && primary === 'unidex-matcha') {
+        primary = 'matcha'; // Override: use direct Matcha endpoint
+        console.log(`[${chainName?.toUpperCase() || 'CHAIN'}] Matcha: Using direct Matcha endpoint (not unidex-matcha)`);
       }
 
       // Gunakan alternative dari config DEX, atau fallback global dari CONFIG_APP.DEX_FALLBACK
@@ -2137,9 +1679,9 @@
       // ========== MATCHA ALTERNATIVE OVERRIDE ==========
       // For Matcha on ALL chains:
       // - Solana: fallback to DZAP (Unidex doesn't support Solana)
-      // - EVM chains: fallback to unidex-0x
+      // - EVM chains: fallback to unidex-matcha
       if (isMatcha) {
-        alternative = isSolana ? 'dzap' : 'unidex-0x';
+        alternative = isSolana ? 'dzap' : 'unidex-matcha';
         console.log(`[${chainName?.toUpperCase() || 'CHAIN'}] Matcha alternative: ${alternative}`);
       }
 
@@ -2227,26 +1769,10 @@
       }
 
       const SavedSettingData = getFromLocalStorage('SETTING_SCANNER', {});
-
-      // OPTIMIZED: Timeout mengikuti setting user (speedScan)
-      // CRITICAL: API timeout HARUS LEBIH KECIL dari scanner window untuk avoid cancel!
-      const dexLower = String(dexType || '').toLowerCase();
-      const isOdosFamily = ['odos', 'odos2', 'odos3', 'hinkal-odos'].includes(dexLower);
-
-      let timeoutMilliseconds;
-      if (isOdosFamily) {
-        // ✅ OPTIMIZED: Reduced from 8s to 4s (ODOS is fast enough with 4s)
-        timeoutMilliseconds = 4000;  // 4 seconds for ODOS (was 8s - too slow!)
-      } else {
-        // For other DEXs: use speedScan setting directly (NO MINIMUM!)
-        // User can control speed via speedScan setting (default 1s)
-        const userSpeed = Math.round((SavedSettingData.speedScan || 1) * 1000);
-        timeoutMilliseconds = Math.max(userSpeed, 1000);  // Min 1s (safety), not 3s
-      }
-
+      const timeoutMilliseconds = Math.max(Math.round((SavedSettingData.speedScan || 4) * 1000));
       const amount_in_big = BigInt(Math.round(Math.pow(10, des_input) * amount_in));
 
-      const runStrategy = (strategyName) => new Promise(async (res, rej) => {
+      const runStrategy = (strategyName) => new Promise((res, rej) => {
         try {
           const sname = String(strategyName || '').toLowerCase();
           // DZAP dan SWOOP sekarang hanya digunakan sebagai fallback alternatif
@@ -2272,39 +1798,14 @@
           if (!strategy) return rej(new Error(`Unsupported strategy: ${sKey}`));
 
           const requestParams = { chainName, sc_input, sc_output, amount_in_big, des_output, SavedSettingData, codeChain, action, des_input, sc_input_in, sc_output_in };
-
-          // ✅ FIX: Support async buildRequest (for Matcha JWT)
-          let buildResult;
-          try {
-            buildResult = await Promise.resolve(strategy.buildRequest(requestParams));
-          } catch (buildErr) {
-            return rej(new Error(`buildRequest failed: ${buildErr.message}`));
-          }
-          const { url, method, data, headers } = buildResult;
+          const { url, method, data, headers } = strategy.buildRequest(requestParams);
 
           // Apply proxy if configured for this DEX
-          // ✅ SINGLE SOURCE OF TRUTH: Read proxy setting from config.js only
-          const cfg = (root.CONFIG_DEXS && root.CONFIG_DEXS[dexType]) ? root.CONFIG_DEXS[dexType] : {};
-
-          // ✅ CRITICAL FIX: Explicit check for proxy = true
-          // If proxy is explicitly set to false, DO NOT use proxy
-          // If proxy is undefined or not set, also DO NOT use proxy (default: no proxy)
-          // Only use proxy if explicitly set to true
-          const useProxy = cfg.proxy === true; // MUST be explicitly true
-
+          const cfg = (typeof DEX !== 'undefined' && DEX.get) ? (DEX.get(dexType) || {}) : {};
+          const strategyAllowsProxy = strategy?.useProxy !== false;
+          const useProxy = !!cfg.proxy && strategyAllowsProxy;
           const proxyPrefix = (root.CONFIG_PROXY && root.CONFIG_PROXY.PREFIX) ? String(root.CONFIG_PROXY.PREFIX) : '';
           const finalUrl = (useProxy && proxyPrefix && typeof url === 'string' && !url.startsWith(proxyPrefix)) ? (proxyPrefix + url) : url;
-
-          // Debug logging for proxy configuration
-          console.log(`[${dexType.toUpperCase()} PROXY]`, {
-            dexType,
-            configExists: !!root.CONFIG_DEXS?.[dexType],
-            proxyValueInConfig: cfg.proxy,
-            useProxy,
-            willUseProxy: useProxy && !!proxyPrefix && !url.startsWith(proxyPrefix),
-            originalUrl: url.substring(0, 80) + '...',
-            finalUrl: finalUrl.substring(0, 80) + '...'
-          });
 
           $.ajax({
             url: finalUrl, method, dataType: 'json', timeout: timeoutMilliseconds, headers, data,
@@ -2387,9 +1888,9 @@
           const isSolanaNoResp = isSolanaChain && noResp;
 
           // ========== MATCHA EVM CHAINS: ALWAYS FALLBACK ON ERROR ==========
-          // For Matcha on EVM chains, ANY error should trigger fallback to unidex-0x
+          // For Matcha on EVM chains, ANY error should trigger fallback to unidex-matcha
           // This ensures we try Unidex proxy if direct Matcha endpoint fails
-          const isMatchaPrimary = primaryKey === '0x';
+          const isMatchaPrimary = primaryKey === '0x' || primaryKey === 'matcha';
           const isMatchaEVMError = isMatchaPrimary && !isSolanaChain;
 
           const computedAlt = alternative;
@@ -2398,12 +1899,12 @@
           // 2. Server error (500+)
           // 3. No response (timeout/network error) for specific DEX families
           // 4. [SOLANA ONLY] ANY timeout/no-response (falls back to DZAP)
-          // 5. [MATCHA EVM] ANY error when using direct Matcha (falls back to unidex-0x)
+          // 5. [MATCHA EVM] ANY error when using direct Matcha (falls back to unidex-matcha)
           const shouldFallback = computedAlt && (
             (Number.isFinite(code) && (code === 429 || code >= 500)) || // Rate limit atau server error
             isNoRespFallback || // Atau no response (timeout/network error) untuk ODOS/Kyber/1inch
             isSolanaNoResp || // [SOLANA] Atau timeout pada chain Solana (fallback ke DZAP)
-            isMatchaEVMError // [MATCHA EVM] Atau error pada Matcha EVM chains (fallback ke unidex-0x)
+            isMatchaEVMError // [MATCHA EVM] Atau error pada Matcha EVM chains (fallback ke unidex-matcha)
           );
           if (!shouldFallback) throw e1;
 
@@ -2438,7 +1939,7 @@
     // Default fallback policy: SWOOP atau DZAP sesuai config DEX
     const force = options && options.force ? String(options.force).toLowerCase() : null; // 'swoop' | 'dzap' | null
 
-    // untuk okx,0x,kyber,paraswap,odos gunakan fallback SWOOP
+    // untuk okx,matcha,kyber,velora,odos gunakan fallback SWOOP
     function fallbackSWOOP() {
       return new Promise((resolve, reject) => {
         const dexLower = String(dexType || '').toLowerCase();
@@ -2446,7 +1947,9 @@
           'odos': 'odos',
           'kyber': 'kyberswap',
           'paraswap': 'paraswap',
+          'velora': 'paraswap',
           '0x': '0x',
+          'matcha': '0x',
           'okx': 'okx'
         };
         const aggregatorSlug = slugMap[dexLower] || dexLower;
@@ -2495,15 +1998,15 @@
       });
     }
 
-    // untuk okx,zerox(0x),kyber,paraswap,odos gunakan fallback DZAP
+    // untuk okx,matcha(0x),kyber,velora,odos gunakan fallback DZAP
     function fallbackDZAP() {
       return new Promise((resolve, reject) => {
         const SavedSettingData = getFromLocalStorage('SETTING_SCANNER', {});
         const fromAmount = String(BigInt(Math.round(Number(amount_in) * Math.pow(10, des_input))));
         const dexLower = String(dexType || '').toLowerCase();
         const exchangeMap = {
-          '0x': 'zerox',         // Sesuai respons DZAP
-          'matcha': 'zerox',      // Alias untuk 0x
+          '0x': 'zerox',         // Backward compat
+          'matcha': 'zerox',      // Matcha maps to zerox in DZAP API
           'kyber': 'kyberSwap',   // Sesuai respons DZAP
           'kyberswap': 'kyberSwap', // Alias untuk kyber
           '1inch': '1inch',
@@ -2514,7 +2017,8 @@
           'paraswap': 'paraSwap' // Sesuai respons DZAP
         };
         const displayMap = {
-          '0x': '0X',
+          '0x': 'MATCHA',
+          'matcha': 'MATCHA',
           'kyber': 'KYBER',
           'kyberswap': 'KYBER',
           '1inch': '1INCH',
@@ -2522,8 +2026,8 @@
           'odos2': 'ODOS',
           'odos3': 'ODOS',
           'okx': 'OKX',
-          'paraswap': 'PARASWAP',
-          'fly': 'FLY'
+          'paraswap': 'VELORA',
+          'velora': 'VELORA'
         };
         const exchangeSlug = exchangeMap[dexLower] || dexLower;
         const displayTitle = displayMap[dexLower] || dexLower.toUpperCase();
@@ -2706,14 +2210,5 @@
     } catch (_) { }
 
     root.DEX = DexAPI;
-
-    // Register FlyTrade tanpa proxy (direct API endpoint)
-    DexAPI.register('fly', {
-      allowFallback: false,
-      proxy: false,
-      builder: function ({ chainName, codeChain, tokenAddress, pairAddress }) {
-        return `https://fly.trade/swap?network=${String(chainName || '').toLowerCase()}&from=${pairAddress}&to=${tokenAddress}`;
-      }
-    });
   })();
 })(typeof window !== 'undefined' ? window : this);

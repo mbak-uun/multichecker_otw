@@ -97,15 +97,15 @@
             if (filteredTokens.length > 0) {
                 const sampleCoin = filteredTokens[0];
                 // console.log('[Wallet Exchanger] Sample filtered coin:', {
-                    // symbol: sampleCoin.symbol_in,
-                    // chain: sampleCoin.chain,
-                    // hasCexData: !!sampleCoin.dataCexs,
-                    // cexCount: sampleCoin.dataCexs ? Object.keys(sampleCoin.dataCexs).length : 0
+                // symbol: sampleCoin.symbol_in,
+                // chain: sampleCoin.chain,
+                // hasCexData: !!sampleCoin.dataCexs,
+                // cexCount: sampleCoin.dataCexs ? Object.keys(sampleCoin.dataCexs).length : 0
                 // });
             }
 
             return filteredTokens;
-        } catch(err) {
+        } catch (err) {
             // console.error('[Wallet Exchanger] Error loading coins from storage:', err);
             return [];
         }
@@ -269,20 +269,21 @@
                     }
 
                     const coin = merged[idx];
-                    const target = ensureCexEntry(coin, cexUpper);
+                    // ✅ FIX: Save to ROOT LEVEL like backup version (not nested)
+                    // const target = ensureCexEntry(coin, cexUpper); // OLD nested approach
 
                     if (role === 'token') {
                         const depositToken = normalizeFlag(entry.depositEnable);
-                        if (depositToken !== undefined) target.depositToken = depositToken;
+                        if (depositToken !== undefined) coin.depositToken = depositToken;
 
                         const withdrawToken = normalizeFlag(entry.withdrawEnable);
-                        if (withdrawToken !== undefined) target.withdrawToken = withdrawToken;
+                        if (withdrawToken !== undefined) coin.withdrawToken = withdrawToken;
 
                         const feeToken = normalizeFee(entry.feeWDs);
-                        if (feeToken !== undefined) target.feeWDToken = feeToken;
+                        if (feeToken !== undefined) coin.feeWDToken = feeToken;
 
                         if (entry.tradingActive !== undefined) {
-                            target.tradingActive = entry.tradingActive !== false;
+                            coin.tradingActive = entry.tradingActive !== false;
                         }
 
                         if (entry.contractAddress && entry.contractAddress !== '-') {
@@ -295,13 +296,13 @@
                         }
                     } else if (role === 'pair') {
                         const depositPair = normalizeFlag(entry.depositEnable);
-                        if (depositPair !== undefined) target.depositPair = depositPair;
+                        if (depositPair !== undefined) coin.depositPair = depositPair;
 
                         const withdrawPair = normalizeFlag(entry.withdrawEnable);
-                        if (withdrawPair !== undefined) target.withdrawPair = withdrawPair;
+                        if (withdrawPair !== undefined) coin.withdrawPair = withdrawPair;
 
                         const feePair = normalizeFee(entry.feeWDs);
-                        if (feePair !== undefined) target.feeWDPair = feePair;
+                        if (feePair !== undefined) coin.feeWDPair = feePair;
                     }
                 });
             });
@@ -339,7 +340,7 @@
 
                 // console.log(`[Wallet Exchanger] Saved ${coins.length} coins to storage`);
             }
-        } catch(err) {
+        } catch (err) {
             // console.error('[Wallet Exchanger] Error saving coins to storage:', err);
         }
     }
@@ -405,9 +406,9 @@
         try {
             const canonicalActive = getCanonicalChainKey(activeChain) || String(activeChain || '').toLowerCase();
             const chainName = (activeChain === 'MULTICHAIN') ? 'MULTICHAIN' :
-                              (CONFIG_CHAINS?.[canonicalActive]?.Nama_Chain || activeChain);
+                (CONFIG_CHAINS?.[canonicalActive]?.Nama_Chain || activeChain);
             $('#wallet-chain-label').text(String(chainName).toUpperCase());
-        } catch(_) {}
+        } catch (_) { }
 
         // ✅ BARU: Load coins dengan filter by chain only (tidak filter CEX/PAIR/DEX)
         const allCoinsData = loadCoinsFromStorage({ applyFilter: false });
@@ -418,7 +419,7 @@
                 const coinChain = getCanonicalChainKey(coin.chain) || String(coin.chain || '').toLowerCase();
                 const targetChain = getCanonicalChainKey(activeChain) || String(activeChain || '').toLowerCase();
                 return coinChain === targetChain;
-              })
+            })
             : allCoinsData;
 
         // ✅ Filter CEX: hanya tampilkan yang punya koin (sama seperti filter scanner)
@@ -528,8 +529,8 @@
                         </div>
                         <div class="wallet-cex-table-wrapper">
                             ${problemCount > 0
-                                ? renderCexTable(cexName, cexCoins, mode)
-                                : '<div class="uk-text-center uk-padding-small uk-text-muted"><p class="uk-margin-remove">Tidak ada koin bermasalah</p><p class="uk-text-small uk-margin-remove">Centang untuk update data terbaru</p></div>'}
+                    ? renderCexTable(cexName, cexCoins, mode)
+                    : '<div class="uk-text-center uk-padding-small uk-text-muted"><p class="uk-margin-remove">Tidak ada koin bermasalah</p><p class="uk-text-small uk-margin-remove">Centang untuk update data terbaru</p></div>'}
                         </div>
                     </div>
                 </div>
@@ -547,7 +548,7 @@
             if (uiKit && typeof uiKit.update === 'function') {
                 uiKit.update($grid[0]);
             }
-        } catch(_) {}
+        } catch (_) { }
     }
 
     /**
@@ -636,67 +637,67 @@
             `;
 
             chainCoins.forEach((coin, idx) => {
-            const dataCex = (coin.dataCexs || {})[cexName] || {};
+                const dataCex = (coin.dataCexs || {})[cexName] || {};
 
-            // Symbol dan SC data
-            const tokenSymbol = (coin.symbol_in || coin.tokenName || '?').toUpperCase();
-            const pairSymbol = (coin.symbol_out || 'USDT').toUpperCase();
-            const tokenSc = coin.sc_in || coin.contractAddress || '-';
+                // Symbol dan SC data
+                const tokenSymbol = (coin.symbol_in || coin.tokenName || '?').toUpperCase();
+                const pairSymbol = (coin.symbol_out || 'USDT').toUpperCase();
+                const tokenSc = coin.sc_in || coin.contractAddress || '-';
 
-            // Decimals dari enrichment
-            const decimals = coin.des_in || coin.decimals || '-';
+                // Decimals dari enrichment
+                const decimals = coin.des_in || coin.decimals || '-';
 
-            // ========== STATUS TOKEN (symbol_in) ==========
-            const wdToken = dataCex.withdrawToken;
-            const dpToken = dataCex.depositToken;
+                // ========== STATUS TOKEN (symbol_in) ==========
+                const wdToken = dataCex.withdrawToken;
+                const dpToken = dataCex.depositToken;
 
-            let statusWdToken = '';
-            if (wdToken === true) {
-                statusWdToken = '<span class="wallet-status-badge wallet-status-on">OPEN</span>';
-            } else if (wdToken === false) {
-                statusWdToken = '<span class="wallet-status-badge wallet-status-off">CLOSED</span>';
-            } else {
-                statusWdToken = '<span class="wallet-status-badge wallet-status-loading">?</span>';
-            }
+                let statusWdToken = '';
+                if (wdToken === true) {
+                    statusWdToken = '<span class="wallet-status-badge wallet-status-on">OPEN</span>';
+                } else if (wdToken === false) {
+                    statusWdToken = '<span class="wallet-status-badge wallet-status-off">CLOSED</span>';
+                } else {
+                    statusWdToken = '<span class="wallet-status-badge wallet-status-loading">?</span>';
+                }
 
-            let statusDpToken = '';
-            if (dpToken === true) {
-                statusDpToken = '<span class="wallet-status-badge wallet-status-on">OPEN</span>';
-            } else if (dpToken === false) {
-                statusDpToken = '<span class="wallet-status-badge wallet-status-off">CLOSED</span>';
-            } else {
-                statusDpToken = '<span class="wallet-status-badge wallet-status-loading">?</span>';
-            }
+                let statusDpToken = '';
+                if (dpToken === true) {
+                    statusDpToken = '<span class="wallet-status-badge wallet-status-on">OPEN</span>';
+                } else if (dpToken === false) {
+                    statusDpToken = '<span class="wallet-status-badge wallet-status-off">CLOSED</span>';
+                } else {
+                    statusDpToken = '<span class="wallet-status-badge wallet-status-loading">?</span>';
+                }
 
-            // ========== STATUS PAIR (symbol_out) ==========
-            const wdPair = dataCex.withdrawPair;
-            const dpPair = dataCex.depositPair;
+                // ========== STATUS PAIR (symbol_out) ==========
+                const wdPair = dataCex.withdrawPair;
+                const dpPair = dataCex.depositPair;
 
-            let statusWdPair = '';
-            if (wdPair === true) {
-                statusWdPair = '<span class="wallet-status-badge wallet-status-on">OPEN</span>';
-            } else if (wdPair === false) {
-                statusWdPair = '<span class="wallet-status-badge wallet-status-off">CLOSED</span>';
-            } else {
-                statusWdPair = '<span class="wallet-status-badge wallet-status-loading">?</span>';
-            }
+                let statusWdPair = '';
+                if (wdPair === true) {
+                    statusWdPair = '<span class="wallet-status-badge wallet-status-on">OPEN</span>';
+                } else if (wdPair === false) {
+                    statusWdPair = '<span class="wallet-status-badge wallet-status-off">CLOSED</span>';
+                } else {
+                    statusWdPair = '<span class="wallet-status-badge wallet-status-loading">?</span>';
+                }
 
-            let statusDpPair = '';
-            if (dpPair === true) {
-                statusDpPair = '<span class="wallet-status-badge wallet-status-on">OPEN</span>';
-            } else if (dpPair === false) {
-                statusDpPair = '<span class="wallet-status-badge wallet-status-off">CLOSED</span>';
-            } else {
-                statusDpPair = '<span class="wallet-status-badge wallet-status-loading">?</span>';
-            }
+                let statusDpPair = '';
+                if (dpPair === true) {
+                    statusDpPair = '<span class="wallet-status-badge wallet-status-on">OPEN</span>';
+                } else if (dpPair === false) {
+                    statusDpPair = '<span class="wallet-status-badge wallet-status-off">CLOSED</span>';
+                } else {
+                    statusDpPair = '<span class="wallet-status-badge wallet-status-loading">?</span>';
+                }
 
-            // Shorten smart contract addresses
-            const shortenSc = (sc) => {
-                if (!sc || sc === '-' || sc.length < 12) return sc;
-                return `${sc.substring(0, 6)}...${sc.substring(sc.length - 4)}`;
-            };
+                // Shorten smart contract addresses
+                const shortenSc = (sc) => {
+                    if (!sc || sc === '-' || sc.length < 12) return sc;
+                    return `${sc.substring(0, 6)}...${sc.substring(sc.length - 4)}`;
+                };
 
-            tableHtml += `
+                tableHtml += `
                 <tr>
                     <td>${idx + 1}</td>
                     <td>
@@ -740,14 +741,14 @@
      */
     function bindCexCardEvents() {
         // Checkbox click
-        $('.wallet-cex-checkbox').off('click').on('click', function(e) {
+        $('.wallet-cex-checkbox').off('click').on('click', function (e) {
             e.stopPropagation();
             const cexName = $(this).data('cex');
             toggleCexSelection(cexName);
         });
 
         // Header click (toggle checkbox)
-        $('.wallet-cex-header').off('click').on('click', function(e) {
+        $('.wallet-cex-header').off('click').on('click', function (e) {
             if ($(e.target).hasClass('wallet-cex-checkbox')) return;
             const cexName = $(this).data('cex');
             toggleCexSelection(cexName);
@@ -840,7 +841,7 @@
                 if (typeof toast !== 'undefined' && toast.error) {
                     toast.error('Pilih minimal 1 CEX terlebih dahulu');
                 }
-            } catch(_) {}
+            } catch (_) { }
             return;
         }
 
@@ -858,7 +859,7 @@
                 window.App.Scanner.stopScannerSoft();
                 await new Promise(r => setTimeout(r, 200));
             }
-        } catch(_) {}
+        } catch (_) { }
 
         // Show progress overlay (layar freeze)
         showFetchProgressOverlay(selectedCexList);
@@ -919,7 +920,7 @@
                     throw new Error('fetchWalletStatus function not available');
                 }
 
-            } catch(err) {
+            } catch (err) {
                 // console.error(`[Wallet Exchanger] Error fetching ${cexName}:`, err);
                 failedCexes.push(cexName);
                 updateFetchProgress(cexName, 'error', err.message || 'Gagal fetch data');
@@ -1000,7 +1001,7 @@
                 }
             }
 
-        } catch(err) {
+        } catch (err) {
             // console.error('[Wallet Exchanger] Error processing results:', err);
             showUpdateResult(false, selectedCexList);
             if (typeof toast !== 'undefined' && toast.error) {
@@ -1079,7 +1080,7 @@
     }
 
     // Auto-init on DOM ready
-    $(document).ready(function() {
+    $(document).ready(function () {
         init();
     });
 

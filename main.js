@@ -502,6 +502,30 @@ function hasValidTokens() {
  * and preloads saved values from storage.
  */
 function renderSettingsForm() {
+    // ✅ CLEANUP: Remove deleted DEX from saved settings before rendering
+    try {
+        const s = getFromLocalStorage('SETTING_SCANNER', {});
+        if (s && typeof s === 'object' && s.JedaDexs) {
+            const forceRemoveDexs = ['fly', 'flytrade', 'rubic', 'dzap'];
+            const activeDexKeys = Object.keys(CONFIG_DEXS || {}).filter(key => !CONFIG_DEXS[key].disabled);
+
+            let hasChanges = false;
+            Object.keys(s.JedaDexs).forEach(dexKey => {
+                if (!activeDexKeys.includes(dexKey) || forceRemoveDexs.includes(dexKey.toLowerCase())) {
+                    console.log(`[Settings Cleanup] Removing deleted DEX: ${dexKey}`);
+                    delete s.JedaDexs[dexKey];
+                    hasChanges = true;
+                }
+            });
+
+            if (hasChanges) {
+                saveToLocalStorage('SETTING_SCANNER', s);
+            }
+        }
+    } catch (e) {
+        console.warn('[Settings Cleanup] Failed:', e.message);
+    }
+
     // ✅ Generate DEX delay inputs - Ambil semua DEX dari CONFIG_DEXS yang tidak disabled
     // Filter berdasarkan property 'disabled' di CONFIG_DEXS
     const activeDexList = Object.keys(CONFIG_DEXS || {})
@@ -635,16 +659,20 @@ function bootApp() {
     try {
         const s = getFromLocalStorage('SETTING_SCANNER', {});
         if (s && typeof s === 'object' && s.JedaDexs) {
+            // Hardcoded list of DEX to force remove (deleted from codebase)
+            const forceRemoveDexs = ['fly', 'flytrade', 'rubic', 'dzap'];
+
             // Get list of active DEX from CONFIG_DEXS (not disabled)
             const activeDexKeys = Object.keys(CONFIG_DEXS || {}).filter(key => {
                 const cfg = CONFIG_DEXS[key];
                 return !cfg.disabled;
             });
 
-            // Remove DEX keys that are no longer active
+            // Remove DEX keys that are no longer active OR in force remove list
             let hasChanges = false;
             Object.keys(s.JedaDexs).forEach(dexKey => {
-                if (!activeDexKeys.includes(dexKey)) {
+                const shouldRemove = !activeDexKeys.includes(dexKey) || forceRemoveDexs.includes(dexKey.toLowerCase());
+                if (shouldRemove) {
                     console.log(`[Cleanup] Removing inactive DEX from settings: ${dexKey}`);
                     delete s.JedaDexs[dexKey];
                     hasChanges = true;
@@ -654,6 +682,7 @@ function bootApp() {
             // Save if changes were made
             if (hasChanges) {
                 saveToLocalStorage('SETTING_SCANNER', s);
+                console.log('[Cleanup] ✅ Inactive DEX removed from settings');
             }
         }
     } catch (e) {

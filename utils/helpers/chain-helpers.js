@@ -177,8 +177,8 @@ function generateDexLink(dex, chainName, codeChain, NameToken, sc_input, NamePai
     // Backward compatibility: map legacy/alias names to new keys
     if (!dexKey) {
         // Normalize known brand/alias names to canonical CONFIG_DEXS keys
-        // e.g. 'kyberswap' -> 'kyber', 'flytrade' -> 'fly'
-        const synonyms = { kyberswap: 'kyber', flytrade: 'fly' };
+        // e.g. 'kyberswap' -> 'kyber'
+        const synonyms = { kyberswap: 'kyber' };
         const found = Object.keys(synonyms).find(oldKey => lowerDex.includes(oldKey));
         if (found && CONFIG_DEXS[synonyms[found]]) dexKey = synonyms[found];
     }

@@ -7,1082 +7,1111 @@
  * - Fetches wallet (DP/WD) statuses
  * - Bridges UI rendering (updateTableVolCEX)
  */
-(function initCEXService(global){
-  const root = global || (typeof window !== 'undefined' ? window : {});
-  const App = root.App || (root.App = {});
+(function initCEXService(global) {
+    const root = global || (typeof window !== 'undefined' ? window : {});
+    const App = root.App || (root.App = {});
 
-  // Keep internal constant local to this module
-  const stablecoins = ["USDT", "DAI", "USDC", "FDUSD"];
+    // Keep internal constant local to this module
+    const stablecoins = ["USDT", "DAI", "USDC", "FDUSD"];
 
-  // ====== Fungsi Universal untuk Orderbook CEX ======
-  /** Normalize standard CEX orderbook payload into top N levels. */
-  function processOrderBook(data, limit = 4) {
-    if (!data?.bids || !data?.asks) {
-        console.error("Invalid orderbook data:", data);
-        return { priceBuy: [], priceSell: [] };
-    }
-
-    // bids: sort desc (harga tertinggi dulu)
-    const bids = [...data.bids].sort((a, b) => parseFloat(b[0]) - parseFloat(a[0]));
-    // asks: sort asc (harga terendah dulu)
-    const asks = [...data.asks].sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]));
-
-    // harga beli = ambil harga tertinggi (dari bids)
-    const priceBuy = bids.slice(0, limit).map(([price, volume]) => ({
-        price: parseFloat(price),                // harga beli
-        volume: parseFloat(volume) * parseFloat(price) // nilai dalam USDT
-    }));
-
-    // harga jual = ambil harga terendah (dari asks)
-    const priceSell = asks.slice(0, limit).map(([price, volume]) => ({
-        price: parseFloat(price),                // harga jual
-        volume: parseFloat(volume) * parseFloat(price) // nilai dalam USDT
-    }));
-
-    return { priceBuy, priceSell };
-}
-
-  // Removed legacy processOrderBookLAMA (unused)
-
-  // ====== Fungsi Khusus untuk INDODAX ======
-  /** Normalize INDODAX orderbook (IDR) to USDT using cached rate. */
-  function processIndodaxOrderBook(data, limit = 4) {
-      if (!data?.buy || !data?.sell) {
-          console.error("Invalid INDODAX response structure:", data);
-          return { priceBuy: [], priceSell: [] };
-      }
-
-      // Ensure same semantics: buy = bids desc (best bid first), sell = asks asc (best ask first)
-      const buySorted = [...data.buy].sort((a,b) => parseFloat(b[0]) - parseFloat(a[0]));
-      const sellSorted = [...data.sell].sort((a,b) => parseFloat(a[0]) - parseFloat(b[0]));
-
-      const priceBuy = buySorted.slice(0, limit).map(([price, volume]) => {
-          const priceFloat = parseFloat(price);
-          const volumeFloat = parseFloat(volume);
-          return {
-              price: convertIDRtoUSDT(priceFloat),
-              volume: convertIDRtoUSDT(priceFloat * volumeFloat)
-          };
-      });
-
-      const priceSell = sellSorted.slice(0, limit).map(([price, volume]) => {
-          const priceFloat = parseFloat(price);
-          const volumeFloat = parseFloat(volume);
-          return {
-              price: convertIDRtoUSDT(priceFloat),
-              volume: convertIDRtoUSDT(priceFloat * volumeFloat)
-          };
-      });
-
-      return { priceBuy, priceSell };
-  }
-
-  // ====== Konfigurasi Exchange via registry/CONFIG_CEX ======
-  // Orderbook endpoints and parsers are sourced from CONFIG_CEX.<CEX>.ORDERBOOK
-  // through services/cex/registry.js. This object is kept empty by default
-  // and will be hydrated by the merge block below.
-  let exchangeConfig = {};
-
-  // If CEX registry is present and defines orderbook config, prefer it
-  try {
-    if (root.CEX && typeof root.CEX._all === 'function') {
-      const merged = {};
-      root.CEX._all().forEach(e => {
-        const ob = e?.orderbook || null;
-        if (!ob || typeof ob.urlTpl !== 'function') return;
-        // Accept direct parser function or a token resolved here
-        let parserFn = null;
-        if (typeof ob.parser === 'function') parserFn = ob.parser;
-        else if (typeof ob.parserToken === 'string') {
-          const tok = ob.parserToken.toLowerCase();
-          if (tok === 'standard') parserFn = (data) => processOrderBook(data, 4);
-          else if (tok === 'indodax') parserFn = (data) => processIndodaxOrderBook(data, 4);
-          else if (tok === 'kucoin') parserFn = (data) => processOrderBook(data?.data || {}, 4);
-          else if (tok === 'bitget') parserFn = (data) => processOrderBook(data?.data || {}, 4);
-          else if (tok === 'bybit') parserFn = (data) => {
-            try {
-              const a = (data?.result?.a || []).map(([p,v]) => [p, v]);
-              const b = (data?.result?.b || []).map(([p,v]) => [p, v]);
-              return processOrderBook({ asks: a, bids: b }, 4);
-            } catch(_) { return { priceBuy: [], priceSell: [] }; }
-          }
+    // ====== Fungsi Universal untuk Orderbook CEX ======
+    /** Normalize standard CEX orderbook payload into top N levels. */
+    function processOrderBook(data, limit = 4) {
+        if (!data?.bids || !data?.asks) {
+            console.error("Invalid orderbook data:", data);
+            return { priceBuy: [], priceSell: [] };
         }
-        if (parserFn) {
-          merged[e.name] = { url: ob.urlTpl, processData: parserFn };
+
+        // bids: sort desc (harga tertinggi dulu)
+        const bids = [...data.bids].sort((a, b) => parseFloat(b[0]) - parseFloat(a[0]));
+        // asks: sort asc (harga terendah dulu)
+        const asks = [...data.asks].sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]));
+
+        // harga beli = ambil harga tertinggi (dari bids)
+        const priceBuy = bids.slice(0, limit).map(([price, volume]) => ({
+            price: parseFloat(price),                // harga beli
+            volume: parseFloat(volume) * parseFloat(price) // nilai dalam USDT
+        }));
+
+        // harga jual = ambil harga terendah (dari asks)
+        const priceSell = asks.slice(0, limit).map(([price, volume]) => ({
+            price: parseFloat(price),                // harga jual
+            volume: parseFloat(volume) * parseFloat(price) // nilai dalam USDT
+        }));
+
+        return { priceBuy, priceSell };
+    }
+
+    // Removed legacy processOrderBookLAMA (unused)
+
+    // ====== Fungsi Khusus untuk INDODAX ======
+    /** Normalize INDODAX orderbook (IDR) to USDT using cached rate. */
+    function processIndodaxOrderBook(data, limit = 4) {
+        if (!data?.buy || !data?.sell) {
+            console.error("Invalid INDODAX response structure:", data);
+            return { priceBuy: [], priceSell: [] };
         }
-      });
-      // Keep existing as fallback for entries not provided via registry
-      exchangeConfig = Object.assign({}, exchangeConfig, merged);
+
+        // Ensure same semantics: buy = bids desc (best bid first), sell = asks asc (best ask first)
+        const buySorted = [...data.buy].sort((a, b) => parseFloat(b[0]) - parseFloat(a[0]));
+        const sellSorted = [...data.sell].sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]));
+
+        const priceBuy = buySorted.slice(0, limit).map(([price, volume]) => {
+            const priceFloat = parseFloat(price);
+            const volumeFloat = parseFloat(volume);
+            return {
+                price: convertIDRtoUSDT(priceFloat),
+                volume: convertIDRtoUSDT(priceFloat * volumeFloat)
+            };
+        });
+
+        const priceSell = sellSorted.slice(0, limit).map(([price, volume]) => {
+            const priceFloat = parseFloat(price);
+            const volumeFloat = parseFloat(volume);
+            return {
+                price: convertIDRtoUSDT(priceFloat),
+                volume: convertIDRtoUSDT(priceFloat * volumeFloat)
+            };
+        });
+
+        return { priceBuy, priceSell };
     }
-  } catch(_) {}
 
-  // Secondary hydration directly from CONFIG_CEX as a safety net
-  try {
-    const cfgAll = root.CONFIG_CEX || {};
-    Object.keys(cfgAll).forEach(name => {
-      const up = String(name).toUpperCase();
-      if (exchangeConfig[up]) return;
-      const ob = cfgAll[up]?.ORDERBOOK || {};
-      if (typeof ob.urlTpl !== 'function') return;
-      let parserFn = null;
-      const tok = String(ob.parser || '').toLowerCase();
-      if (tok === 'standard') parserFn = (data) => processOrderBook(data, 4);
-      else if (tok === 'indodax') parserFn = (data) => processIndodaxOrderBook(data, 4);
-      else if (tok === 'kucoin') parserFn = (data) => processOrderBook(data?.data || {}, 4);
-      else if (tok === 'bitget') parserFn = (data) => processOrderBook(data?.data || {}, 4);
-      else if (tok === 'bybit') parserFn = (data) => {
-        try {
-          const a = (data?.result?.a || []).map(([p,v]) => [p, v]);
-          const b = (data?.result?.b || []).map(([p,v]) => [p, v]);
-          return processOrderBook({ asks: a, bids: b }, 4);
-        } catch(_) { return { priceBuy: [], priceSell: [] }; }
-      }
-      if (parserFn) exchangeConfig[up] = { url: ob.urlTpl, processData: parserFn };
-    });
-  } catch(_) {}
+    // ====== Konfigurasi Exchange via registry/CONFIG_CEX ======
+    // Orderbook endpoints and parsers are sourced from CONFIG_CEX.<CEX>.ORDERBOOK
+    // through services/cex/registry.js. This object is kept empty by default
+    // and will be hydrated by the merge block below.
+    let exchangeConfig = {};
 
-  // Debug: log populated exchanges once at init
-  try {
-    const keysInit = Object.keys(exchangeConfig || {});
-    if (keysInit.length === 0) {
-      /* debug logs removed */
-    } else {
-      /* debug logs removed */
-    }
-  } catch(_) {}
-
-  /** Fetches the order book for a token pair from a CEX. */
-  /**
-   * Fetch and parse CEX orderbook for token and pair.
-   * Also updates the UI via updateTableVolCEX.
-   */
-  function getPriceCEX(coins, NameToken, NamePair, cex, tableBodyId) {
-      return new Promise((resolve, reject) => {
-          const key = String(cex || '').toUpperCase();
-          let config = exchangeConfig[key] || exchangeConfig[cex];
-          // On-demand build as last resort if missing
-          if (!config) {
-              try {
-                      const ob = (root.CONFIG_CEX || {})[key]?.ORDERBOOK || {};
-                      if (typeof ob.urlTpl === 'function') {
-                          const tok = String(ob.parser || '').toLowerCase();
-                          let parserFn = null;
-                      if (tok === 'standard') parserFn = (data) => processOrderBook(data, 4);
-                      else if (tok === 'indodax') parserFn = (data) => processIndodaxOrderBook(data, 4);
-                      else if (tok === 'kucoin') parserFn = (data) => processOrderBook(data?.data || {}, 4);
-                      else if (tok === 'bitget') parserFn = (data) => processOrderBook(data?.data || {}, 4);
-                      else if (tok === 'bybit') parserFn = (data) => {
+    // If CEX registry is present and defines orderbook config, prefer it
+    try {
+        if (root.CEX && typeof root.CEX._all === 'function') {
+            const merged = {};
+            root.CEX._all().forEach(e => {
+                const ob = e?.orderbook || null;
+                if (!ob || typeof ob.urlTpl !== 'function') return;
+                // Accept direct parser function or a token resolved here
+                let parserFn = null;
+                if (typeof ob.parser === 'function') parserFn = ob.parser;
+                else if (typeof ob.parserToken === 'string') {
+                    const tok = ob.parserToken.toLowerCase();
+                    if (tok === 'standard') parserFn = (data) => processOrderBook(data, 4);
+                    else if (tok === 'indodax') parserFn = (data) => processIndodaxOrderBook(data, 4);
+                    else if (tok === 'kucoin') parserFn = (data) => processOrderBook(data?.data || {}, 4);
+                    else if (tok === 'bitget') parserFn = (data) => processOrderBook(data?.data || {}, 4);
+                    else if (tok === 'bybit') parserFn = (data) => {
                         try {
-                          const a = (data?.result?.a || []).map(([p,v]) => [p, v]);
-                          const b = (data?.result?.b || []).map(([p,v]) => [p, v]);
-                          return processOrderBook({ asks: a, bids: b }, 4);
-                        } catch(_) { return { priceBuy: [], priceSell: [] }; }
-                      };
-                      if (parserFn) {
-                          exchangeConfig[key] = { url: ob.urlTpl, processData: parserFn };
-                          config = exchangeConfig[key];
-                          /* debug logs removed */
-                      }
-                  }
-              } catch(_) {}
-          }
-          if (!config) {
-              return reject(`Exchange ${key || cex} tidak ditemukan dalam konfigurasi.`);
-          }
+                            const a = (data?.result?.a || []).map(([p, v]) => [p, v]);
+                            const b = (data?.result?.b || []).map(([p, v]) => [p, v]);
+                            return processOrderBook({ asks: a, bids: b }, 4);
+                        } catch (_) { return { priceBuy: [], priceSell: [] }; }
+                    }
+                }
+                if (parserFn) {
+                    merged[e.name] = { url: ob.urlTpl, processData: parserFn };
+                }
+            });
+            // Keep existing as fallback for entries not provided via registry
+            exchangeConfig = Object.assign({}, exchangeConfig, merged);
+        }
+    } catch (_) { }
 
-          // CEX delay configuration removed; requests execute immediately
-          const isStablecoin = (token) => stablecoins.includes(token);
+    // Secondary hydration directly from CONFIG_CEX as a safety net
+    try {
+        const cfgAll = root.CONFIG_CEX || {};
+        Object.keys(cfgAll).forEach(name => {
+            const up = String(name).toUpperCase();
+            if (exchangeConfig[up]) return;
+            const ob = cfgAll[up]?.ORDERBOOK || {};
+            if (typeof ob.urlTpl !== 'function') return;
+            let parserFn = null;
+            const tok = String(ob.parser || '').toLowerCase();
+            if (tok === 'standard') parserFn = (data) => processOrderBook(data, 4);
+            else if (tok === 'indodax') parserFn = (data) => processIndodaxOrderBook(data, 4);
+            else if (tok === 'kucoin') parserFn = (data) => processOrderBook(data?.data || {}, 4);
+            else if (tok === 'bitget') parserFn = (data) => processOrderBook(data?.data || {}, 4);
+            else if (tok === 'bybit') parserFn = (data) => {
+                try {
+                    const a = (data?.result?.a || []).map(([p, v]) => [p, v]);
+                    const b = (data?.result?.b || []).map(([p, v]) => [p, v]);
+                    return processOrderBook({ asks: a, bids: b }, 4);
+                } catch (_) { return { priceBuy: [], priceSell: [] }; }
+            }
+            if (parserFn) exchangeConfig[up] = { url: ob.urlTpl, processData: parserFn };
+        });
+    } catch (_) { }
 
-          const urls = [
-              isStablecoin(NameToken) ? null : config.url({ symbol: NameToken }),
-              isStablecoin(NamePair) ? null : config.url({ symbol: NamePair })
-          ];
+    // Debug: log populated exchanges once at init
+    try {
+        const keysInit = Object.keys(exchangeConfig || {});
+        if (keysInit.length === 0) {
+            /* debug logs removed */
+        } else {
+            /* debug logs removed */
+        }
+    } catch (_) { }
 
-          let promises = urls.map((url, index) => {
-              const tokenName = index === 0 ? NameToken : NamePair;
-              if (isStablecoin(tokenName)) {
-                  return Promise.resolve({
-                      tokenName: tokenName,
-                      price_sell: 1,
-                      price_buy: 1,
-                      volumes_sell: Array(4).fill({ price: 1, volume: 10000 }),
-                      volumes_buy: Array(4).fill({ price: 1, volume: 10000 })
-                  });
-              }
-              if (url) {
-                  return new Promise((resolveAjax, rejectAjax) => {
-                      $.ajax({
-                          url: url,
-                          method: 'GET',
-                          success: function (data) {
-                              try {
-                                  const processedData = config.processData(data);
-                                  // Select best prices: BUY uses best ask (lowest), SELL uses best bid (highest)
-                                  const priceBuy = processedData?.priceSell?.[0]?.price || 0;
-                                  const priceSell = processedData?.priceBuy?.[0]?.price || 0;
-                                  if (priceBuy <= 0 || priceSell <= 0) {
-                                      return rejectAjax(`Harga tidak valid untuk ${tokenName} di ${cex}.`);
-                                  }
-                                  resolveAjax({
-                                      tokenName: tokenName,
-                                      price_sell: priceSell,
-                                      price_buy: priceBuy,
-                                      volumes_sell: processedData.priceSell || [],
-                                      volumes_buy: processedData.priceBuy || []
-                                  });
-                              } catch (error) {
-                                  rejectAjax(`Error processing data untuk ${tokenName} di ${cex}: ${error.message}`);
-                              }
-                          },
-                          error: function (xhr) {
-                              const errorMessage = xhr.responseJSON?.msg || "Unknown ERROR";
-                              rejectAjax(`Error koneksi API untuk ${tokenName} di ${cex}: ${errorMessage}`);
-                          }
-                      });
-                  });
-              }
-              return Promise.resolve(null);
-          });
+    /** Fetches the order book for a token pair from a CEX. */
+    /**
+     * Fetch and parse CEX orderbook for token and pair.
+     * Also updates the UI via updateTableVolCEX.
+     */
+    function getPriceCEX(coins, NameToken, NamePair, cex, tableBodyId) {
+        return new Promise((resolve, reject) => {
+            const key = String(cex || '').toUpperCase();
+            let config = exchangeConfig[key] || exchangeConfig[cex];
+            // On-demand build as last resort if missing
+            if (!config) {
+                try {
+                    const ob = (root.CONFIG_CEX || {})[key]?.ORDERBOOK || {};
+                    if (typeof ob.urlTpl === 'function') {
+                        const tok = String(ob.parser || '').toLowerCase();
+                        let parserFn = null;
+                        if (tok === 'standard') parserFn = (data) => processOrderBook(data, 4);
+                        else if (tok === 'indodax') parserFn = (data) => processIndodaxOrderBook(data, 4);
+                        else if (tok === 'kucoin') parserFn = (data) => processOrderBook(data?.data || {}, 4);
+                        else if (tok === 'bitget') parserFn = (data) => processOrderBook(data?.data || {}, 4);
+                        else if (tok === 'bybit') parserFn = (data) => {
+                            try {
+                                const a = (data?.result?.a || []).map(([p, v]) => [p, v]);
+                                const b = (data?.result?.b || []).map(([p, v]) => [p, v]);
+                                return processOrderBook({ asks: a, bids: b }, 4);
+                            } catch (_) { return { priceBuy: [], priceSell: [] }; }
+                        };
+                        if (parserFn) {
+                            exchangeConfig[key] = { url: ob.urlTpl, processData: parserFn };
+                            config = exchangeConfig[key];
+                            /* debug logs removed */
+                        }
+                    }
+                } catch (_) { }
+            }
+            if (!config) {
+                return reject(`Exchange ${key || cex} tidak ditemukan dalam konfigurasi.`);
+            }
 
-          Promise.all(promises).then(resultsArray => {
-              const results = resultsArray.reduce((acc, res) => {
-                  if (res) acc[res.tokenName] = res;
-                  return acc;
-              }, {});
+            // CEX delay configuration removed; requests execute immediately
+            const isStablecoin = (token) => stablecoins.includes(token);
 
-              const priceBuyToken = results[NameToken]?.price_buy || 0;
-              const priceBuyPair = results[NamePair]?.price_buy || 0;
+            const urls = [
+                isStablecoin(NameToken) ? null : config.url({ symbol: NameToken }),
+                isStablecoin(NamePair) ? null : config.url({ symbol: NamePair })
+            ];
 
-              const feeTokensRaw = parseFloat(coins.feeWDToken || 0);
-              const feePairsRaw  = parseFloat(coins.feeWDPair  || 0);
-              const feeWDToken = (isFinite(feeTokensRaw) ? feeTokensRaw : 0) * priceBuyToken;
-              const feeWDPair  = (isFinite(feePairsRaw)  ? feePairsRaw  : 0) * priceBuyPair;
+            let promises = urls.map((url, index) => {
+                const tokenName = index === 0 ? NameToken : NamePair;
+                if (isStablecoin(tokenName)) {
+                    return Promise.resolve({
+                        tokenName: tokenName,
+                        price_sell: 1,
+                        price_buy: 1,
+                        volumes_sell: Array(4).fill({ price: 1, volume: 10000 }),
+                        volumes_buy: Array(4).fill({ price: 1, volume: 10000 })
+                    });
+                }
+                if (url) {
+                    return new Promise((resolveAjax, rejectAjax) => {
+                        $.ajax({
+                            url: url,
+                            method: 'GET',
+                            success: function (data) {
+                                try {
+                                    const processedData = config.processData(data);
+                                    // Select best prices: BUY uses best ask (lowest), SELL uses best bid (highest)
+                                    const priceBuy = processedData?.priceSell?.[0]?.price || 0;
+                                    const priceSell = processedData?.priceBuy?.[0]?.price || 0;
+                                    if (priceBuy <= 0 || priceSell <= 0) {
+                                        return rejectAjax(`Harga tidak valid untuk ${tokenName} di ${cex}.`);
+                                    }
+                                    resolveAjax({
+                                        tokenName: tokenName,
+                                        price_sell: priceSell,
+                                        price_buy: priceBuy,
+                                        volumes_sell: processedData.priceSell || [],
+                                        volumes_buy: processedData.priceBuy || []
+                                    });
+                                } catch (error) {
+                                    rejectAjax(`Error processing data untuk ${tokenName} di ${cex}: ${error.message}`);
+                                }
+                            },
+                            error: function (xhr) {
+                                const errorMessage = xhr.responseJSON?.msg || "Unknown ERROR";
+                                rejectAjax(`Error koneksi API untuk ${tokenName} di ${cex}: ${errorMessage}`);
+                            }
+                        });
+                    });
+                }
+                return Promise.resolve(null);
+            });
 
-              if (isNaN(feeWDToken) || feeWDToken < 0) return reject(`FeeWD untuk ${NameToken} di ${cex} tidak valid.`);
-              if (isNaN(feeWDPair) || feeWDPair < 0) return reject(`FeeWD untuk ${NamePair} di ${cex} tidak valid.`);
+            Promise.all(promises).then(resultsArray => {
+                const results = resultsArray.reduce((acc, res) => {
+                    if (res) acc[res.tokenName] = res;
+                    return acc;
+                }, {});
 
-              const finalResult = {
-                  token: NameToken.toUpperCase(),
-                  sc_input: coins.sc_in,
-                  sc_output: coins.sc_out,
-                  pair: NamePair.toUpperCase(),
-                  cex: cex.toUpperCase(),
-                  priceSellToken: results[NameToken]?.price_sell || 0,
-                  priceBuyToken: priceBuyToken,
-                  priceSellPair: results[NamePair]?.price_sell || 0,
-                  priceBuyPair: priceBuyPair,
-                  volumes_sellToken: results[NameToken]?.volumes_sell || [],
-                  volumes_buyToken: results[NameToken]?.volumes_buy || [],
-                  volumes_sellPair: results[NamePair]?.volumes_sell || [],
-                  volumes_buyPair: results[NamePair]?.volumes_buy || [],
-                  feeWDToken: feeWDToken,
-                  feeWDPair: feeWDPair,
-                  chainName: coins.chain
-              };
+                const priceBuyToken = results[NameToken]?.price_buy || 0;
+                const priceBuyPair = results[NamePair]?.price_buy || 0;
 
-              updateTableVolCEX(finalResult, cex, tableBodyId);
-            
-              resolve(finalResult);
-          }).catch(error => { reject(error); });
-      });
-  }
+                const feeTokensRaw = parseFloat(coins.feeWDToken || 0);
+                const feePairsRaw = parseFloat(coins.feeWDPair || 0);
+                const feeWDToken = (isFinite(feeTokensRaw) ? feeTokensRaw : 0) * priceBuyToken;
+                const feeWDPair = (isFinite(feePairsRaw) ? feePairsRaw : 0) * priceBuyPair;
 
-  // =================================================================================
-  // Universal CEX Wallet Fetcher (moved)
-  // =================================================================================
-  /** Fetch DP/WD statuses and fees for a given CEX (per token/chain). */
-  async function fetchWalletStatus(cex) {
-      const cfg = CONFIG_CEX?.[cex] || {};
-      const secretSrc = (typeof CEX_SECRETS !== 'undefined' && CEX_SECRETS?.[cex]) ? CEX_SECRETS[cex]
-                        : ((typeof window !== 'undefined' && window.CEX_SECRETS && window.CEX_SECRETS[cex]) ? window.CEX_SECRETS[cex] : {});
-      const ApiKey = cfg.ApiKey || secretSrc?.ApiKey;
-      const ApiSecret = cfg.ApiSecret || secretSrc?.ApiSecret;
-      const hasKeys = !!(ApiKey && ApiSecret);
-      const timestamp = Date.now();
+                if (isNaN(feeWDToken) || feeWDToken < 0) return reject(`FeeWD untuk ${NameToken} di ${cex} tidak valid.`);
+                if (isNaN(feeWDPair) || feeWDPair < 0) return reject(`FeeWD untuk ${NamePair} di ${cex} tidak valid.`);
 
-      switch (cex) {
-          case 'BINANCE': {
-              if (!hasKeys) throw new Error(`${cex} API Key/Secret not configured in CONFIG_CEX.`);
-              const query = `timestamp=${timestamp}`;
-              const sig = calculateSignature("BINANCE", ApiSecret, query, "HmacSHA256");
-              const url = `https://proxykanan.awokawok.workers.dev/?https://api-gcp.binance.com/sapi/v1/capital/config/getall?${query}&signature=${sig}`;
-              const response = await $.ajax({ url, headers: { "X-MBX-ApiKey": ApiKey } });
-              return response.flatMap(item =>
-                  (item.networkList || []).map(net => ({
-                      cex,
-                      tokenName: item.coin,
-                      chain: net.network,
-                      feeWDs: parseFloat(net.withdrawFee || 0),
-                      depositEnable: !!net.depositEnable,
-                      withdrawEnable: !!net.withdrawEnable,
-                      contractAddress: net.contractAddress || '',
-                      trading: !!item.trading // Tambahkan field trading dari response Binance
-                  }))
-              );
-          }
+                // ✅ FIX: Extract WD/DP status from coins.dataCexs for WALLET CEX skip logic
+                const cexData = coins.dataCexs?.[cex] || {};
+                const withdrawToken = cexData.withdrawToken !== undefined ? cexData.withdrawToken : false;
+                const depositToken = cexData.depositToken !== undefined ? cexData.depositToken : false;
+                const withdrawPair = cexData.withdrawPair !== undefined ? cexData.withdrawPair : false;
+                const depositPair = cexData.depositPair !== undefined ? cexData.depositPair : false;
 
-          case 'MEXC': {
-              if (!hasKeys) throw new Error(`${cex} API Key/Secret not configured in CONFIG_CEX.`);
-              const query = `recvWindow=5000&timestamp=${timestamp}`;
-              const sig = calculateSignature("MEXC", ApiSecret, query);
-              const url = `https://proxykiri.awokawok.workers.dev/?https://api.mexc.com/api/v3/capital/config/getall?${query}&signature=${sig}`;
-              const response = await $.ajax({ url, headers: { "X-MEXC-APIKEY": ApiKey } });
-              return response.flatMap(item =>
-                  (item.networkList || []).map(net => ({
-                      cex,
-                      tokenName: item.coin,
-                      chain: net.netWork,
-                      feeWDs: parseFloat(net.withdrawFee || 0),
-                      depositEnable: !!net.depositEnable,
-                      withdrawEnable: !!net.withdrawEnable,
-                      contractAddress: net.contract || '',
-                      trading: true // MEXC tidak menyediakan field trading di API, default true
-                  }))
-              );
-          }
+                const finalResult = {
+                    token: NameToken.toUpperCase(),
+                    sc_input: coins.sc_in,
+                    sc_output: coins.sc_out,
+                    pair: NamePair.toUpperCase(),
+                    cex: cex.toUpperCase(),
+                    priceSellToken: results[NameToken]?.price_sell || 0,
+                    priceBuyToken: priceBuyToken,
+                    priceSellPair: results[NamePair]?.price_sell || 0,
+                    priceBuyPair: priceBuyPair,
+                    volumes_sellToken: results[NameToken]?.volumes_sell || [],
+                    volumes_buyToken: results[NameToken]?.volumes_buy || [],
+                    volumes_sellPair: results[NamePair]?.volumes_sell || [],
+                    volumes_buyPair: results[NamePair]?.volumes_buy || [],
+                    feeWDToken: feeWDToken,
+                    feeWDPair: feeWDPair,
+                    chainName: coins.chain,
+                    // ✅ FIX: Include WD/DP status for WALLET CEX skip logic
+                    withdrawToken: withdrawToken,
+                    depositToken: depositToken,
+                    withdrawPair: withdrawPair,
+                    depositPair: depositPair
+                };
 
-          case 'GATE': {
-              if (!hasKeys) throw new Error(`${cex} API Key/Secret not configured in CONFIG_CEX.`);
-              const host = "https://cors.gemul-putra.workers.dev/?https://api.gateio.ws";
-              const prefix = "/api/v4";
-              const ts = Math.floor(Date.now() / 1000);
+                updateTableVolCEX(finalResult, cex, tableBodyId);
 
-              function gateSign(method, path, query = "", body = "") {
-                  const hashedBody = CryptoJS.SHA512(body).toString(CryptoJS.enc.Hex);
-                  const payload = `${method}\n${path}\n${query}\n${hashedBody}\n${ts}`;
-                  return CryptoJS.HmacSHA512(payload, ApiSecret).toString(CryptoJS.enc.Hex);
-              }
+                resolve(finalResult);
+            }).catch(error => { reject(error); });
+        });
+    }
 
-              const wdPath = "/wallet/withdraw_status";
-              const wdHeaders = { KEY: ApiKey, SIGN: gateSign("GET", prefix + wdPath, "", ""), Timestamp: ts };
-              const wdData = await $.ajax({ url: `${host}${prefix}${wdPath}`, headers: wdHeaders });
-              const statusData = await $.ajax({ url: `${host}${prefix}/spot/currencies` });
+    // =================================================================================
+    // Universal CEX Wallet Fetcher (moved)
+    // =================================================================================
+    /** Fetch DP/WD statuses and fees for a given CEX (per token/chain). */
+    async function fetchWalletStatus(cex) {
+        const cfg = CONFIG_CEX?.[cex] || {};
+        const secretSrc = (typeof CEX_SECRETS !== 'undefined' && CEX_SECRETS?.[cex]) ? CEX_SECRETS[cex]
+            : ((typeof window !== 'undefined' && window.CEX_SECRETS && window.CEX_SECRETS[cex]) ? window.CEX_SECRETS[cex] : {});
+        const ApiKey = cfg.ApiKey || secretSrc?.ApiKey;
+        const ApiSecret = cfg.ApiSecret || secretSrc?.ApiSecret;
+        const hasKeys = !!(ApiKey && ApiSecret);
+        const timestamp = Date.now();
 
-              return statusData.flatMap(item =>
-                  (item.chains || []).map(chain => {
-                      const match = (wdData || []).find(w => (w.currency || '').toUpperCase() === (item.currency || '').toUpperCase()) || {};
-                      const chainCode = String(chain.name || chain.chain || chain.network || chain.chain_name || '').toUpperCase();
-                      const feeMap = match.withdraw_fix_on_chains || {};
-                      const feeOnChain = feeMap[chainCode] ?? feeMap[chain.name] ?? feeMap[chain.chain] ?? 0;
-                      return {
-                          cex,
-                          tokenName: item.currency,
-                          chain: chainCode,
-                          feeWDs: parseFloat(chain.withdraw_fee || feeOnChain || 0),
-                          depositEnable: !Boolean(chain.deposit_disabled),
-                          withdrawEnable: !Boolean(chain.withdraw_disabled),
-                          contractAddress: chain.addr || '',
-                          trading: !item.delisted // GATE: trading = true jika tidak delisted
-                      };
-                  })
-              );
-          }
+        switch (cex) {
+            case 'BINANCE': {
+                if (!hasKeys) throw new Error(`${cex} API Key/Secret not configured in CONFIG_CEX.`);
+                const query = `timestamp=${timestamp}`;
+                const sig = calculateSignature("BINANCE", ApiSecret, query, "HmacSHA256");
+                const url = `https://proxykanan.awokawok.workers.dev/?https://api-gcp.binance.com/sapi/v1/capital/config/getall?${query}&signature=${sig}`;
+                const response = await $.ajax({ url, headers: { "X-MBX-ApiKey": ApiKey } });
+                return response.flatMap(item =>
+                    (item.networkList || []).map(net => ({
+                        cex,
+                        tokenName: item.coin,
+                        chain: net.network,
+                        feeWDs: parseFloat(net.withdrawFee || 0),
+                        depositEnable: !!net.depositEnable,
+                        withdrawEnable: !!net.withdrawEnable,
+                        contractAddress: net.contractAddress || '',
+                        trading: !!item.trading // Tambahkan field trading dari response Binance
+                    }))
+                );
+            }
 
-          case 'INDODAX': {
-              const url = `https://indodax.com/api/summaries`;
-              const response = await $.ajax({ url });
-              const list = response?.tickers || {};
-              const arr = Object.keys(list).map(k => ({ cex, tokenName: k.toUpperCase().replace('IDR',''), chain: 'INDODAX', feeWDs: 0, depositEnable: true, withdrawEnable: true, trading: true }));
-              return arr;
-          }
+            case 'MEXC': {
+                if (!hasKeys) throw new Error(`${cex} API Key/Secret not configured in CONFIG_CEX.`);
+                const query = `recvWindow=5000&timestamp=${timestamp}`;
+                const sig = calculateSignature("MEXC", ApiSecret, query);
+                const url = `https://proxykiri.awokawok.workers.dev/?https://api.mexc.com/api/v3/capital/config/getall?${query}&signature=${sig}`;
+                const response = await $.ajax({ url, headers: { "X-MEXC-APIKEY": ApiKey } });
+                return response.flatMap(item =>
+                    (item.networkList || []).map(net => ({
+                        cex,
+                        tokenName: item.coin,
+                        chain: net.netWork,
+                        feeWDs: parseFloat(net.withdrawFee || 0),
+                        depositEnable: !!net.depositEnable,
+                        withdrawEnable: !!net.withdrawEnable,
+                        contractAddress: net.contract || '',
+                        trading: true // MEXC tidak menyediakan field trading di API, default true
+                    }))
+                );
+            }
 
-          case 'KUCOIN': {
-              // Public endpoint: currencies and chains
-              const url = `https://proxykiri.awokawok.workers.dev/?https://api.kucoin.com/api/v3/currencies`;
-              const res = await $.ajax({ url, method: 'GET' });
-              const data = (res && res.data) || [];
-              const arr = [];
-              data.forEach(item => {
-                  const coin = item?.currency || item?.coin || '';
-                  const chains = item?.chains || item?.networkList || [];
-                  (chains || []).forEach(net => {
-                      const chainName = net?.chainName || net?.network || net?.name || '';
-                      const fee = parseFloat(net?.withdrawalMinFee || net?.withdrawFee || 0);
-                      const dep = (net?.isDepositEnabled === true) || (net?.canDeposit === true) || (String(net?.depositEnable).toLowerCase() === 'true');
-                      const wd  = (net?.isWithdrawEnabled === true) || (net?.canWithdraw === true) || (String(net?.withdrawEnable).toLowerCase() === 'true');
-                      if (!coin || !chainName) return;
-                      arr.push({
-                          cex: 'KUCOIN',
-                          tokenName: String(coin).toUpperCase(),
-                          chain: String(chainName),
-                          feeWDs: isFinite(fee)?fee:0,
-                          depositEnable: !!dep,
-                          withdrawEnable: !!wd,
-                          contractAddress: net?.contractAddress || '',
-                          trading: true // KUCOIN tidak menyediakan field trading di endpoint currencies
-                      });
-                  });
-              });
-              return arr;
-          }
+            case 'GATE': {
+                if (!hasKeys) throw new Error(`${cex} API Key/Secret not configured in CONFIG_CEX.`);
+                const host = "https://cors.gemul-putra.workers.dev/?https://api.gateio.ws";
+                const prefix = "/api/v4";
+                const ts = Math.floor(Date.now() / 1000);
 
-          case 'BITGET': {
-              // Public endpoint: coins and chains
-              const url = `https://api.bitget.com/api/v2/spot/public/coins`;
-              const res = await $.ajax({ url, method: 'GET' });
-              const data = (res && res.data) || [];
-              const arr = [];
-              data.forEach(item => {
-                  const coin = item?.coin || item?.currency || '';
-                  const chains = item?.chains || [];
-                  (chains || []).forEach(net => {
-                      const chain = net?.chain || net?.network || net?.name || '';
-                      const fee = parseFloat(net?.withdrawFee || net?.withdrawMinFee || 0);
-                      const dep = (String(net?.rechargeable).toLowerCase() === 'true') || (net?.rechargeable === true);
-                      const wd  = (String(net?.withdrawable).toLowerCase() === 'true') || (net?.withdrawable === true);
-                      if (!coin || !chain) return;
-                      arr.push({
-                          cex: 'BITGET',
-                          tokenName: String(coin).toUpperCase(),
-                          chain: String(chain),
-                          feeWDs: isFinite(fee)?fee:0,
-                          depositEnable: !!dep,
-                          withdrawEnable: !!wd,
-                          contractAddress: net?.contractAddress || '',
-                          trading: true // BITGET tidak menyediakan field trading di endpoint public coins
-                      });
-                  });
-              });
-              return arr;
-          }
+                function gateSign(method, path, query = "", body = "") {
+                    const hashedBody = CryptoJS.SHA512(body).toString(CryptoJS.enc.Hex);
+                    const payload = `${method}\n${path}\n${query}\n${hashedBody}\n${ts}`;
+                    return CryptoJS.HmacSHA512(payload, ApiSecret).toString(CryptoJS.enc.Hex);
+                }
 
-          case 'BYBIT': {
-              if (!hasKeys) throw new Error(`${cex} API Key/Secret not configured in CONFIG_CEX.`);
-              const key = ApiKey;
-              const secret = ApiSecret;
-              const recvWindow = 5000;
-              const ts = Date.now().toString();
-              const queryString = ""; // empty query → fetch all coins
+                const wdPath = "/wallet/withdraw_status";
+                const wdHeaders = { KEY: ApiKey, SIGN: gateSign("GET", prefix + wdPath, "", ""), Timestamp: ts };
+                const wdData = await $.ajax({ url: `${host}${prefix}${wdPath}`, headers: wdHeaders });
+                const statusData = await $.ajax({ url: `${host}${prefix}/spot/currencies` });
 
-              function calcSign(secret, timestamp, apiKey, recvWindow, query) {
-                  const dataToSign = `${timestamp}${apiKey}${recvWindow}${query}`;
-                  return CryptoJS.HmacSHA256(dataToSign, secret).toString(CryptoJS.enc.Hex);
-              }
-              const sign = calcSign(secret, ts, key, recvWindow, queryString);
+                return statusData.flatMap(item =>
+                    (item.chains || []).map(chain => {
+                        const match = (wdData || []).find(w => (w.currency || '').toUpperCase() === (item.currency || '').toUpperCase()) || {};
+                        const chainCode = String(chain.name || chain.chain || chain.network || chain.chain_name || '').toUpperCase();
+                        const feeMap = match.withdraw_fix_on_chains || {};
+                        const feeOnChain = feeMap[chainCode] ?? feeMap[chain.name] ?? feeMap[chain.chain] ?? 0;
+                        return {
+                            cex,
+                            tokenName: item.currency,
+                            chain: chainCode,
+                            feeWDs: parseFloat(chain.withdraw_fee || feeOnChain || 0),
+                            depositEnable: !Boolean(chain.deposit_disabled),
+                            withdrawEnable: !Boolean(chain.withdraw_disabled),
+                            contractAddress: chain.addr || '',
+                            trading: !item.delisted // GATE: trading = true jika tidak delisted
+                        };
+                    })
+                );
+            }
 
-              const url = `https://api.bybit.com/v5/asset/coin/query-info` + (queryString ? `?${queryString}` : '');
-              const headers = {
-                  'X-BAPI-API-KEY': key,
-                  'X-BAPI-TIMESTAMP': ts,
-                  'X-BAPI-RECV-WINDOW': String(recvWindow),
-                  'X-BAPI-SIGN': sign,
-                  'Accept': 'application/json',
-                  'Content-Type': 'application/json'
-              };
+            case 'INDODAX': {
+                const url = `https://indodax.com/api/summaries`;
+                const response = await $.ajax({ url });
+                const list = response?.tickers || {};
+                const arr = Object.keys(list).map(k => ({ cex, tokenName: k.toUpperCase().replace('IDR', ''), chain: 'INDODAX', feeWDs: 0, depositEnable: true, withdrawEnable: true, trading: true }));
+                return arr;
+            }
 
-              const res = await $.ajax({ url, method: 'GET', headers });
-              const rows = (res && res.result && (res.result.rows || res.result.list || res.result?.rows)) || [];
-              const data = Array.isArray(rows) ? rows : [];
-              const arr = [];
-              const truthy = (v) => (v === true) || (v === 1) || (v === '1') || (String(v).toLowerCase() === 'true');
-              data.forEach(item => {
-                  const coin = item?.coin || '';
-                  const chains = item?.chains || item?.chainsCommon || item?.networkList || [];
-                  (chains || []).forEach(net => {
-                      const chain = net?.chain || net?.chainType || net?.network || net?.name || '';
-                      const fee = parseFloat(net?.withdrawFee || net?.withdrawMinFee || 0);
-                      const dep = (net?.canDeposit === true) || (net?.depositable === true) || truthy(net?.rechargeable) || truthy(net?.chainDeposit);
-                      const wd  = (net?.canWithdraw === true) || (net?.withdrawable === true) || truthy(net?.chainWithdraw);
-                      if (!coin || !chain) return;
-                      arr.push({
-                          cex: 'BYBIT',
-                          tokenName: String(coin).toUpperCase(),
-                          chain: String(chain),
-                          feeWDs: isFinite(fee)?fee:0,
-                          depositEnable: !!dep,
-                          withdrawEnable: !!wd,
-                          contractAddress: net?.contractAddress || '',
-                          trading: true // BYBIT tidak menyediakan field trading di endpoint coin/query-info
-                      });
-                  });
-              });
-              return arr;
-          }
+            case 'KUCOIN': {
+                // Public endpoint: currencies and chains
+                const url = `https://proxykiri.awokawok.workers.dev/?https://api.kucoin.com/api/v3/currencies`;
+                const res = await $.ajax({ url, method: 'GET' });
+                const data = (res && res.data) || [];
+                const arr = [];
+                data.forEach(item => {
+                    const coin = item?.currency || item?.coin || '';
+                    const chains = item?.chains || item?.networkList || [];
+                    (chains || []).forEach(net => {
+                        const chainName = net?.chainName || net?.network || net?.name || '';
+                        const fee = parseFloat(net?.withdrawalMinFee || net?.withdrawFee || 0);
+                        const dep = (net?.isDepositEnabled === true) || (net?.canDeposit === true) || (String(net?.depositEnable).toLowerCase() === 'true');
+                        const wd = (net?.isWithdrawEnabled === true) || (net?.canWithdraw === true) || (String(net?.withdrawEnable).toLowerCase() === 'true');
+                        if (!coin || !chainName) return;
+                        arr.push({
+                            cex: 'KUCOIN',
+                            tokenName: String(coin).toUpperCase(),
+                            chain: String(chainName),
+                            feeWDs: isFinite(fee) ? fee : 0,
+                            depositEnable: !!dep,
+                            withdrawEnable: !!wd,
+                            contractAddress: net?.contractAddress || '',
+                            trading: true // KUCOIN tidak menyediakan field trading di endpoint currencies
+                        });
+                    });
+                });
+                return arr;
+            }
 
-          case 'LBANK': {
-              // ✅ LBANK API v2/assetConfigs.do provides BOTH deposit AND withdraw status
-              // This endpoint includes:
-              // - canDeposit: boolean (deposit status)
-              // - canDraw: boolean (withdrawal status)
-              // - Fee information, minimum amounts, and network details
-              // Reference: LBank API v2 documentation https://www.lbank.com/docs/index.html
-              const url = `https://api.lbkex.com/v2/assetConfigs.do`;
+            case 'BITGET': {
+                // Public endpoint: coins and chains
+                const url = `https://api.bitget.com/api/v2/spot/public/coins`;
+                const res = await $.ajax({ url, method: 'GET' });
+                const data = (res && res.data) || [];
+                const arr = [];
+                data.forEach(item => {
+                    const coin = item?.coin || item?.currency || '';
+                    const chains = item?.chains || [];
+                    (chains || []).forEach(net => {
+                        const chain = net?.chain || net?.network || net?.name || '';
+                        const fee = parseFloat(net?.withdrawFee || net?.withdrawMinFee || 0);
+                        const dep = (String(net?.rechargeable).toLowerCase() === 'true') || (net?.rechargeable === true);
+                        const wd = (String(net?.withdrawable).toLowerCase() === 'true') || (net?.withdrawable === true);
+                        if (!coin || !chain) return;
+                        arr.push({
+                            cex: 'BITGET',
+                            tokenName: String(coin).toUpperCase(),
+                            chain: String(chain),
+                            feeWDs: isFinite(fee) ? fee : 0,
+                            depositEnable: !!dep,
+                            withdrawEnable: !!wd,
+                            contractAddress: net?.contractAddress || '',
+                            trading: true // BITGET tidak menyediakan field trading di endpoint public coins
+                        });
+                    });
+                });
+                return arr;
+            }
 
-              const res = await $.ajax({ url, method: 'GET' });
-              const data = (res && res.data) || [];
-              const arr = [];
+            case 'BYBIT': {
+                if (!hasKeys) throw new Error(`${cex} API Key/Secret not configured in CONFIG_CEX.`);
+                const key = ApiKey;
+                const secret = ApiSecret;
+                const recvWindow = 5000;
+                const ts = Date.now().toString();
+                const queryString = ""; // empty query → fetch all coins
 
-              data.forEach(item => {
-                  const coin = item?.assetCode || '';
-                  const chain = item?.chain || String(item?.chainName || '');
+                function calcSign(secret, timestamp, apiKey, recvWindow, query) {
+                    const dataToSign = `${timestamp}${apiKey}${recvWindow}${query}`;
+                    return CryptoJS.HmacSHA256(dataToSign, secret).toString(CryptoJS.enc.Hex);
+                }
+                const sign = calcSign(secret, ts, key, recvWindow, queryString);
 
-                  // Parse canDraw (withdraw) - can be boolean or string "true"/"false"
-                  const canWithdraw = (item?.canDraw === true) ||
-                                     (item?.canDraw === 'true') ||
-                                     (String(item?.canDraw).toLowerCase() === 'true');
+                const url = `https://api.bybit.com/v5/asset/coin/query-info` + (queryString ? `?${queryString}` : '');
+                const headers = {
+                    'X-BAPI-API-KEY': key,
+                    'X-BAPI-TIMESTAMP': ts,
+                    'X-BAPI-RECV-WINDOW': String(recvWindow),
+                    'X-BAPI-SIGN': sign,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                };
 
-                  // Parse canDeposit - can be boolean or string "true"/"false"
-                  const canDeposit = (item?.canDeposit === true) ||
-                                    (item?.canDeposit === 'true') ||
-                                    (String(item?.canDeposit).toLowerCase() === 'true');
+                const res = await $.ajax({ url, method: 'GET', headers });
+                const rows = (res && res.result && (res.result.rows || res.result.list || res.result?.rows)) || [];
+                const data = Array.isArray(rows) ? rows : [];
+                const arr = [];
+                const truthy = (v) => (v === true) || (v === 1) || (v === '1') || (String(v).toLowerCase() === 'true');
+                data.forEach(item => {
+                    const coin = item?.coin || '';
+                    const chains = item?.chains || item?.chainsCommon || item?.networkList || [];
+                    (chains || []).forEach(net => {
+                        const chain = net?.chain || net?.chainType || net?.network || net?.name || '';
+                        const fee = parseFloat(net?.withdrawFee || net?.withdrawMinFee || 0);
+                        const dep = (net?.canDeposit === true) || (net?.depositable === true) || truthy(net?.rechargeable) || truthy(net?.chainDeposit);
+                        const wd = (net?.canWithdraw === true) || (net?.withdrawable === true) || truthy(net?.chainWithdraw);
+                        if (!coin || !chain) return;
+                        arr.push({
+                            cex: 'BYBIT',
+                            tokenName: String(coin).toUpperCase(),
+                            chain: String(chain),
+                            feeWDs: isFinite(fee) ? fee : 0,
+                            depositEnable: !!dep,
+                            withdrawEnable: !!wd,
+                            contractAddress: net?.contractAddress || '',
+                            trading: true // BYBIT tidak menyediakan field trading di endpoint coin/query-info
+                        });
+                    });
+                });
+                return arr;
+            }
 
-                  // Parse withdrawal fee - can be number or string
-                  const fee = parseFloat(item?.drawFee || item?.fee || 0);
+            case 'LBANK': {
+                // ✅ LBANK API v2/assetConfigs.do provides BOTH deposit AND withdraw status
+                // This endpoint includes:
+                // - canDeposit: boolean (deposit status)
+                // - canDraw: boolean (withdrawal status)
+                // - Fee information, minimum amounts, and network details
+                // Reference: LBank API v2 documentation https://www.lbank.com/docs/index.html
+                const url = `https://api.lbkex.com/v2/assetConfigs.do`;
 
-                  if (!coin) return; // Skip if no coin code
+                const res = await $.ajax({ url, method: 'GET' });
+                const data = (res && res.data) || [];
+                const arr = [];
 
-                  // ✅ FIXED: Now we have BOTH deposit and withdraw status from assetConfigs endpoint
-                  const depositEnable = canDeposit;
+                data.forEach(item => {
+                    const coin = item?.assetCode || '';
+                    const chain = item?.chain || String(item?.chainName || '');
 
-                  // ===== CONTRACT ADDRESS ENRICHMENT =====
-                  // LBank API doesn't provide contract address, so we need enrichment
-                  // This will be enriched later in snapshot-new.js from:
-                  // 1. Existing snapshot data (fallback)
-                  // 2. Token database (DATAJSON per chain)
-                  // 3. Web3 validation
-                  // For now, mark as empty and let enrichment handle it
-                  const contractAddress = ''; // Will be enriched in snapshot-new.js
+                    // Parse canDraw (withdraw) - can be boolean or string "true"/"false"
+                    const canWithdraw = (item?.canDraw === true) ||
+                        (item?.canDraw === 'true') ||
+                        (String(item?.canDraw).toLowerCase() === 'true');
 
-                  arr.push({
-                      cex: 'LBANK',
-                      tokenName: String(coin).toUpperCase(),
-                      chain: String(chain).toUpperCase(),
-                      feeWDs: isFinite(fee) ? fee : 0,
-                      depositEnable: depositEnable,
-                      withdrawEnable: canWithdraw,
-                      contractAddress: contractAddress,
-                      trading: true, // Assume trading is enabled if coin is listed
-                      // Add flag to indicate enrichment needed
-                      needsEnrichment: true
-                  });
-              });
+                    // Parse canDeposit - can be boolean or string "true"/"false"
+                    const canDeposit = (item?.canDeposit === true) ||
+                        (item?.canDeposit === 'true') ||
+                        (String(item?.canDeposit).toLowerCase() === 'true');
 
-              console.log(`[LBANK] ✅ Fetched ${arr.length} coins from assetConfigs endpoint (includes deposit & withdraw status)`);
-              return arr;
-          }
+                    // Parse withdrawal fee - can be number or string
+                    const fee = parseFloat(item?.drawFee || item?.fee || 0);
 
-          default:
-              throw new Error(`Unsupported CEX: ${cex}`);
-      }
-  }
+                    if (!coin) return; // Skip if no coin code
 
-  /** Merge centralized CEX wallet statuses into per-token dataCexs. */
-  function applyWalletStatusToTokenList(tokenListName, walletStatusMap, options) {
-      const opts = options || {};
-      const allWalletStatus = walletStatusMap || getFromLocalStorage('CEX_WALLET_STATUS', {});
-      if (Object.keys(allWalletStatus).length === 0) {
-          /* debug logs removed */
-          return;
-      }
+                    // ✅ FIXED: Now we have BOTH deposit and withdraw status from assetConfigs endpoint
+                    const depositEnable = canDeposit;
 
-      let tokens = getFromLocalStorage(tokenListName, []);
-      if (!tokens || tokens.length === 0) {
-          if (!opts.quiet) infoAdd(`ℹ️ No tokens found in '${tokenListName}' to update.`);
-          return;
-      }
+                    // ===== CONTRACT ADDRESS ENRICHMENT =====
+                    // LBank API doesn't provide contract address, so we need enrichment
+                    // This will be enriched later in snapshot-new.js from:
+                    // 1. Existing snapshot data (fallback)
+                    // 2. Token database (DATAJSON per chain)
+                    // 3. Web3 validation
+                    // For now, mark as empty and let enrichment handle it
+                    const contractAddress = ''; // Will be enriched in snapshot-new.js
 
-      const updatedTokens = tokens.map(token => {
-          const updatedDataCexs = { ...(token.dataCexs || {}) };
-          (token.selectedCexs || Object.keys(CONFIG_CEX)).forEach(cexKey => {
-              const walletForCex = allWalletStatus[cexKey.toUpperCase()];
-              if (!walletForCex) return;
+                    arr.push({
+                        cex: 'LBANK',
+                        tokenName: String(coin).toUpperCase(),
+                        chain: String(chain).toUpperCase(),
+                        feeWDs: isFinite(fee) ? fee : 0,
+                        depositEnable: depositEnable,
+                        withdrawEnable: canWithdraw,
+                        contractAddress: contractAddress,
+                        trading: true, // Assume trading is enabled if coin is listed
+                        // Add flag to indicate enrichment needed
+                        needsEnrichment: true
+                    });
+                });
 
-              const chainLabelForCEX = getChainData(token.chain)?.CEXCHAIN?.[cexKey]?.chainCEX?.toUpperCase() || '';
+                console.log(`[LBANK] ✅ Fetched ${arr.length} coins from assetConfigs endpoint (includes deposit & withdraw status)`);
+                return arr;
+            }
 
-              function resolveWalletChain(walletInfo, desired) {
-                  if (!walletInfo) return null;
-                  const want = String(desired || '').toUpperCase();
-                  // Prefer synonym-based resolution so we don't depend on config.js labels
-                  try {
-                      const chainKey = String(token.chain||'').toLowerCase();
-                      if (typeof resolveWalletChainBySynonym === 'function') {
-                          const hit = resolveWalletChainBySynonym(walletInfo, chainKey, want);
-                          if (hit) return hit;
-                      }
-                  } catch(_) {}
-                  // Fallback to exact desired label if provided
-                  if (want && walletInfo[want]) return walletInfo[want];
-                  return null;
-              }
+            default:
+                throw new Error(`Unsupported CEX: ${cex}`);
+        }
+    }
 
-              const updateForSymbol = (symbol, isTokenIn) => {
-                  if (!symbol) return;
-                  const symbolUpper = symbol.toUpperCase();
-                  const walletInfo = walletForCex[symbolUpper];
-                  const match = resolveWalletChain(walletInfo, chainLabelForCEX);
+    /** Merge centralized CEX wallet statuses into per-token dataCexs. */
+    function applyWalletStatusToTokenList(tokenListName, walletStatusMap, options) {
+        const opts = options || {};
+        const allWalletStatus = walletStatusMap || getFromLocalStorage('CEX_WALLET_STATUS', {});
+        if (Object.keys(allWalletStatus).length === 0) {
+            /* debug logs removed */
+            return;
+        }
 
-                  if (match) {
-                      updatedDataCexs[cexKey] = updatedDataCexs[cexKey] || {};
-                      const feeField = isTokenIn ? 'feeWDToken' : 'feeWDPair';
-                      const depositField = isTokenIn ? 'depositToken' : 'depositPair';
-                      const withdrawField = isTokenIn ? 'withdrawToken' : 'withdrawPair';
+        let tokens = getFromLocalStorage(tokenListName, []);
+        if (!tokens || tokens.length === 0) {
+            if (!opts.quiet) infoAdd(`ℹ️ No tokens found in '${tokenListName}' to update.`);
+            return;
+        }
 
-                      updatedDataCexs[cexKey][feeField] = String(match.feeWDs || '0');
-                      updatedDataCexs[cexKey][depositField] = !!match.depositEnable;
-                      updatedDataCexs[cexKey][withdrawField] = !!match.withdrawEnable;
-                  }
-              };
-              updateForSymbol(token.symbol_in, true);
-              updateForSymbol(token.symbol_out, false);
-          });
-          return { ...token, dataCexs: updatedDataCexs };
-      });
+        const updatedTokens = tokens.map(token => {
+            const updatedDataCexs = { ...(token.dataCexs || {}) };
+            (token.selectedCexs || Object.keys(CONFIG_CEX)).forEach(cexKey => {
+                const walletForCex = allWalletStatus[cexKey.toUpperCase()];
+                if (!walletForCex) return;
 
-      saveToLocalStorage(tokenListName, updatedTokens);
-      if (!opts.quiet) infoAdd(`💾 ${updatedTokens.length} tokens in '${tokenListName}' were updated.`);
-  }
+                const chainLabelForCEX = getChainData(token.chain)?.CEXCHAIN?.[cexKey]?.chainCEX?.toUpperCase() || '';
 
-  /** Orchestrate fetching all CEX wallet statuses and apply to tokens. */
-  async function checkAllCEXWallets() {
-      infoSet('🚀 Memulai pengecekan DATA CEX...');
+                function resolveWalletChain(walletInfo, desired) {
+                    if (!walletInfo) return null;
+                    const want = String(desired || '').toUpperCase();
+                    // Prefer synonym-based resolution so we don't depend on config.js labels
+                    try {
+                        const chainKey = String(token.chain || '').toLowerCase();
+                        if (typeof resolveWalletChainBySynonym === 'function') {
+                            const hit = resolveWalletChainBySynonym(walletInfo, chainKey, want);
+                            if (hit) return hit;
+                        }
+                    } catch (_) { }
+                    // Fallback to exact desired label if provided
+                    if (want && walletInfo[want]) return walletInfo[want];
+                    return null;
+                }
 
-      // Hanya CEX yang dicentang pada filter (tanpa fallback ke semua)
-      let selectedCexes = [];
-      try {
-          const m = (typeof getAppMode === 'function') ? getAppMode() : { type: 'multi' };
-          if (m.type === 'multi' && typeof getFilterMulti === 'function') {
-              const fm = getFilterMulti();
-              selectedCexes = (fm?.cex || []).map(x => String(x).toUpperCase());
-          } else if (m.type === 'single' && typeof getFilterChain === 'function') {
-              const fc = getFilterChain(m.chain || '');
-              selectedCexes = (fc?.cex || []).map(x => String(x).toUpperCase());
-          }
-      } catch(_) {}
-      // Filter hanya yang valid di CONFIG_CEX
-      selectedCexes = selectedCexes.filter(cx => !!CONFIG_CEX?.[cx]);
-      if (!selectedCexes.length) {
-          infoSet('⚠ Pilih minimal 1 CEX pada filter.');
-          try { UIkit.notification({ message: 'Pilih minimal 1 CEX pada filter (chip CEX).', status: 'warning' }); } catch(_) {}
-          return;
-      }
+                const updateForSymbol = (symbol, isTokenIn) => {
+                    if (!symbol) return;
+                    const symbolUpper = symbol.toUpperCase();
+                    const walletInfo = walletForCex[symbolUpper];
+                    const match = resolveWalletChain(walletInfo, chainLabelForCEX);
 
-      // Show AppOverlay progress
-      const overlayId = AppOverlay.showProgress({
-          id: 'cex-wallet-check',
-          title: 'Updating CEX Wallets',
-          message: 'Fetching wallet data from exchanges...',
-          progressMax: selectedCexes.length
-      });
+                    // 🔍 DEBUG: Log wallet resolution
+                    console.log(`[applyWallet] ${cexKey} ${symbolUpper} (isToken=${isTokenIn}):`);
+                    console.log(`[applyWallet]   chainLabel=${chainLabelForCEX}`);
+                    console.log(`[applyWallet]   walletInfo:`, walletInfo);
+                    console.log(`[applyWallet]   match:`, match);
 
-      const aggregated = [];
-      const failed = [];
+                    if (match) {
+                        updatedDataCexs[cexKey] = updatedDataCexs[cexKey] || {};
+                        const feeField = isTokenIn ? 'feeWDToken' : 'feeWDPair';
+                        const depositField = isTokenIn ? 'depositToken' : 'depositPair';
+                        const withdrawField = isTokenIn ? 'withdrawToken' : 'withdrawPair';
 
-      for (let i = 0; i < selectedCexes.length; i++) {
-          const cex = String(selectedCexes[i]);
-          try {
-              const cur = i + 1;
-              const total = selectedCexes.length;
-              infoSet(`🔄 Mengambil data wallet: ${cex} (${cur}/${total})...`);
+                        updatedDataCexs[cexKey][feeField] = String(match.feeWDs || '0');
+                        updatedDataCexs[cexKey][depositField] = !!match.depositEnable;
+                        updatedDataCexs[cexKey][withdrawField] = !!match.withdrawEnable;
 
-              // Update AppOverlay progress
-              AppOverlay.updateProgress(overlayId, cur - 1, total, `Fetching ${cex}...`);
+                        // 🔍 DEBUG: Log saved values
+                        console.log(`[applyWallet]   ✅ SAVED ${depositField}=${!!match.depositEnable}, ${withdrawField}=${!!match.withdrawEnable}`);
+                    } else {
+                        console.warn(`[applyWallet]   ❌ NO MATCH - Data tidak disimpan!`);
+                    }
+                };
+                updateForSymbol(token.symbol_in, true);
+                updateForSymbol(token.symbol_out, false);
+            });
+            return { ...token, dataCexs: updatedDataCexs };
+        });
 
-              const res = await fetchWalletStatus(cex);
-              aggregated.push(res);
-              infoAdd(`✅ ${cex} selesai.`);
-          } catch(err) {
-              console.error(`❌ ${cex} gagal:`, err);
-              failed.push({ error: true, cex, message: err.message });
-              infoAdd(`❌ ${cex} GAGAL (${err.message})`);
-          }
+        saveToLocalStorage(tokenListName, updatedTokens);
+        if (!opts.quiet) infoAdd(`💾 ${updatedTokens.length} tokens in '${tokenListName}' were updated.`);
+    }
 
-          // Update progress after completion
-          const done = i + 1;
-          const total = selectedCexes.length;
-          AppOverlay.updateProgress(overlayId, done, total, `Completed ${cex}`);
-      }
+    /** Orchestrate fetching all CEX wallet statuses and apply to tokens. */
+    async function checkAllCEXWallets() {
+        console.log('🚀 [checkAllCEXWallets] FUNCTION CALLED - Starting wallet update...');
+        infoSet('🚀 Memulai pengecekan DATA CEX...');
 
-      // Build aggregated status map from successful CEX calls
-      const walletStatusByCex = {};
-      aggregated.flat().forEach(item => {
-          if (!item) return;
-          const { cex, tokenName, chain, ...rest } = item;
-          // Guard against malformed payloads
-          if (!cex || !tokenName || !chain) {
-              /* debug logs removed */
-              return;
-          }
-          const ucCex = String(cex).toUpperCase();
-          const ucToken = String(tokenName).toUpperCase();
-          const ucChain = String(chain).toUpperCase();
+        // Hanya CEX yang dicentang pada filter (tanpa fallback ke semua)
+        let selectedCexes = [];
+        try {
+            const m = (typeof getAppMode === 'function') ? getAppMode() : { type: 'multi' };
+            if (m.type === 'multi' && typeof getFilterMulti === 'function') {
+                const fm = getFilterMulti();
+                selectedCexes = (fm?.cex || []).map(x => String(x).toUpperCase());
+            } else if (m.type === 'single' && typeof getFilterChain === 'function') {
+                const fc = getFilterChain(m.chain || '');
+                selectedCexes = (fc?.cex || []).map(x => String(x).toUpperCase());
+            }
+        } catch (_) { }
+        // Filter hanya yang valid di CONFIG_CEX
+        selectedCexes = selectedCexes.filter(cx => !!CONFIG_CEX?.[cx]);
+        if (!selectedCexes.length) {
+            infoSet('⚠ Pilih minimal 1 CEX pada filter.');
+            try { UIkit.notification({ message: 'Pilih minimal 1 CEX pada filter (chip CEX).', status: 'warning' }); } catch (_) { }
+            return;
+        }
 
-          if (!walletStatusByCex[ucCex]) walletStatusByCex[ucCex] = {};
-          if (!walletStatusByCex[ucCex][ucToken]) walletStatusByCex[ucCex][ucToken] = {};
-          walletStatusByCex[ucCex][ucToken][ucChain] = rest;
-      });
+        // Show AppOverlay progress
+        const overlayId = AppOverlay.showProgress({
+            id: 'cex-wallet-check',
+            title: 'Updating CEX Wallets',
+            message: 'Fetching wallet data from exchanges...',
+            progressMax: selectedCexes.length
+        });
 
-      // Commit results even if some CEX failed (partial success behavior)
-      try {
-          const okCount = aggregated.length;
-          const failCount = failed.length;
-          // Always persist attempt meta
-          if (typeof saveToLocalStorageAsync === 'function') {
-              await saveToLocalStorageAsync('CEX_WALLET_STATUS_META', { time: new Date().toISOString(), ok: okCount, fail: failCount });
-          } else {
-              saveToLocalStorage('CEX_WALLET_STATUS_META', { time: new Date().toISOString(), ok: okCount, fail: failCount });
-          }
-          // Persist the status map (can be empty on total failure)
-          if (typeof saveToLocalStorageAsync === 'function') {
-              await saveToLocalStorageAsync('CEX_WALLET_STATUS', walletStatusByCex);
-          } else {
-              saveToLocalStorage('CEX_WALLET_STATUS', walletStatusByCex);
-          }
-          if (okCount + failCount > 0) infoAdd(`✅ Data wallet tersimpan. OK: ${okCount}, Gagal: ${failCount}.`);
-      } catch(e) { /* debug logs removed */ }
-      // Notify failures (non-blocking) with timestamp and per‑CEX details
-      if (failed.length > 0) {
-          const now = new Date().toLocaleTimeString('id-ID', { hour12: false });
-          const linesHtml = failed.map(f => {
-              const cx = String(f.cex || '').toUpperCase();
-              const msg = (f && f.message) ? String(f.message) : '';
-              return `• ${cx}${msg ? ` — ${msg}` : ''}`;
-          }).join('<br>');
-          const linesText = failed.map(f => {
-              const cx = String(f.cex || '').toUpperCase();
-              const msg = (f && f.message) ? String(f.message) : '';
-              return `• ${cx}${msg ? ` — ${msg}` : ''}`;
-          }).join('\n');
-          try {
-              UIkit.notification({
-                  message: `⚠️ ${now} GAGAL UPDATE EXCHANGER<br>${linesHtml}`,
-                  status: 'warning', timeout: 7000
-              });
-          } catch(_) {
-              if (typeof toast !== 'undefined' && toast.warning) {
-                  toast.warning(`⚠️ ${now} GAGAL UPDATE EXCHANGER\n${linesText}`);
-              }
-          }
-      }
-      // If absolutely nothing succeeded, continue after logging so meta/save still persisted above
-      if (aggregated.length === 0) {
-          try {
-            const failedList = failed.map(f => String(f.cex||'').toUpperCase());
+        const aggregated = [];
+        const failed = [];
+
+        for (let i = 0; i < selectedCexes.length; i++) {
+            const cex = String(selectedCexes[i]);
+            try {
+                const cur = i + 1;
+                const total = selectedCexes.length;
+                infoSet(`🔄 Mengambil data wallet: ${cex} (${cur}/${total})...`);
+
+                // Update AppOverlay progress
+                AppOverlay.updateProgress(overlayId, cur - 1, total, `Fetching ${cex}...`);
+
+                const res = await fetchWalletStatus(cex);
+                aggregated.push(res);
+                infoAdd(`✅ ${cex} selesai.`);
+            } catch (err) {
+                console.error(`❌ ${cex} gagal:`, err);
+                failed.push({ error: true, cex, message: err.message });
+                infoAdd(`❌ ${cex} GAGAL (${err.message})`);
+            }
+
+            // Update progress after completion
+            const done = i + 1;
+            const total = selectedCexes.length;
+            AppOverlay.updateProgress(overlayId, done, total, `Completed ${cex}`);
+        }
+
+        // Build aggregated status map from successful CEX calls
+        const walletStatusByCex = {};
+        aggregated.flat().forEach(item => {
+            if (!item) return;
+            const { cex, tokenName, chain, ...rest } = item;
+            // Guard against malformed payloads
+            if (!cex || !tokenName || !chain) {
+                /* debug logs removed */
+                return;
+            }
+            const ucCex = String(cex).toUpperCase();
+            const ucToken = String(tokenName).toUpperCase();
+            const ucChain = String(chain).toUpperCase();
+
+            if (!walletStatusByCex[ucCex]) walletStatusByCex[ucCex] = {};
+            if (!walletStatusByCex[ucCex][ucToken]) walletStatusByCex[ucCex][ucToken] = {};
+            walletStatusByCex[ucCex][ucToken][ucChain] = rest;
+        });
+
+        // Commit results even if some CEX failed (partial success behavior)
+        try {
+            const okCount = aggregated.length;
+            const failCount = failed.length;
+            // Always persist attempt meta
+            if (typeof saveToLocalStorageAsync === 'function') {
+                await saveToLocalStorageAsync('CEX_WALLET_STATUS_META', { time: new Date().toISOString(), ok: okCount, fail: failCount });
+            } else {
+                saveToLocalStorage('CEX_WALLET_STATUS_META', { time: new Date().toISOString(), ok: okCount, fail: failCount });
+            }
+            // Persist the status map (can be empty on total failure)
+            if (typeof saveToLocalStorageAsync === 'function') {
+                await saveToLocalStorageAsync('CEX_WALLET_STATUS', walletStatusByCex);
+            } else {
+                saveToLocalStorage('CEX_WALLET_STATUS', walletStatusByCex);
+            }
+            if (okCount + failCount > 0) infoAdd(`✅ Data wallet tersimpan. OK: ${okCount}, Gagal: ${failCount}.`);
+        } catch (e) { /* debug logs removed */ }
+        // Notify failures (non-blocking) with timestamp and per‑CEX details
+        if (failed.length > 0) {
+            const now = new Date().toLocaleTimeString('id-ID', { hour12: false });
+            const linesHtml = failed.map(f => {
+                const cx = String(f.cex || '').toUpperCase();
+                const msg = (f && f.message) ? String(f.message) : '';
+                return `• ${cx}${msg ? ` — ${msg}` : ''}`;
+            }).join('<br>');
+            const linesText = failed.map(f => {
+                const cx = String(f.cex || '').toUpperCase();
+                const msg = (f && f.message) ? String(f.message) : '';
+                return `• ${cx}${msg ? ` — ${msg}` : ''}`;
+            }).join('\n');
+            try {
+                UIkit.notification({
+                    message: `⚠️ ${now} GAGAL UPDATE EXCHANGER<br>${linesHtml}`,
+                    status: 'warning', timeout: 7000
+                });
+            } catch (_) {
+                if (typeof toast !== 'undefined' && toast.warning) {
+                    toast.warning(`⚠️ ${now} GAGAL UPDATE EXCHANGER\n${linesText}`);
+                }
+            }
+        }
+        // If absolutely nothing succeeded, continue after logging so meta/save still persisted above
+        if (aggregated.length === 0) {
+            try {
+                const failedList = failed.map(f => String(f.cex || '').toUpperCase());
+                setLastAction(
+                    "UPDATE WALLET EXCHANGER",
+                    'error',
+                    { error: 'All CEX updates failed', fail: failed.length, failedCex: failedList }
+                );
+            } catch (_) { }
+            AppOverlay.hide(overlayId);
+            return;
+        }
+
+        try {
+            const activeKey = (typeof getActiveTokenKey === 'function') ? getActiveTokenKey() : 'TOKEN_MULTICHAIN';
+            const tokenStores = new Set([activeKey, 'TOKEN_MULTICHAIN']);
+            try {
+                Object.keys(CONFIG_CHAINS || {}).forEach(chainKey => {
+                    tokenStores.add(`TOKEN_${String(chainKey).toUpperCase()}`);
+                });
+            } catch (_) { }
+
+            console.log('📦 [checkAllCEXWallets] Applying wallet status to token stores:', Array.from(tokenStores));
+            tokenStores.forEach(storeKey => {
+                const quiet = storeKey !== activeKey;
+                console.log(`📝 [checkAllCEXWallets] Calling applyWalletStatusToTokenList for ${storeKey}...`);
+                applyWalletStatusToTokenList(storeKey, walletStatusByCex, { quiet });
+            });
+        } catch (_) { }
+
+        try {
+            const failedList = failed.map(f => String(f.cex || '').toUpperCase());
             setLastAction(
-              "UPDATE WALLET EXCHANGER",
-              'error',
-              { error: 'All CEX updates failed', fail: failed.length, failedCex: failedList }
+                "UPDATE WALLET EXCHANGER",
+                (failed.length > 0 ? 'warning' : 'success'),
+                { ok: aggregated.length, fail: failed.length, failedCex: failedList }
             );
-          } catch(_) {}
-          AppOverlay.hide(overlayId);
-          return;
-      }
+        } catch (_) { }
 
-      try {
-          const activeKey = (typeof getActiveTokenKey === 'function') ? getActiveTokenKey() : 'TOKEN_MULTICHAIN';
-          const tokenStores = new Set([activeKey, 'TOKEN_MULTICHAIN']);
-          try {
-              Object.keys(CONFIG_CHAINS || {}).forEach(chainKey => {
-                  tokenStores.add(`TOKEN_${String(chainKey).toUpperCase()}`);
-              });
-          } catch(_) {}
-          tokenStores.forEach(storeKey => {
-              const quiet = storeKey !== activeKey;
-              applyWalletStatusToTokenList(storeKey, walletStatusByCex, { quiet });
-          });
-      } catch(_) {}
+        try {
+            UIkit.notification({ message: '✅ BERHASIL UPDATE WALLET EXCHANGER', status: 'success' });
+        } catch (_) {
+            if (typeof toast !== 'undefined' && toast.success) {
+                toast.success('✅ SEBAGIAN BERHASIL UPDATE WALLET EXCHANGER,SILAKAN CEK STATUS DEPOSIT & WITHDRAW, EXCHANGER YANG GAGAL UPDATE');
+            }
+        }
 
-      try {
-        const failedList = failed.map(f => String(f.cex||'').toUpperCase());
-        setLastAction(
-          "UPDATE WALLET EXCHANGER",
-          (failed.length>0 ? 'warning' : 'success'),
-          { ok: aggregated.length, fail: failed.length, failedCex: failedList }
-        );
-      } catch(_) {}
+        // Hide AppOverlay
+        AppOverlay.hide(overlayId);
 
-      try {
-          UIkit.notification({ message: '✅ BERHASIL UPDATE WALLET EXCHANGER', status: 'success' });
-      } catch(_) {
-          if (typeof toast !== 'undefined' && toast.success) {
-              toast.success('✅ SEBAGIAN BERHASIL UPDATE WALLET EXCHANGER,SILAKAN CEK STATUS DEPOSIT & WITHDRAW, EXCHANGER YANG GAGAL UPDATE');
-          }
-      }
+        // Emit event untuk refresh UI (tanpa reload)
+        try {
+            if (typeof AppEvents !== 'undefined') {
+                AppEvents.emit(AppEvents.EVENTS.WALLET_UPDATE, {
+                    aggregated,
+                    failed,
+                    selectedCexes
+                });
+            }
+        } catch (_) { }
 
-      // Hide AppOverlay
-      AppOverlay.hide(overlayId);
+        // Refresh UI tanpa reload
+        try {
+            const m = (typeof getAppMode === 'function') ? getAppMode() : { type: 'multi' };
+            if (m.type === 'single') {
+                if (typeof loadAndDisplaySingleChainTokens === 'function') loadAndDisplaySingleChainTokens();
+            } else {
+                if (typeof refreshTokensTable === 'function') refreshTokensTable();
+            }
+        } catch (_) { if (typeof refreshTokensTable === 'function') refreshTokensTable(); }
 
-      // Emit event untuk refresh UI (tanpa reload)
-      try {
-          if (typeof AppEvents !== 'undefined') {
-              AppEvents.emit(AppEvents.EVENTS.WALLET_UPDATE, {
-                  aggregated,
-                  failed,
-                  selectedCexes
-              });
-          }
-      } catch(_) {}
+        // Refresh wallet exchanger UI if visible
+        try {
+            if ($('#update-wallet-section').is(':visible') && root.App?.WalletExchanger?.renderCexCards) {
+                setTimeout(() => {
+                    root.App.WalletExchanger.renderCexCards();
 
-      // Refresh UI tanpa reload
-      try {
-          const m = (typeof getAppMode === 'function') ? getAppMode() : { type: 'multi' };
-          if (m.type === 'single') {
-              if (typeof loadAndDisplaySingleChainTokens === 'function') loadAndDisplaySingleChainTokens();
-          } else {
-              if (typeof refreshTokensTable === 'function') refreshTokensTable();
-          }
-      } catch(_) { if (typeof refreshTokensTable === 'function') refreshTokensTable(); }
+                    // Show update result notification
+                    const failedList = failed.map(f => String(f.cex || '').toUpperCase());
+                    const hasSuccess = aggregated.length > 0;
+                    if (root.App?.WalletExchanger?.showUpdateResult) {
+                        root.App.WalletExchanger.showUpdateResult(hasSuccess, failedList);
+                    }
 
-      // Refresh wallet exchanger UI if visible
-      try {
-          if ($('#update-wallet-section').is(':visible') && root.App?.WalletExchanger?.renderCexCards) {
-              setTimeout(() => {
-                  root.App.WalletExchanger.renderCexCards();
+                    infoSet('✅ Tampilan diperbarui. Anda dapat melihat hasil update wallet exchanger di bawah ini.');
+                }, 300);
+            }
+        } catch (_) { }
+    }
 
-                  // Show update result notification
-                  const failedList = failed.map(f => String(f.cex||'').toUpperCase());
-                  const hasSuccess = aggregated.length > 0;
-                  if (root.App?.WalletExchanger?.showUpdateResult) {
-                      root.App.WalletExchanger.showUpdateResult(hasSuccess, failedList);
-                  }
+    /**
+     * Fetch ALL ticker prices from CEX in a single request (EFFICIENT!)
+     * Returns: { symbol: price, ... } mapping
+     *
+     * This is MUCH faster than fetching orderbook per-coin:
+     * - 1 request vs hundreds of requests
+     * - No rate limit issues
+     * - Better UX (fast loading)
+     *
+     * Supported CEX:
+     * - BYBIT: /v5/market/tickers?category=spot
+     * - GATE: /api/v4/spot/tickers
+     * - BINANCE: /api/v3/ticker/price
+     * - MEXC: /api/v3/ticker/price
+     * - KUCOIN: /api/v1/market/allTickers
+     * - BITGET: /api/v2/spot/market/tickers
+     * - INDODAX: /api/ticker_all
+     *
+     * @param {string} cex - CEX name (e.g., 'BYBIT', 'GATE', 'BINANCE')
+     * @returns {Promise<Object>} - { 'BTC': 45000.12, 'ETH': 3000.45, ... }
+     */
+    async function fetchAllCEXPrices(cex) {
+        const cexUpper = String(cex || '').toUpperCase();
+        console.log(`[fetchAllCEXPrices] Fetching ALL prices from ${cexUpper}...`);
 
-                  infoSet('✅ Tampilan diperbarui. Anda dapat melihat hasil update wallet exchanger di bawah ini.');
-              }, 300);
-          }
-      } catch(_) {}
-  }
+        // ✅ FIXED: Load timeout from user settings (not hardcoded)
+        let timeoutMs = 10000; // Default fallback
+        try {
+            const savedSettings = getFromLocalStorage('SETTING_SCANNER', {});
+            const configDefaults = (window.CONFIG_UI?.SETTINGS?.defaults) || {};
+            timeoutMs = parseInt(savedSettings.TimeoutCount || configDefaults.timeoutCount || 10000);
+        } catch (e) {
+            console.warn('[fetchAllCEXPrices] Failed to load timeout setting, using default:', e.message);
+        }
 
-  /**
-   * Fetch ALL ticker prices from CEX in a single request (EFFICIENT!)
-   * Returns: { symbol: price, ... } mapping
-   *
-   * This is MUCH faster than fetching orderbook per-coin:
-   * - 1 request vs hundreds of requests
-   * - No rate limit issues
-   * - Better UX (fast loading)
-   *
-   * Supported CEX:
-   * - BYBIT: /v5/market/tickers?category=spot
-   * - GATE: /api/v4/spot/tickers
-   * - BINANCE: /api/v3/ticker/price
-   * - MEXC: /api/v3/ticker/price
-   * - KUCOIN: /api/v1/market/allTickers
-   * - BITGET: /api/v2/spot/market/tickers
-   * - INDODAX: /api/ticker_all
-   *
-   * @param {string} cex - CEX name (e.g., 'BYBIT', 'GATE', 'BINANCE')
-   * @returns {Promise<Object>} - { 'BTC': 45000.12, 'ETH': 3000.45, ... }
-   */
-  async function fetchAllCEXPrices(cex) {
-      const cexUpper = String(cex || '').toUpperCase();
-      console.log(`[fetchAllCEXPrices] Fetching ALL prices from ${cexUpper}...`);
+        try {
+            let url, parseResponse;
 
-      // ✅ FIXED: Load timeout from user settings (not hardcoded)
-      let timeoutMs = 10000; // Default fallback
-      try {
-          const savedSettings = getFromLocalStorage('SETTING_SCANNER', {});
-          const configDefaults = (window.CONFIG_UI?.SETTINGS?.defaults) || {};
-          timeoutMs = parseInt(savedSettings.TimeoutCount || configDefaults.timeoutCount || 10000);
-      } catch (e) {
-          console.warn('[fetchAllCEXPrices] Failed to load timeout setting, using default:', e.message);
-      }
+            switch (cexUpper) {
+                case 'BYBIT':
+                    // Bybit V5 API - Get all spot tickers
+                    url = 'https://api.bybit.com/v5/market/tickers?category=spot';
+                    parseResponse = (data) => {
+                        const tickers = data?.result?.list || [];
+                        const priceMap = {};
+                        tickers.forEach(ticker => {
+                            const symbol = String(ticker.symbol || '').toUpperCase();
+                            // Only USDT pairs
+                            if (symbol.endsWith('USDT')) {
+                                const base = symbol.replace('USDT', '');
+                                const price = parseFloat(ticker.lastPrice || 0);
+                                if (price > 0) {
+                                    priceMap[base] = price;
+                                }
+                            }
+                        });
+                        return priceMap;
+                    };
+                    break;
 
-      try {
-          let url, parseResponse;
+                case 'GATE':
+                case 'GATEIO':
+                    // Gate.io V4 API - Get all spot tickers
+                    url = 'https://api.gateio.ws/api/v4/spot/tickers';
+                    parseResponse = (data) => {
+                        const tickers = Array.isArray(data) ? data : [];
+                        const priceMap = {};
+                        tickers.forEach(ticker => {
+                            const pair = String(ticker.currency_pair || '').toUpperCase();
+                            // Format: BTC_USDT
+                            if (pair.endsWith('_USDT')) {
+                                const base = pair.replace('_USDT', '');
+                                const price = parseFloat(ticker.last || 0);
+                                if (price > 0) {
+                                    priceMap[base] = price;
+                                }
+                            }
+                        });
+                        return priceMap;
+                    };
+                    break;
 
-          switch (cexUpper) {
-              case 'BYBIT':
-                  // Bybit V5 API - Get all spot tickers
-                  url = 'https://api.bybit.com/v5/market/tickers?category=spot';
-                  parseResponse = (data) => {
-                      const tickers = data?.result?.list || [];
-                      const priceMap = {};
-                      tickers.forEach(ticker => {
-                          const symbol = String(ticker.symbol || '').toUpperCase();
-                          // Only USDT pairs
-                          if (symbol.endsWith('USDT')) {
-                              const base = symbol.replace('USDT', '');
-                              const price = parseFloat(ticker.lastPrice || 0);
-                              if (price > 0) {
-                                  priceMap[base] = price;
-                              }
-                          }
-                      });
-                      return priceMap;
-                  };
-                  break;
+                case 'BINANCE':
+                    // Binance API - Get all ticker prices
+                    url = 'https://api.binance.com/api/v3/ticker/price';
+                    parseResponse = (data) => {
+                        const tickers = Array.isArray(data) ? data : [];
+                        const priceMap = {};
+                        tickers.forEach(ticker => {
+                            const symbol = String(ticker.symbol || '').toUpperCase();
+                            // Only USDT pairs
+                            if (symbol.endsWith('USDT')) {
+                                const base = symbol.replace('USDT', '');
+                                const price = parseFloat(ticker.price || 0);
+                                if (price > 0) {
+                                    priceMap[base] = price;
+                                }
+                            }
+                        });
+                        return priceMap;
+                    };
+                    break;
 
-              case 'GATE':
-              case 'GATEIO':
-                  // Gate.io V4 API - Get all spot tickers
-                  url = 'https://api.gateio.ws/api/v4/spot/tickers';
-                  parseResponse = (data) => {
-                      const tickers = Array.isArray(data) ? data : [];
-                      const priceMap = {};
-                      tickers.forEach(ticker => {
-                          const pair = String(ticker.currency_pair || '').toUpperCase();
-                          // Format: BTC_USDT
-                          if (pair.endsWith('_USDT')) {
-                              const base = pair.replace('_USDT', '');
-                              const price = parseFloat(ticker.last || 0);
-                              if (price > 0) {
-                                  priceMap[base] = price;
-                              }
-                          }
-                      });
-                      return priceMap;
-                  };
-                  break;
+                case 'MEXC':
+                    // MEXC API - Get all ticker prices (Binance-compatible)
+                    url = 'https://api.mexc.com/api/v3/ticker/price';
+                    parseResponse = (data) => {
+                        const tickers = Array.isArray(data) ? data : [];
+                        const priceMap = {};
+                        tickers.forEach(ticker => {
+                            const symbol = String(ticker.symbol || '').toUpperCase();
+                            // Only USDT pairs
+                            if (symbol.endsWith('USDT')) {
+                                const base = symbol.replace('USDT', '');
+                                const price = parseFloat(ticker.price || 0);
+                                if (price > 0) {
+                                    priceMap[base] = price;
+                                }
+                            }
+                        });
+                        return priceMap;
+                    };
+                    break;
 
-              case 'BINANCE':
-                  // Binance API - Get all ticker prices
-                  url = 'https://api.binance.com/api/v3/ticker/price';
-                  parseResponse = (data) => {
-                      const tickers = Array.isArray(data) ? data : [];
-                      const priceMap = {};
-                      tickers.forEach(ticker => {
-                          const symbol = String(ticker.symbol || '').toUpperCase();
-                          // Only USDT pairs
-                          if (symbol.endsWith('USDT')) {
-                              const base = symbol.replace('USDT', '');
-                              const price = parseFloat(ticker.price || 0);
-                              if (price > 0) {
-                                  priceMap[base] = price;
-                              }
-                          }
-                      });
-                      return priceMap;
-                  };
-                  break;
+                case 'KUCOIN':
+                    // KuCoin API - Get all tickers
+                    url = 'https://api.kucoin.com/api/v1/market/allTickers';
+                    parseResponse = (data) => {
+                        const tickers = data?.data?.ticker || [];
+                        const priceMap = {};
+                        tickers.forEach(ticker => {
+                            const symbol = String(ticker.symbol || '').toUpperCase();
+                            // Format: BTC-USDT
+                            if (symbol.endsWith('-USDT')) {
+                                const base = symbol.replace('-USDT', '');
+                                const price = parseFloat(ticker.last || 0);
+                                if (price > 0) {
+                                    priceMap[base] = price;
+                                }
+                            }
+                        });
+                        return priceMap;
+                    };
+                    break;
 
-              case 'MEXC':
-                  // MEXC API - Get all ticker prices (Binance-compatible)
-                  url = 'https://api.mexc.com/api/v3/ticker/price';
-                  parseResponse = (data) => {
-                      const tickers = Array.isArray(data) ? data : [];
-                      const priceMap = {};
-                      tickers.forEach(ticker => {
-                          const symbol = String(ticker.symbol || '').toUpperCase();
-                          // Only USDT pairs
-                          if (symbol.endsWith('USDT')) {
-                              const base = symbol.replace('USDT', '');
-                              const price = parseFloat(ticker.price || 0);
-                              if (price > 0) {
-                                  priceMap[base] = price;
-                              }
-                          }
-                      });
-                      return priceMap;
-                  };
-                  break;
+                case 'BITGET':
+                    // Bitget V2 API - Get all spot tickers
+                    url = 'https://api.bitget.com/api/v2/spot/market/tickers';
+                    parseResponse = (data) => {
+                        const tickers = data?.data || [];
+                        const priceMap = {};
+                        tickers.forEach(ticker => {
+                            const symbol = String(ticker.symbol || '').toUpperCase();
+                            // Only USDT pairs
+                            if (symbol.endsWith('USDT')) {
+                                const base = symbol.replace('USDT', '');
+                                const price = parseFloat(ticker.lastPr || 0);
+                                if (price > 0) {
+                                    priceMap[base] = price;
+                                }
+                            }
+                        });
+                        return priceMap;
+                    };
+                    break;
 
-              case 'KUCOIN':
-                  // KuCoin API - Get all tickers
-                  url = 'https://api.kucoin.com/api/v1/market/allTickers';
-                  parseResponse = (data) => {
-                      const tickers = data?.data?.ticker || [];
-                      const priceMap = {};
-                      tickers.forEach(ticker => {
-                          const symbol = String(ticker.symbol || '').toUpperCase();
-                          // Format: BTC-USDT
-                          if (symbol.endsWith('-USDT')) {
-                              const base = symbol.replace('-USDT', '');
-                              const price = parseFloat(ticker.last || 0);
-                              if (price > 0) {
-                                  priceMap[base] = price;
-                              }
-                          }
-                      });
-                      return priceMap;
-                  };
-                  break;
+                case 'INDODAX':
+                    // Indodax API - Get all tickers (IDR pairs)
+                    url = 'https://indodax.com/api/ticker_all';
+                    parseResponse = (data) => {
+                        const tickers = data?.tickers || {};
+                        const priceMap = {};
+                        Object.keys(tickers).forEach(key => {
+                            const ticker = tickers[key];
+                            const pair = String(key || '').toUpperCase();
+                            // Format: btcidr
+                            if (pair.endsWith('IDR')) {
+                                const base = pair.replace('IDR', '');
+                                const price = parseFloat(ticker?.last || 0);
+                                if (price > 0) {
+                                    // Convert IDR to USD (approximate: 1 USD = 15000 IDR)
+                                    priceMap[base] = price / 15000;
+                                }
+                            }
+                        });
+                        return priceMap;
+                    };
+                    break;
 
-              case 'BITGET':
-                  // Bitget V2 API - Get all spot tickers
-                  url = 'https://api.bitget.com/api/v2/spot/market/tickers';
-                  parseResponse = (data) => {
-                      const tickers = data?.data || [];
-                      const priceMap = {};
-                      tickers.forEach(ticker => {
-                          const symbol = String(ticker.symbol || '').toUpperCase();
-                          // Only USDT pairs
-                          if (symbol.endsWith('USDT')) {
-                              const base = symbol.replace('USDT', '');
-                              const price = parseFloat(ticker.lastPr || 0);
-                              if (price > 0) {
-                                  priceMap[base] = price;
-                              }
-                          }
-                      });
-                      return priceMap;
-                  };
-                  break;
+                case 'LBANK':
+                    // LBank API - Get all tickers
+                    url = 'https://api.lbkex.com/v2/ticker/24hr.do';
+                    parseResponse = (data) => {
+                        const tickers = data?.data || [];
+                        const priceMap = {};
+                        tickers.forEach(ticker => {
+                            const symbol = String(ticker.symbol || '').toUpperCase();
+                            // Format: btc_usdt
+                            if (symbol.endsWith('_USDT')) {
+                                const base = symbol.replace('_USDT', '');
+                                const price = parseFloat(ticker.ticker?.latest || 0);
+                                if (price > 0) {
+                                    priceMap[base] = price;
+                                }
+                            }
+                        });
+                        return priceMap;
+                    };
+                    break;
 
-              case 'INDODAX':
-                  // Indodax API - Get all tickers (IDR pairs)
-                  url = 'https://indodax.com/api/ticker_all';
-                  parseResponse = (data) => {
-                      const tickers = data?.tickers || {};
-                      const priceMap = {};
-                      Object.keys(tickers).forEach(key => {
-                          const ticker = tickers[key];
-                          const pair = String(key || '').toUpperCase();
-                          // Format: btcidr
-                          if (pair.endsWith('IDR')) {
-                              const base = pair.replace('IDR', '');
-                              const price = parseFloat(ticker?.last || 0);
-                              if (price > 0) {
-                                  // Convert IDR to USD (approximate: 1 USD = 15000 IDR)
-                                  priceMap[base] = price / 15000;
-                              }
-                          }
-                      });
-                      return priceMap;
-                  };
-                  break;
+                default:
+                    throw new Error(`CEX ${cexUpper} not supported for bulk price fetch`);
+            }
 
-              case 'LBANK':
-                  // LBank API - Get all tickers
-                  url = 'https://api.lbkex.com/v2/ticker/24hr.do';
-                  parseResponse = (data) => {
-                      const tickers = data?.data || [];
-                      const priceMap = {};
-                      tickers.forEach(ticker => {
-                          const symbol = String(ticker.symbol || '').toUpperCase();
-                          // Format: btc_usdt
-                          if (symbol.endsWith('_USDT')) {
-                              const base = symbol.replace('_USDT', '');
-                              const price = parseFloat(ticker.ticker?.latest || 0);
-                              if (price > 0) {
-                                  priceMap[base] = price;
-                              }
-                          }
-                      });
-                      return priceMap;
-                  };
-                  break;
+            // Fetch data with jQuery Ajax (✅ using user timeout setting)
+            const data = await $.ajax({ url, method: 'GET', timeout: timeoutMs });
 
-              default:
-                  throw new Error(`CEX ${cexUpper} not supported for bulk price fetch`);
-          }
+            // Parse response
+            const priceMap = parseResponse(data);
+            const count = Object.keys(priceMap).length;
 
-          // Fetch data with jQuery Ajax (✅ using user timeout setting)
-          const data = await $.ajax({ url, method: 'GET', timeout: timeoutMs });
+            console.log(`[fetchAllCEXPrices] ✅ ${cexUpper}: Fetched ${count} prices`);
 
-          // Parse response
-          const priceMap = parseResponse(data);
-          const count = Object.keys(priceMap).length;
+            return priceMap;
 
-          console.log(`[fetchAllCEXPrices] ✅ ${cexUpper}: Fetched ${count} prices`);
+        } catch (error) {
+            console.error(`[fetchAllCEXPrices] ❌ ${cexUpper} failed:`, error.message || error);
+            throw error;
+        }
+    }
 
-          return priceMap;
-
-      } catch (error) {
-          console.error(`[fetchAllCEXPrices] ❌ ${cexUpper} failed:`, error.message || error);
-          throw error;
-      }
-  }
-
-  // Register to App namespace
-  if (typeof App.register === 'function') {
-    App.register('Services', { CEX: {
-      processOrderBook,
-      processIndodaxOrderBook,
-      exchangeConfig,
-      getPriceCEX,
-      fetchWalletStatus,
-      applyWalletStatusToTokenList,
-      checkAllCEXWallets,
-      fetchAllCEXPrices
-    }});
-  }
+    // Register to App namespace
+    if (typeof App.register === 'function') {
+        App.register('Services', {
+            CEX: {
+                processOrderBook,
+                processIndodaxOrderBook,
+                exchangeConfig,
+                getPriceCEX,
+                fetchWalletStatus,
+                applyWalletStatusToTokenList,
+                checkAllCEXWallets,
+                fetchAllCEXPrices
+            }
+        });
+    }
 })(typeof window !== 'undefined' ? window : this);

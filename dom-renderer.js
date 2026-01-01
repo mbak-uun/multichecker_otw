@@ -1253,10 +1253,16 @@ function DisplayPNL(data) {
 
       // Multi-DEX: highlight per sub-kolom, BUKAN seluruh cell
       // Cell hanya diberi border jika ada sinyal, tapi background tetap putih/default
-      // FIX: Gunakan logika filter PNL yang sama seperti single-DEX
+      // ✅ FIXED: Pisahkan kondisi "tampil sinyal" vs "highlight"
       const filterPNLValue = (typeof getPNLFilter === 'function') ? n(getPNLFilter())
         : (typeof SavedSettingData !== 'undefined' ? n(SavedSettingData?.filterPNL) : 0);
+
+      // Sinyal hanya tampil jika PNL > 0 (profit positif setelah fee)
+      const hasSignal = bestPnl > 0;
+
+      // Highlight hanya jika PNL positif dan di atas threshold
       const shouldHighlight = bestPnl > 0 && (filterPNLValue === 0 || bestPnl > filterPNLValue);
+
       if (shouldHighlight) {
         // Hanya border, tanpa background (background sudah di sub-kolom)
         el.style.cssText = 'text-align:center;vertical-align:middle;border:2px solid #28a745!important;';
@@ -1266,8 +1272,8 @@ function DisplayPNL(data) {
         el.classList.remove('dex-cell-highlight');
       }
 
-      // *** SIGNAL untuk DZAP/LIFI - kirim sinyal jika profitable ***
-      if (shouldHighlight && typeof InfoSinyal === 'function') {
+      // *** SIGNAL untuk DZAP/LIFI - kirim sinyal jika ada PNL ***
+      if (hasSignal && typeof InfoSinyal === 'function') {
         // Hitung total fee untuk best provider
         const bestSubRes = subResults[0]; // Provider terbaik (sudah di-sort)
         const bestFeeSwap = n(bestSubRes?.FeeSwap || bestSubRes?.fee || 0);
@@ -1304,10 +1310,15 @@ function DisplayPNL(data) {
           idPrefix,                 // ID prefix
           baseId                    // Base ID
         );
-      } else if (!shouldHighlight) {
-        // 🔍 DEBUG: Log why multi-DEX signal was filtered out
-        console.log(`⚠️ [Multi-DEX] Signal FILTERED OUT for ${Name_in}->${Name_out} on ${dextype}:`, {
-          bestPnl: bestPnl.toFixed(2), filterPNLValue, shouldHighlight
+      } else if (!hasSignal) {
+        // 🔍 DEBUG: Log when no signal (PNL ≤ 0 - loss atau break-even)
+        console.log(`⚠️ [Multi-DEX] No signal (PNL ≤ 0) for ${Name_in}->${Name_out} on ${dextype}:`, {
+          bestPnl: bestPnl.toFixed(2)
+        });
+      } else if (hasSignal && !shouldHighlight) {
+        // ℹ️ DEBUG: Signal shown but not highlighted (PNL positif tapi < filter)
+        console.log(`ℹ️ [Multi-DEX] Signal shown WITHOUT highlight for ${Name_in}->${Name_out} on ${dextype}:`, {
+          bestPnl: bestPnl.toFixed(2), filterPNLValue, reason: 'PNL positive but below filter'
         });
       }
 
@@ -1346,7 +1357,11 @@ function DisplayPNL(data) {
     (typeof getPNLFilter === 'function') ? n(getPNLFilter())
       : (typeof SavedSettingData !== 'undefined' ? n(SavedSettingData?.filterPNL) : 0);
 
-  // FIX: Sinyal hanya muncul jika PNL positif dan memenuhi threshold filter
+  // ✅ FIXED: Pisahkan kondisi "tampil sinyal" vs "highlight"
+  // Sinyal hanya tampil jika PNL > 0 (profit positif setelah fee)
+  const hasSignal = pnl > 0;
+
+  // Highlight hanya jika PNL positif dan di atas threshold
   const passPNL = pnl > 0 && (filterPNLValue === 0 || pnl > filterPNLValue);
 
   const checkVol = (typeof $ === 'function') ? $('#checkVOL').is(':checked') : false;
@@ -1547,7 +1562,9 @@ function DisplayPNL(data) {
   const netClass = (pnl >= 0) ? 'uk-text-success' : 'uk-text-danger';
   const bracket = `[${bruto.toFixed(2)} ~ ${feeAll.toFixed(2)}]`;
 
-  const shouldHighlight = isHighlight || (pnl > feeAll);
+  // ✅ FIXED: shouldHighlight = isHighlight (sudah include PNL filter & volume check)
+  // JANGAN gunakan (pnl > feeAll) karena pnl sudah NETTO setelah fee!
+  const shouldHighlight = isHighlight;
   const chainColorHexHL = getChainColorHexByName(nameChain);
   const modeNowHL = (typeof getAppMode === 'function') ? getAppMode() : { type: 'multi' };
   const isMultiModeHL = String(modeNowHL.type).toLowerCase() !== 'single';
@@ -1574,14 +1591,25 @@ function DisplayPNL(data) {
 
   const resultHtml = [lineBuy, lineSell, feeBlock1, '', feeBlock2, lineBrut, linePNL].filter(Boolean).join(' ');
 
-  // Panel sinyal / Telegram (opsional) — kondisi selaras dengan highlight/filter // REFACTORED
+  // ✅ FIXED: Sinyal hanya dikirim jika PNL > 0, highlight sesuai filter
+  // passSignal: untuk highlight (PNL > filter dan volume OK jika dicentang)
   const passSignal = (!checkVol && passPNL) || (checkVol && passPNL && volOK);
-  if (passSignal && typeof InfoSinyal === 'function') {
+
+  // Kirim sinyal hanya jika PNL > 0 (profit positif)
+  if (hasSignal && typeof InfoSinyal === 'function') {
     InfoSinyal(lower(dextype), NameX, pnl, feeAll, upper(cex), Name_in, Name_out, profitLossPercent, Modal, nameChain, codeChain, trx, idPrefix, baseId);
-  } else if (!passSignal) {
-    // 🔍 DEBUG: Log why signal was filtered out
-    console.log(`⚠️ [DisplayPNL] Signal FILTERED OUT for ${upper(Name_in)}->${upper(Name_out)} on ${upper(dextype)}:`, {
-      passPNL, checkVol, volOK, pnl: pnl.toFixed(2), filterPNLValue, vol: n(vol), Modal: n(Modal)
+  } else if (!hasSignal) {
+    // 🔍 DEBUG: No signal (PNL ≤ 0 - loss atau break-even)
+    console.log(`⚠️ [DisplayPNL] No signal (PNL ≤ 0) for ${upper(Name_in)}->${upper(Name_out)} on ${upper(dextype)}:`, {
+      pnl: pnl.toFixed(2)
+    });
+  }
+
+  // ℹ️ DEBUG: Log highlight status
+  if (hasSignal && !passSignal) {
+    console.log(`ℹ️ [DisplayPNL] Signal shown WITHOUT highlight for ${upper(Name_in)}->${upper(Name_out)} on ${upper(dextype)}:`, {
+      pnl: pnl.toFixed(2), filterPNLValue, checkVol, volOK, vol: n(vol), Modal: n(Modal),
+      reason: !passPNL ? 'PNL below filter' : 'Volume check failed'
     });
   }
 

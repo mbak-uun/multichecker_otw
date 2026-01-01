@@ -1687,15 +1687,21 @@ body.dark-mode .db-table-title .uk-badge {
     color: white !important;
 }
 
-/* FlyTrade badge color */
-.bg-fly {
-    background-color: #00d4aa !important;
-    color: #1a1a1a !important;
-}
-
 /* LBank CEX badge color */
 .bg-lbank {
     background-color: #3461ff !important;
+    color: white !important;
+}
+
+/* Sushi badge color */
+.bg-sushi {
+    background-color: #fa52a0 !important;
+    color: white !important;
+}
+
+/* Velora badge color */
+.bg-velora {
+    background-color: #1c64f2 !important;
     color: white !important;
 }
 
