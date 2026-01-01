@@ -1501,9 +1501,13 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
 
                     // CEX→DEX (TokentoPair): User beli TOKEN di CEX → WD TOKEN → Swap di DEX → DP PAIR ke CEX
                     // Required: WD TOKEN dan DP PAIR harus ON
-                    // ✅ FIX: Read from token root level (like backup version)
+                    // ✅ FIX: Prioritize CEX-specific status from dataCexs
+                    const cexDataForSkip = (token.dataCexs && token.cex) ? token.dataCexs[String(token.cex).toUpperCase()] : null;
+                    const withdrawToken = (cexDataForSkip && cexDataForSkip.withdrawToken !== undefined) ? cexDataForSkip.withdrawToken : token.withdrawToken;
+                    const depositPair = (cexDataForSkip && cexDataForSkip.depositPair !== undefined) ? cexDataForSkip.depositPair : token.depositPair;
+
                     const shouldSkipTokenToPair = !cexResult.ok ||
-                        (isWalletCEXChecked && (token.withdrawToken !== true || token.depositPair !== true));
+                        (isWalletCEXChecked && (withdrawToken !== true || depositPair !== true));
                     if (!shouldSkipTokenToPair) {
                         callDex('TokentoPair');
                     } else {
@@ -1523,8 +1527,8 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                             if (cexResult.ok) {
                                 // CEX→DEX butuh: WD TOKEN dan DP PAIR
                                 const missing = [];
-                                if (token.withdrawToken !== true) missing.push(`WD ${sym1}`);
-                                if (token.depositPair !== true) missing.push(`DP ${sym2}`);
+                                if (withdrawToken !== true) missing.push(`WD ${sym1}`);
+                                if (depositPair !== true) missing.push(`DP ${sym2}`);
 
                                 if (missing.length === 2) {
                                     skipReason = `${missing.join(' & ')} OFF - Complete cycle tidak viable`;
@@ -1541,9 +1545,12 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
 
                     // DEX→CEX (PairtoToken): User WD PAIR dari CEX → Swap di DEX → DP TOKEN hasil swap ke CEX
                     // Required: WD PAIR dan DP TOKEN harus ON
-                    // ✅ FIX: Read from token root level (like backup version)
+                    // ✅ FIX: Prioritize CEX-specific status from dataCexs
+                    const withdrawPair = (cexDataForSkip && cexDataForSkip.withdrawPair !== undefined) ? cexDataForSkip.withdrawPair : token.withdrawPair;
+                    const depositToken = (cexDataForSkip && cexDataForSkip.depositToken !== undefined) ? cexDataForSkip.depositToken : token.depositToken;
+
                     const shouldSkipPairToToken = !cexResult.ok ||
-                        (isWalletCEXChecked && (token.withdrawPair !== true || token.depositToken !== true));
+                        (isWalletCEXChecked && (withdrawPair !== true || depositToken !== true));
                     if (!shouldSkipPairToToken) {
                         callDex('PairtoToken');
                     } else {
@@ -1565,8 +1572,8 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                             if (cexResult.ok) {
                                 // DEX→CEX butuh: WD PAIR dan DP TOKEN
                                 const missing = [];
-                                if (token.withdrawPair !== true) missing.push(`WD ${sym1Out}`);
-                                if (token.depositToken !== true) missing.push(`DP ${sym2In}`);
+                                if (withdrawPair !== true) missing.push(`WD ${sym1Out}`);
+                                if (depositToken !== true) missing.push(`DP ${sym2In}`);
 
                                 if (missing.length === 2) {
                                     skipReason = `${missing.join(' & ')} OFF - Complete cycle tidak viable`;

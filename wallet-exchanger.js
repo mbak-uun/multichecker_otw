@@ -269,40 +269,63 @@
                     }
 
                     const coin = merged[idx];
-                    // ✅ FIX: Save to ROOT LEVEL like backup version (not nested)
-                    // const target = ensureCexEntry(coin, cexUpper); // OLD nested approach
+                    // ✅ FIX: Save to BOTH nested dataCexs (per-CEX UI) and ROOT LEVEL (backward compatibility)
+                    const target = ensureCexEntry(coin, cexUpper);
 
                     if (role === 'token') {
                         const depositToken = normalizeFlag(entry.depositEnable);
-                        if (depositToken !== undefined) coin.depositToken = depositToken;
+                        if (depositToken !== undefined) {
+                            coin.depositToken = depositToken; // Root level
+                            target.depositToken = depositToken; // Nested level
+                        }
 
                         const withdrawToken = normalizeFlag(entry.withdrawEnable);
-                        if (withdrawToken !== undefined) coin.withdrawToken = withdrawToken;
+                        if (withdrawToken !== undefined) {
+                            coin.withdrawToken = withdrawToken; // Root level
+                            target.withdrawToken = withdrawToken; // Nested level
+                        }
 
                         const feeToken = normalizeFee(entry.feeWDs);
-                        if (feeToken !== undefined) coin.feeWDToken = feeToken;
+                        if (feeToken !== undefined) {
+                            coin.feeWDToken = feeToken; // Root level
+                            target.feeWDToken = feeToken; // Nested level
+                        }
 
                         if (entry.tradingActive !== undefined) {
-                            coin.tradingActive = entry.tradingActive !== false;
+                            const active = entry.tradingActive !== false;
+                            coin.tradingActive = active;
+                            target.tradingActive = active;
                         }
 
                         if (entry.contractAddress && entry.contractAddress !== '-') {
                             coin.sc_in = entry.contractAddress;
+                            target.sc_in = entry.contractAddress;
                         }
 
                         if (entry.decimals !== undefined && entry.decimals !== '-' && entry.decimals !== null) {
                             coin.des_in = entry.decimals;
                             coin.decimals = entry.decimals;
+                            target.des_in = entry.decimals;
+                            target.decimals = entry.decimals;
                         }
                     } else if (role === 'pair') {
                         const depositPair = normalizeFlag(entry.depositEnable);
-                        if (depositPair !== undefined) coin.depositPair = depositPair;
+                        if (depositPair !== undefined) {
+                            coin.depositPair = depositPair;
+                            target.depositPair = depositPair;
+                        }
 
                         const withdrawPair = normalizeFlag(entry.withdrawEnable);
-                        if (withdrawPair !== undefined) coin.withdrawPair = withdrawPair;
+                        if (withdrawPair !== undefined) {
+                            coin.withdrawPair = withdrawPair;
+                            target.withdrawPair = withdrawPair;
+                        }
 
                         const feePair = normalizeFee(entry.feeWDs);
-                        if (feePair !== undefined) coin.feeWDPair = feePair;
+                        if (feePair !== undefined) {
+                            coin.feeWDPair = feePair;
+                            target.feeWDPair = feePair;
+                        }
                     }
                 });
             });

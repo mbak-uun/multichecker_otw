@@ -586,10 +586,11 @@ function renderTokenManagementList() {
 
   }
 
-  // Use searchInput from filter card for filtering (no need for separate mgrSearchInput)
-  const currentQ = ($('#searchInput').length ? ($('#searchInput').val() || '') : '');
+  // Use dedicated search input for management table
+  const currentQ = ($('#mgrSearchInput').length ? ($('#mgrSearchInput').val() || '') : '');
   const controls = (() => {
     const base = [
+      `<input type="text" id="mgrSearchInput" class="uk-input uk-form-small" placeholder="🔍 Cari koin..." value="${currentQ}" style="width:180px; padding:4px 8px; font-size:12px; margin-right:8px;">`,
       `<button id=\"btnNewToken\" class=\"uk-button uk-button-default uk-button-small\" title=\"Tambah Data Koin\"><span uk-icon=\"plus-circle\"></span> ADD COIN</button>`,
       `<button id=\"btnToggleMgrFilter\" class=\"uk-button uk-button-small uk-button-primary\" title=\"Toggle Filter Setting\"><span uk-icon=\"settings\"></span> FILTER</button>`,
       `<button id=\"btnExportTokens\" data-feature=\"export\" class=\"uk-button uk-button-small uk-button-secondary\" title=\"Export CSV\"><span uk-icon=\"download\"></span> Export</button>`,
@@ -601,7 +602,7 @@ function renderTokenManagementList() {
     // Add SYNC button only for single chain mode
     // Note: BULK MODAL button moved to header toolbar (BulkModalScanner icon)
     if (m.type === 'single') {
-      base.splice(2, 0, `<button id=\"sync-tokens-btn\" class=\"uk-button uk-button-small uk-button-primary\" title=\"Sinkronisasi Data Koin\"><span uk-icon=\"database\"></span> SYNC</button>`);
+      base.splice(3, 0, `<button id=\"sync-tokens-btn\" class=\"uk-button uk-button-small uk-button-primary\" title=\"Sinkronisasi Data Koin\"><span uk-icon=\"database\"></span> SYNC</button>`);
     }
     return base.join('\n');
   })();

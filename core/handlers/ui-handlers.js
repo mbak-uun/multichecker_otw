@@ -101,6 +101,20 @@
     });
 
     /**
+     * Management search input handler
+     * Filters token management table in real-time
+     */
+    $(document).on('input', '#mgrSearchInput', function() {
+        // Debounce search for better performance
+        clearTimeout(window.mgrSearchDebounce);
+        window.mgrSearchDebounce = setTimeout(() => {
+            if (typeof renderTokenManagementList === 'function') {
+                renderTokenManagementList();
+            }
+        }, 300);
+    });
+
+    /**
      * Backup modal button handler
      */
     $(document).on('click', '#openBackupModal', function(e){

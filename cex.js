@@ -260,10 +260,6 @@
 
                 if (isNaN(feeWDToken) || feeWDToken < 0) return reject(`FeeWD untuk ${NameToken} di ${cex} tidak valid.`);
                 if (isNaN(feeWDPair) || feeWDPair < 0) return reject(`FeeWD untuk ${NamePair} di ${cex} tidak valid.`);
-                // 🔍 DEBUG: Check coins.dataCexs structure
-                console.log(`[getPriceCEX] CEX=${cex}, Token=${NameToken}, Pair=${NamePair}`);
-                console.log(`[getPriceCEX] coins.dataCexs:`, coins.dataCexs);
-                console.log(`[getPriceCEX] coins.dataCexs[${cex}]:`, coins.dataCexs?.[cex]);
 
                 // ✅ FIX: Extract WD/DP status from coins.dataCexs for WALLET CEX skip logic
                 const cexData = coins.dataCexs?.[cex] || {};
@@ -271,8 +267,6 @@
                 const depositToken = cexData.depositToken !== undefined ? cexData.depositToken : false;
                 const withdrawPair = cexData.withdrawPair !== undefined ? cexData.withdrawPair : false;
                 const depositPair = cexData.depositPair !== undefined ? cexData.depositPair : false;
-                // 🔍 DEBUG: Log extracted WD/DP values
-                console.log(`[getPriceCEX] Extracted WD/DP:`, { withdrawToken, depositToken, withdrawPair, depositPair });
 
                 const finalResult = {
                     token: NameToken.toUpperCase(),
@@ -586,10 +580,16 @@
 
     /** Merge centralized CEX wallet statuses into per-token dataCexs. */
     function applyWalletStatusToTokenList(tokenListName, walletStatusMap, options) {
+        console.log('🔧 [applyWalletStatusToTokenList] FUNCTION CALLED for:', tokenListName);
+
         const opts = options || {};
         const allWalletStatus = walletStatusMap || getFromLocalStorage('CEX_WALLET_STATUS', {});
+
+        console.log('🔧 [applyWalletStatusToTokenList] CEX count:', Object.keys(allWalletStatus).length);
+        console.log('🔧 [applyWalletStatusToTokenList] Sample CEX data:', Object.keys(allWalletStatus)[0], allWalletStatus[Object.keys(allWalletStatus)[0]]);
+
         if (Object.keys(allWalletStatus).length === 0) {
-            /* debug logs removed */
+            console.error('❌ [applyWalletStatusToTokenList] CEX_WALLET_STATUS is EMPTY!');
             return;
         }
 
@@ -627,12 +627,52 @@
                     if (!symbol) return;
                     const symbolUpper = symbol.toUpperCase();
                     const walletInfo = walletForCex[symbolUpper];
-                    const match = resolveWalletChain(walletInfo, chainLabelForCEX);
+
+                    if (!walletInfo) {
+                        console.warn(`[applyWallet] ${cexKey} ${symbolUpper}: walletInfo tidak ada (token tidak listing di CEX ini)`);
+                        return;
+                    }
+
+                    let match = resolveWalletChain(walletInfo, chainLabelForCEX);
 
                     // 🔍 DEBUG: Log wallet resolution
-                    console.log(`[applyWallet] Symbol=${symbolUpper}, isToken=${isTokenIn}, chainLabel=${chainLabelForCEX}`);
-                    console.log(`[applyWallet] walletInfo:`, walletInfo);
-                    console.log(`[applyWallet] match:`, match);
+                    console.log(`[applyWallet] ${cexKey} ${symbolUpper} (isToken=${isTokenIn}):`);
+                    console.log(`[applyWallet]   chainLabel=${chainLabelForCEX}`);
+                    console.log(`[applyWallet]   walletInfo keys:`, Object.keys(walletInfo));
+                    console.log(`[applyWallet]   match:`, match);
+
+                    // FIX: Jika tidak match dengan chainLabel, coba ambil chain manapun yang ada
+                    if (!match) {
+                        const availableChains = Object.keys(walletInfo);
+                        if (availableChains.length > 0) {
+                            // Coba cari chain yang match dengan token.chain
+                            const tokenChain = String(token.chain || '').toUpperCase();
+                            const chainVariations = [
+                                tokenChain,
+                                tokenChain.replace('ETHEREUM', 'ETH'),
+                                tokenChain.replace('ETH', 'ETHEREUM'),
+                                tokenChain.replace('POLYGON', 'MATIC'),
+                                tokenChain.replace('MATIC', 'POLYGON'),
+                                tokenChain.replace('ARBITRUM', 'ARB'),
+                                tokenChain.replace('ARB', 'ARBITRUM'),
+                                chainLabelForCEX
+                            ];
+
+                            for (const variation of chainVariations) {
+                                if (walletInfo[variation]) {
+                                    match = walletInfo[variation];
+                                    console.log(`[applyWallet]   ✅ FALLBACK MATCH dengan "${variation}"`);
+                                    break;
+                                }
+                            }
+
+                            // Jika masih tidak ada, gunakan chain pertama yang ada
+                            if (!match && availableChains.length > 0) {
+                                match = walletInfo[availableChains[0]];
+                                console.warn(`[applyWallet]   ⚠️ USING FIRST AVAILABLE CHAIN: ${availableChains[0]}`);
+                            }
+                        }
+                    }
 
                     if (match) {
                         updatedDataCexs[cexKey] = updatedDataCexs[cexKey] || {};
@@ -645,9 +685,9 @@
                         updatedDataCexs[cexKey][withdrawField] = !!match.withdrawEnable;
 
                         // 🔍 DEBUG: Log saved values
-                        console.log(`[applyWallet] ✅ Saved ${depositField}=${!!match.depositEnable}, ${withdrawField}=${!!match.withdrawEnable}`);
+                        console.log(`[applyWallet]   ✅ SAVED ${depositField}=${!!match.depositEnable}, ${withdrawField}=${!!match.withdrawEnable}, feeWD=${match.feeWDs}`);
                     } else {
-                        console.warn(`[applyWallet] ❌ NO MATCH for ${symbolUpper} on chain ${chainLabelForCEX}`);
+                        console.error(`[applyWallet]   ❌ NO MATCH SETELAH SEMUA FALLBACK - Data tidak disimpan!`);
                     }
                 };
                 updateForSymbol(token.symbol_in, true);
@@ -657,11 +697,34 @@
         });
 
         saveToLocalStorage(tokenListName, updatedTokens);
+
+        // 🔍 DEBUG: Log sample saved data
+        if (updatedTokens.length > 0) {
+            const sample = updatedTokens[0];
+            console.log(`💾 [applyWallet] Sample saved token:`, sample.symbol_in, '⇄', sample.symbol_out);
+            console.log(`💾 [applyWallet] Sample dataCexs:`, sample.dataCexs);
+
+            // Count tokens with valid data
+            let validCount = 0;
+            let invalidCount = 0;
+            updatedTokens.forEach(t => {
+                const hasCexData = t.dataCexs && Object.keys(t.dataCexs).length > 0;
+                if (hasCexData) validCount++;
+                else invalidCount++;
+            });
+            console.log(`💾 [applyWallet] Tokens with CEX data: ${validCount}, without: ${invalidCount}`);
+        }
+
         if (!opts.quiet) infoAdd(`💾 ${updatedTokens.length} tokens in '${tokenListName}' were updated.`);
     }
 
     /** Orchestrate fetching all CEX wallet statuses and apply to tokens. */
     async function checkAllCEXWallets() {
+        console.log('');
+        console.log('='.repeat(80));
+        console.log('🚀 [checkAllCEXWallets] FUNCTION CALLED - Starting wallet update...');
+        console.log('='.repeat(80));
+        console.log('');
         infoSet('🚀 Memulai pengecekan DATA CEX...');
 
         // Hanya CEX yang dicentang pada filter (tanpa fallback ke semua)
@@ -722,6 +785,7 @@
 
         // Build aggregated status map from successful CEX calls
         const walletStatusByCex = {};
+        let itemCount = 0;
         aggregated.flat().forEach(item => {
             if (!item) return;
             const { cex, tokenName, chain, ...rest } = item;
@@ -737,7 +801,25 @@
             if (!walletStatusByCex[ucCex]) walletStatusByCex[ucCex] = {};
             if (!walletStatusByCex[ucCex][ucToken]) walletStatusByCex[ucCex][ucToken] = {};
             walletStatusByCex[ucCex][ucToken][ucChain] = rest;
+            itemCount++;
         });
+
+        console.log(`📊 [checkAllCEXWallets] Build wallet status map: ${itemCount} items dari ${aggregated.flat().length} total`);
+        console.log(`📊 [checkAllCEXWallets] CEX count: ${Object.keys(walletStatusByCex).length}`);
+        if (Object.keys(walletStatusByCex).length > 0) {
+            const firstCex = Object.keys(walletStatusByCex)[0];
+            const tokenCount = Object.keys(walletStatusByCex[firstCex] || {}).length;
+            console.log(`📊 [checkAllCEXWallets] Sample ${firstCex}: ${tokenCount} tokens`);
+            if (tokenCount > 0) {
+                const firstToken = Object.keys(walletStatusByCex[firstCex])[0];
+                const chains = Object.keys(walletStatusByCex[firstCex][firstToken] || {});
+                console.log(`📊 [checkAllCEXWallets]   Sample token ${firstToken}: chains = [${chains.join(', ')}]`);
+                if (chains.length > 0) {
+                    const sampleData = walletStatusByCex[firstCex][firstToken][chains[0]];
+                    console.log(`📊 [checkAllCEXWallets]   Sample data:`, sampleData);
+                }
+            }
+        }
 
         // Commit results even if some CEX failed (partial success behavior)
         try {
@@ -755,6 +837,14 @@
             } else {
                 saveToLocalStorage('CEX_WALLET_STATUS', walletStatusByCex);
             }
+
+            console.log('💾 [checkAllCEXWallets] Data saved to CEX_WALLET_STATUS');
+            console.log('💾 [checkAllCEXWallets] Structure:', {
+                cexCount: Object.keys(walletStatusByCex).length,
+                totalItems: itemCount,
+                sample: Object.keys(walletStatusByCex)[0]
+            });
+
             if (okCount + failCount > 0) infoAdd(`✅ Data wallet tersimpan. OK: ${okCount}, Gagal: ${failCount}.`);
         } catch (e) { /* debug logs removed */ }
         // Notify failures (non-blocking) with timestamp and per‑CEX details
@@ -802,12 +892,25 @@
                 Object.keys(CONFIG_CHAINS || {}).forEach(chainKey => {
                     tokenStores.add(`TOKEN_${String(chainKey).toUpperCase()}`);
                 });
-            } catch (_) { }
+            } catch (err) {
+                console.error('❌ [checkAllCEXWallets] Error building tokenStores:', err);
+            }
+
+            console.log('📦 [checkAllCEXWallets] Applying wallet status to token stores:', Array.from(tokenStores));
+            console.log('📦 [checkAllCEXWallets] walletStatusByCex keys:', Object.keys(walletStatusByCex));
+
             tokenStores.forEach(storeKey => {
                 const quiet = storeKey !== activeKey;
-                applyWalletStatusToTokenList(storeKey, walletStatusByCex, { quiet });
+                console.log(`📝 [checkAllCEXWallets] Calling applyWalletStatusToTokenList for ${storeKey}...`);
+                try {
+                    applyWalletStatusToTokenList(storeKey, walletStatusByCex, { quiet });
+                } catch (err) {
+                    console.error(`❌ [checkAllCEXWallets] Error applying wallet status to ${storeKey}:`, err);
+                }
             });
-        } catch (_) { }
+        } catch (err) {
+            console.error('❌ [checkAllCEXWallets] CRITICAL ERROR in apply wallet section:', err);
+        }
 
         try {
             const failedList = failed.map(f => String(f.cex || '').toUpperCase());

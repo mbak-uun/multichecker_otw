@@ -2,7 +2,7 @@
 const CONFIG_APP = {
     APP: {
         NAME: "MULTICHECKER-DEV",
-        VERSION: "2026.01",
+        VERSION: "26.01",
         SCAN_LIMIT: false,
         AUTORUN: true,
         AUTO_VOLUME: true,   // Set false untuk menyembunyikan & menonaktifkan fitur autorun
