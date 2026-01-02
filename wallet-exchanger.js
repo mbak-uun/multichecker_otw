@@ -375,24 +375,81 @@
         const $result = $('#wallet-update-result');
         const $resultText = $result.find('p');
 
+        let reportData = {
+            success: success,
+            failedCexes: failedCexes || [],
+            timestamp: new Date().toISOString()
+        };
+
         if (success && (!failedCexes || failedCexes.length === 0)) {
             $result.removeClass('uk-alert-warning uk-alert-danger').addClass('uk-alert-success');
             $resultText.html('<strong>✅ Update Berhasil!</strong> Semua exchanger berhasil diperbarui. Data terbaru ditampilkan di bawah.');
+            reportData.type = 'success';
         } else if (failedCexes && failedCexes.length > 0) {
             $result.removeClass('uk-alert-success uk-alert-danger').addClass('uk-alert-warning');
             const failedList = failedCexes.join(', ');
             $resultText.html(`<strong>⚠️ Update Sebagian Berhasil</strong><br>Exchanger yang gagal: ${failedList}`);
+            reportData.type = 'warning';
         } else {
             $result.removeClass('uk-alert-success uk-alert-warning').addClass('uk-alert-danger');
             $resultText.html('<strong>❌ Update Gagal</strong> Tidak ada exchanger yang berhasil diperbarui.');
+            reportData.type = 'error';
+        }
+
+        // ✅ FIX: Simpan report ke localStorage agar tetap tampil setelah reload
+        try {
+            localStorage.setItem('WALLET_UPDATE_REPORT', JSON.stringify(reportData));
+        } catch(e) {
+            console.warn('[Wallet Exchanger] Failed to save report to localStorage:', e);
         }
 
         $result.fadeIn(300);
 
-        // Auto-hide after 10 seconds
-        setTimeout(() => {
-            $result.fadeOut(300);
-        }, 10000);
+        // ✅ FIX: Jangan auto-hide hasil report - biarkan tetap tampil
+        // User ingin melihat hasil update secara permanen
+        // setTimeout(() => {
+        //     $result.fadeOut(300);
+        // }, 10000);
+    }
+
+    /**
+     * Restore saved report from localStorage
+     */
+    function restoreSavedReport() {
+        try {
+            const savedReport = localStorage.getItem('WALLET_UPDATE_REPORT');
+            if (!savedReport) return;
+
+            const reportData = JSON.parse(savedReport);
+            const $result = $('#wallet-update-result');
+            const $resultText = $result.find('p');
+
+            // Check if report is still fresh (max 1 hour old)
+            const reportAge = Date.now() - new Date(reportData.timestamp).getTime();
+            const oneHour = 60 * 60 * 1000;
+            if (reportAge > oneHour) {
+                // Report expired, hapus dari localStorage
+                localStorage.removeItem('WALLET_UPDATE_REPORT');
+                return;
+            }
+
+            // Restore report display
+            if (reportData.type === 'success') {
+                $result.removeClass('uk-alert-warning uk-alert-danger').addClass('uk-alert-success');
+                $resultText.html('<strong>✅ Update Berhasil!</strong> Semua exchanger berhasil diperbarui. Data terbaru ditampilkan di bawah.');
+            } else if (reportData.type === 'warning') {
+                $result.removeClass('uk-alert-success uk-alert-danger').addClass('uk-alert-warning');
+                const failedList = reportData.failedCexes.join(', ');
+                $resultText.html(`<strong>⚠️ Update Sebagian Berhasil</strong><br>Exchanger yang gagal: ${failedList}`);
+            } else {
+                $result.removeClass('uk-alert-success uk-alert-warning').addClass('uk-alert-danger');
+                $resultText.html('<strong>❌ Update Gagal</strong> Tidak ada exchanger yang berhasil diperbarui.');
+            }
+
+            $result.show();
+        } catch(e) {
+            console.warn('[Wallet Exchanger] Failed to restore report:', e);
+        }
     }
 
     /**
@@ -1062,6 +1119,9 @@
 
         // Render CEX cards dengan data dari storage
         renderCexCards();
+
+        // ✅ FIX: Restore saved report (jika ada) agar tetap tampil setelah reload/navigasi
+        restoreSavedReport();
     }
 
     /**
@@ -1085,6 +1145,10 @@
         // Bind close button
         $('#btn-close-wallet-section').off('click').on('click', hide);
 
+        // ✅ FIX: Restore saved report saat init (jika halaman di-reload)
+        // Ini memastikan report tetap tampil meskipun user reload halaman
+        restoreSavedReport();
+
         // console.log('[Wallet Exchanger UI] Module initialized');
     }
 
@@ -1095,11 +1159,12 @@
             hide,
             renderCexCards,
             showUpdateResult,
+            restoreSavedReport,
             init
         });
     } else {
         // Fallback registration
-        App.WalletExchanger = { show, hide, renderCexCards, showUpdateResult, init };
+        App.WalletExchanger = { show, hide, renderCexCards, showUpdateResult, restoreSavedReport, init };
     }
 
     // Auto-init on DOM ready

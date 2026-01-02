@@ -1416,15 +1416,21 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                         // REMOVED: Watchdog for primary DEX removed
                         // OPTIMIZED: Scanner timeout mengikuti speedScan setting + buffer
                         // CRITICAL: Scanner window HARUS LEBIH BESAR dari API timeout!
-                        // - ODOS: API timeout 8s → scanner window 10s (8s + 2s buffer)
+                        // - ODOS: API timeout 4s → scanner window 5.5s (4s + 1.5s buffer)
+                        // - Multi-Aggregators: API timeout 8s → scanner window 9.5s (8s + 1.5s buffer)
                         // - Other DEX: API timeout speedScan → scanner window (speedScan + 1.5s buffer)
                         const dexLower = String(dex).toLowerCase();
                         const isOdos = dexLower === 'odos';
+                        const isMultiAggregator = ['lifi', 'swing', 'dzap'].includes(dexLower);
 
                         let dexTimeoutWindow;
                         if (isOdos) {
                             // ✅ OPTIMIZED: Reduced from 10s to 5.5s (API timeout 4s + 1.5s buffer)
                             dexTimeoutWindow = 5500;  // 5.5s for ODOS (was 10s - too slow!)
+                        } else if (isMultiAggregator) {
+                            // ✅ FIX: Multi-aggregators need extended timeout (API 8s + 1.5s buffer)
+                            dexTimeoutWindow = 9500;  // 9.5s for LIFI/SWING/DZAP
+                            console.log(`⏱️ [${dexLower.toUpperCase()} SCANNER WINDOW] Using extended deadline: ${dexTimeoutWindow}ms`);
                         } else {
                             // Use speedScan setting + buffer (not hardcoded!)
                             const apiTimeout = Math.max(speedScan, 1000);  // Match API timeout calculation

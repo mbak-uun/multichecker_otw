@@ -2195,11 +2195,18 @@
       // CRITICAL: API timeout HARUS LEBIH KECIL dari scanner window untuk avoid cancel!
       const dexLower = String(dexType || '').toLowerCase();
       const isOdosFamily = ['odos', 'odos2', 'odos3', 'hinkal-odos'].includes(dexLower);
+      const isMultiAggregator = ['lifi', 'swing', 'dzap'].includes(dexLower);
 
       let timeoutMilliseconds;
       if (isOdosFamily) {
         // ✅ OPTIMIZED: Reduced from 8s to 4s (ODOS is fast enough with 4s)
         timeoutMilliseconds = 4000;  // 4 seconds for ODOS (was 8s - too slow!)
+      } else if (isMultiAggregator) {
+        // ✅ FIX: Multi-aggregators (LIFI, SWING, DZAP) need more time to fetch multiple routes
+        // These aggregators query multiple DEXs in parallel and return top N results
+        // Typical response time: 3-8 seconds depending on network and providers
+        timeoutMilliseconds = 8000;  // 8 seconds for multi-aggregators
+        console.log(`⏱️ [${dexLower.toUpperCase()} TIMEOUT] Using extended timeout: ${timeoutMilliseconds}ms for multi-aggregator`);
       } else {
         // For other DEXs: use speedScan setting directly (NO MINIMUM!)
         // User can control speed via speedScan setting (default 1s)

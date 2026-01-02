@@ -1159,11 +1159,10 @@ function DisplayPNL(data) {
           sellLink = dexLink;
         } else {
           // DEX buy token -> CEX sell token
-          // dexRate = pair in / token out (USDT or pair per token)
+          // ✅ FIX: baseModal sudah dalam USDT, jadi dexRate = baseModal / amtOut sudah langsung dalam USDT/token
+          // Tidak perlu dikali lagi dengan buyPairCEX (itu kesalahan double conversion)
           const dexRate = amtOut > 0 ? (baseModal / amtOut) : 0;
-          // Convert ke USDT/token
-          const isUsdtPair = upper(Name_in) === 'USDT';
-          dexUsdtPerToken = isUsdtPair ? dexRate : (dexRate * buyPairCEX);
+          dexUsdtPerToken = dexRate;  // Already in USDT/token, no conversion needed
 
           buyPrice = dexUsdtPerToken;       // Harga beli di DEX (USDT/token)
           sellPrice = sellTokenCEX;         // Harga jual token di CEX (USDT/token)
@@ -1563,24 +1562,33 @@ function DisplayPNL(data) {
   const netClass = (pnl >= 0) ? 'uk-text-success' : 'uk-text-danger';
   const bracket = `[${bruto.toFixed(2)} ~ ${feeAll.toFixed(2)}]`;
 
-  // ✅ FIXED: shouldHighlight = isHighlight (sudah include PNL filter & volume check)
-  // JANGAN gunakan (pnl > feeAll) karena pnl sudah NETTO setelah fee!
-  const shouldHighlight = isHighlight;
+  // ✅ FIXED: Pisahkan profit indication (background) dari highlight (border)
+  // Background hijau muncul kapanpun PNL > 0 (profit)
+  // Border hitam tebal muncul jika profit melewati filter threshold
+  const hasProfit = pnl > 0;  // Background color indicator
+  const shouldHighlight = isHighlight;  // Border highlight (filter + volume check)
   const chainColorHexHL = getChainColorHexByName(nameChain);
   const modeNowHL = (typeof getAppMode === 'function') ? getAppMode() : { type: 'multi' };
   const isMultiModeHL = String(modeNowHL.type).toLowerCase() !== 'single';
   // Multichain: gunakan hijau muda agar konsisten
-  const multiLightGreen = 'rgba(188, 233, 97, 1)';
+  const multiLightGreen = 'rgba(188, 233, 97, 0.9)';
   const hlBg = isMultiModeHL
     ? multiLightGreen
     : (isDarkMode() ? '#87db0bff' : '#ddf0b7ff');
-  // Tambahkan kelas agar CSS bisa override tambahan saat dark-mode
+
+  // Apply background color when there's ANY profit (PNL > 0)
+  // Apply highlight class and border when profit exceeds filter threshold
   if (shouldHighlight) {
     try { $mainCell.addClass('dex-cell-highlight'); } catch (_) { }
   } else { try { $mainCell.removeClass('dex-cell-highlight'); } catch (_) { } }
-  $mainCell.attr('style', shouldHighlight
-    ? `background-color:${hlBg}!important;font-weight:bolder!important;vertical-align:middle!important;text-align:center!important; border:1px solid black !important;`
-    : 'text-align:center;vertical-align:middle;');
+
+  // Background color shows when PNL > 0, border shows when passing filter
+  if (hasProfit) {
+    const borderStyle = shouldHighlight ? 'border:2px solid black !important;' : '';
+    $mainCell.attr('style', `background-color:${hlBg}!important;font-weight:bolder!important;vertical-align:middle!important;text-align:center!important;${borderStyle}`);
+  } else {
+    $mainCell.attr('style', 'text-align:center;vertical-align:middle;');
+  }
 
   // Baris utama (SWAP dipisah baris sendiri)
   const lineBuy = `<a class="monitor-line uk-text-success dex-price-link" href="${buyLink}"  target="_blank" rel="noopener" title="${tipBuy}">⬆ ${fmtUSD(buyPrice)}</a>`;
@@ -1598,12 +1606,15 @@ function DisplayPNL(data) {
 
   // Kirim sinyal hanya jika PNL > 0 (profit positif)
   if (hasSignal && typeof InfoSinyal === 'function') {
+    console.log(`✅ [DisplayPNL] Sending signal for ${upper(dextype)}: ${upper(Name_in)}->${upper(Name_out)}, PNL: ${pnl.toFixed(2)}$`);
     InfoSinyal(lower(dextype), NameX, pnl, feeAll, upper(cex), Name_in, Name_out, profitLossPercent, Modal, nameChain, codeChain, trx, idPrefix, baseId);
   } else if (!hasSignal) {
     // 🔍 DEBUG: No signal (PNL ≤ 0 - loss atau break-even)
     console.log(`⚠️ [DisplayPNL] No signal (PNL ≤ 0) for ${upper(Name_in)}->${upper(Name_out)} on ${upper(dextype)}:`, {
       pnl: pnl.toFixed(2)
     });
+  } else if (!InfoSinyal) {
+    console.error(`❌ [DisplayPNL] InfoSinyal function NOT FOUND for ${upper(dextype)}: ${upper(Name_in)}->${upper(Name_out)}`);
   }
 
   // ℹ️ DEBUG: Log highlight status
