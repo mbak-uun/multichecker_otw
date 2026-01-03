@@ -1,1 +1,342 @@
-const _0x837a83=_0x5d5c;(function(_0x4ca4bd,_0x37ce0e){const _0x8b76d0=_0x5d5c,_0x469fa8=_0x4ca4bd();while(!![]){try{const _0xb0934d=parseInt(_0x8b76d0(0x2f1))/(0x1b2b+0x56f+0x1*-0x2099)*(-parseInt(_0x8b76d0(0x205))/(-0x4d*0x8+0x1ede*0x1+0x71d*-0x4))+parseInt(_0x8b76d0(0x387))/(0x125*0x5+-0x17c7+0x1211)+parseInt(_0x8b76d0(0x19c))/(0x1d1c+-0x85*0x41+0x4ad)*(parseInt(_0x8b76d0(0x1b3))/(0x2c9*-0x4+-0x4a3+-0x1*-0xfcc))+-parseInt(_0x8b76d0(0x36c))/(-0x5*0x307+-0x3e*-0x26+0x5*0x131)+parseInt(_0x8b76d0(0x312))/(0x1*0x1aa1+0x12b7+-0x2d51)+-parseInt(_0x8b76d0(0x29d))/(-0x272+0x5*0x746+-0x10f2*0x2)*(parseInt(_0x8b76d0(0x34c))/(-0x143*-0x9+0x2*-0x11fd+-0xc54*-0x2))+parseInt(_0x8b76d0(0x1fc))/(0x13c8+-0x259*-0x5+0x1*-0x1f7b)*(parseInt(_0x8b76d0(0x284))/(-0x1*-0x407+-0xd6f+0x973));if(_0xb0934d===_0x37ce0e)break;else _0x469fa8['push'](_0x469fa8['shift']());}catch(_0x157ab0){_0x469fa8['push'](_0x469fa8['shift']());}}}(_0x64f3,0x5abf3+0x3f3f9+-0x1fd2a));const CEX_SECRETS={'GATE':{'ApiKey':_0x837a83(0x1f8)+_0x837a83(0x1ac)+_0x837a83(0x2d6)+'d0','ApiSecret':_0x837a83(0x258)+_0x837a83(0x323)+_0x837a83(0x365)+_0x837a83(0x353)+_0x837a83(0x325)+_0x837a83(0x3a8)+_0x837a83(0x327)},'BINANCE':{'ApiKey':_0x837a83(0x1d3)+_0x837a83(0x2fa)+_0x837a83(0x275)+_0x837a83(0x239)+_0x837a83(0x303)+_0x837a83(0x345)+_0x837a83(0x385),'ApiSecret':_0x837a83(0x2f6)+_0x837a83(0x2c9)+_0x837a83(0x34a)+_0x837a83(0x360)+_0x837a83(0x1c6)+_0x837a83(0x2bb)+_0x837a83(0x1cd)},'MEXC':{'ApiKey':_0x837a83(0x277)+_0x837a83(0x1e6),'ApiSecret':_0x837a83(0x3ba)+_0x837a83(0x2de)+_0x837a83(0x3c6)+'f6'},'INDODAX':{'ApiKey':_0x837a83(0x2b3)+_0x837a83(0x1a8)+_0x837a83(0x304)+_0x837a83(0x1f2)+_0x837a83(0x3ad),'ApiSecret':_0x837a83(0x376)+_0x837a83(0x3bc)+_0x837a83(0x30b)+_0x837a83(0x25b)+_0x837a83(0x359)+_0x837a83(0x1b4)+_0x837a83(0x23d)+_0x837a83(0x191)},'BYBIT':{'ApiKey':_0x837a83(0x32a)+_0x837a83(0x3a2),'ApiSecret':_0x837a83(0x26e)+_0x837a83(0x2d3)+_0x837a83(0x29c)+_0x837a83(0x1c2)},'BITGET':{'ApiKey':_0x837a83(0x23e)+_0x837a83(0x20e)+_0x837a83(0x27e)+_0x837a83(0x313),'ApiSecret':_0x837a83(0x26e)+_0x837a83(0x2d3)+_0x837a83(0x29c)+_0x837a83(0x1c2),'Passphrase':_0x837a83(0x250)},'LBANK':{'ApiKey':_0x837a83(0x2f4)+_0x837a83(0x249)+_0x837a83(0x2bc)+_0x837a83(0x2ef),'ApiSecret':_0x837a83(0x201)+_0x837a83(0x20b)+_0x837a83(0x39f)+'E1'}},CONFIG_TELEGRAM={'BOT_TOKEN':_0x837a83(0x309)+_0x837a83(0x1ee)+_0x837a83(0x32c)+_0x837a83(0x1ab)+_0x837a83(0x19a),'CHAT_ID':_0x837a83(0x25a)+_0x837a83(0x30e)};try{typeof window!==_0x837a83(0x208)&&(window[_0x837a83(0x292)+_0x837a83(0x2d5)]=window[_0x837a83(0x292)+_0x837a83(0x2d5)]||CONFIG_TELEGRAM,window[_0x837a83(0x28d)+'S']=window[_0x837a83(0x28d)+'S']||CEX_SECRETS);}catch(_0x4858cc){}const apiKeysOKXDEX=[{'ApiKeyOKX':_0x837a83(0x357)+_0x837a83(0x2ce)+_0x837a83(0x1c8)+_0x837a83(0x3c2),'secretKeyOKX':_0x837a83(0x1fa)+_0x837a83(0x2ad)+_0x837a83(0x278)+'C1','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x347)+_0x837a83(0x298)+_0x837a83(0x32d)+_0x837a83(0x189),'secretKeyOKX':_0x837a83(0x294)+_0x837a83(0x3a9)+_0x837a83(0x18b)+'48','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x31b)+_0x837a83(0x18e)+_0x837a83(0x1ba)+_0x837a83(0x1df),'secretKeyOKX':_0x837a83(0x255)+_0x837a83(0x2c2)+_0x837a83(0x1d1)+'59','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x1c7)+_0x837a83(0x372)+_0x837a83(0x30a)+_0x837a83(0x299),'secretKeyOKX':_0x837a83(0x290)+_0x837a83(0x2a2)+_0x837a83(0x2b4)+'89','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x3c0)+_0x837a83(0x207)+_0x837a83(0x1db)+_0x837a83(0x3be),'secretKeyOKX':_0x837a83(0x3c9)+_0x837a83(0x3aa)+_0x837a83(0x39a)+'D0','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x206)+_0x837a83(0x228)+_0x837a83(0x2fc)+_0x837a83(0x22b),'secretKeyOKX':_0x837a83(0x1b2)+_0x837a83(0x273)+_0x837a83(0x2ba)+'33','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x369)+_0x837a83(0x204)+_0x837a83(0x332)+_0x837a83(0x27c),'secretKeyOKX':_0x837a83(0x2a6)+_0x837a83(0x256)+_0x837a83(0x33f)+'C3','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x2b0)+_0x837a83(0x242)+_0x837a83(0x1d4)+_0x837a83(0x317),'secretKeyOKX':_0x837a83(0x22f)+_0x837a83(0x282)+_0x837a83(0x3a5)+'34','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x33c)+_0x837a83(0x1e8)+_0x837a83(0x37a)+_0x837a83(0x2b2),'secretKeyOKX':_0x837a83(0x3b5)+_0x837a83(0x25c)+_0x837a83(0x216)+'F5','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x329)+_0x837a83(0x361)+_0x837a83(0x330)+_0x837a83(0x1b0),'secretKeyOKX':_0x837a83(0x35e)+_0x837a83(0x297)+_0x837a83(0x3bb)+'CE','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x18a)+_0x837a83(0x397)+_0x837a83(0x39d)+_0x837a83(0x3af),'secretKeyOKX':_0x837a83(0x2e9)+_0x837a83(0x2d9)+_0x837a83(0x23a)+'E4','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x2f8)+_0x837a83(0x1ca)+_0x837a83(0x2ff)+_0x837a83(0x39e),'secretKeyOKX':_0x837a83(0x1d8)+_0x837a83(0x384)+_0x837a83(0x338)+'81','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x1c1)+_0x837a83(0x38f)+_0x837a83(0x307)+_0x837a83(0x214),'secretKeyOKX':_0x837a83(0x346)+_0x837a83(0x203)+_0x837a83(0x2bf)+'F6','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x20c)+_0x837a83(0x2c0)+_0x837a83(0x1bc)+_0x837a83(0x391),'secretKeyOKX':_0x837a83(0x187)+_0x837a83(0x184)+_0x837a83(0x1e3)+'91','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x39c)+_0x837a83(0x295)+_0x837a83(0x36b)+_0x837a83(0x25f),'secretKeyOKX':_0x837a83(0x2fd)+_0x837a83(0x285)+_0x837a83(0x354)+'DB','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x2f2)+_0x837a83(0x3c8)+_0x837a83(0x236)+_0x837a83(0x231),'secretKeyOKX':_0x837a83(0x28e)+_0x837a83(0x2d1)+_0x837a83(0x19b)+'6D','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x268)+_0x837a83(0x356)+_0x837a83(0x200)+_0x837a83(0x248),'secretKeyOKX':_0x837a83(0x186)+_0x837a83(0x334)+_0x837a83(0x1f4)+'72','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x2ed)+_0x837a83(0x38d)+_0x837a83(0x2eb)+_0x837a83(0x390),'secretKeyOKX':_0x837a83(0x34d)+_0x837a83(0x21d)+_0x837a83(0x374)+'3B','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x392)+_0x837a83(0x234)+_0x837a83(0x233)+_0x837a83(0x238),'secretKeyOKX':_0x837a83(0x1ef)+_0x837a83(0x306)+_0x837a83(0x300)+'35','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x395)+_0x837a83(0x245)+_0x837a83(0x262)+_0x837a83(0x352),'secretKeyOKX':_0x837a83(0x1e5)+_0x837a83(0x3c5)+_0x837a83(0x367)+'ED','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x28f)+_0x837a83(0x18d)+_0x837a83(0x1e7)+_0x837a83(0x2f9),'secretKeyOKX':_0x837a83(0x260)+_0x837a83(0x232)+_0x837a83(0x1da)+'7B','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x2d7)+_0x837a83(0x33a)+_0x837a83(0x321)+_0x837a83(0x218),'secretKeyOKX':_0x837a83(0x2ee)+_0x837a83(0x342)+_0x837a83(0x2c6)+'71','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x1e0)+_0x837a83(0x2e3)+_0x837a83(0x240)+_0x837a83(0x2ca),'secretKeyOKX':_0x837a83(0x1fe)+_0x837a83(0x1bb)+_0x837a83(0x1aa)+'00','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x2af)+_0x837a83(0x358)+_0x837a83(0x220)+_0x837a83(0x1a4),'secretKeyOKX':_0x837a83(0x32f)+_0x837a83(0x19d)+_0x837a83(0x362)+'76','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x38c)+_0x837a83(0x267)+_0x837a83(0x18c)+_0x837a83(0x1c5),'secretKeyOKX':_0x837a83(0x315)+_0x837a83(0x30c)+_0x837a83(0x1fd)+'73','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x271)+_0x837a83(0x2b1)+_0x837a83(0x1be)+_0x837a83(0x1bd),'secretKeyOKX':_0x837a83(0x328)+_0x837a83(0x211)+_0x837a83(0x1d0)+'57','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x340)+_0x837a83(0x3ae)+_0x837a83(0x2b5)+_0x837a83(0x30f),'secretKeyOKX':_0x837a83(0x35b)+_0x837a83(0x2df)+_0x837a83(0x301)+'7F','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x283)+_0x837a83(0x31c)+_0x837a83(0x28c)+_0x837a83(0x335),'secretKeyOKX':_0x837a83(0x254)+_0x837a83(0x2ac)+_0x837a83(0x3b6)+'9A','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x3b1)+_0x837a83(0x302)+_0x837a83(0x36d)+_0x837a83(0x235),'secretKeyOKX':_0x837a83(0x377)+_0x837a83(0x190)+_0x837a83(0x2b7)+'F8','PassphraseOKX':_0x837a83(0x25e)},{'ApiKeyOKX':_0x837a83(0x274)+_0x837a83(0x2aa)+_0x837a83(0x339)+_0x837a83(0x2ea),'secretKeyOKX':_0x837a83(0x3a3)+_0x837a83(0x36a)+_0x837a83(0x3a6)+'11','PassphraseOKX':_0x837a83(0x22e)+_0x837a83(0x287)},{'ApiKeyOKX':_0x837a83(0x1cb)+_0x837a83(0x3a7)+_0x837a83(0x1b6)+_0x837a83(0x1e9),'secretKeyOKX':_0x837a83(0x19f)+_0x837a83(0x388)+_0x837a83(0x2f0)+'B1','PassphraseOKX':_0x837a83(0x3ac)+_0x837a83(0x25d)},{'ApiKeyOKX':_0x837a83(0x265)+_0x837a83(0x2c4)+_0x837a83(0x1f1)+_0x837a83(0x371),'secretKeyOKX':_0x837a83(0x2fb)+_0x837a83(0x27f)+_0x837a83(0x36f)+'9F','PassphraseOKX':_0x837a83(0x25e)}],apiKeysLIFI=[_0x837a83(0x27d)+_0x837a83(0x2a1)+_0x837a83(0x35f)+_0x837a83(0x29b)+_0x837a83(0x375)+_0x837a83(0x2d4)+_0x837a83(0x394)+_0x837a83(0x1ec),_0x837a83(0x223)+_0x837a83(0x31a)+_0x837a83(0x22d)+_0x837a83(0x288)+_0x837a83(0x1a7)+_0x837a83(0x1eb)+_0x837a83(0x326)+_0x837a83(0x30d),_0x837a83(0x32e)+_0x837a83(0x3b4)+_0x837a83(0x276)+_0x837a83(0x280)+_0x837a83(0x383)+_0x837a83(0x269)+_0x837a83(0x221)+_0x837a83(0x2e5),_0x837a83(0x37c)+_0x837a83(0x32b)+_0x837a83(0x37e)+_0x837a83(0x1f9)+_0x837a83(0x366)+_0x837a83(0x1ed)+_0x837a83(0x24e)+_0x837a83(0x20d),_0x837a83(0x1b5)+_0x837a83(0x29f)+_0x837a83(0x3a0)+_0x837a83(0x3c4)+_0x837a83(0x355)+_0x837a83(0x343)+_0x837a83(0x398)+_0x837a83(0x24c),_0x837a83(0x24f)+_0x837a83(0x344)+_0x837a83(0x213)+_0x837a83(0x2d2)+_0x837a83(0x1f7)+_0x837a83(0x35d)+_0x837a83(0x2ab)+_0x837a83(0x21b),_0x837a83(0x21f)+_0x837a83(0x2cf)+_0x837a83(0x318)+_0x837a83(0x2a3)+_0x837a83(0x3c1)+_0x837a83(0x1ae)+_0x837a83(0x26f)+_0x837a83(0x253),_0x837a83(0x2a9)+_0x837a83(0x2e4)+_0x837a83(0x2c7)+_0x837a83(0x320)+_0x837a83(0x363)+_0x837a83(0x3c3)+_0x837a83(0x21c)+_0x837a83(0x2ec),_0x837a83(0x2a8)+_0x837a83(0x2a4)+_0x837a83(0x23b)+_0x837a83(0x26c)+_0x837a83(0x202)+_0x837a83(0x241)+_0x837a83(0x215)+_0x837a83(0x18f),_0x837a83(0x2bd)+_0x837a83(0x1c0)+_0x837a83(0x243)+_0x837a83(0x370)+_0x837a83(0x319)+_0x837a83(0x380)+_0x837a83(0x24d)+_0x837a83(0x308),_0x837a83(0x279)+_0x837a83(0x1d6)+_0x837a83(0x381)+_0x837a83(0x266)+_0x837a83(0x2d0)+_0x837a83(0x2da)+_0x837a83(0x2a0)+_0x837a83(0x185),_0x837a83(0x291)+_0x837a83(0x38a)+_0x837a83(0x3b7)+_0x837a83(0x1c9)+_0x837a83(0x348)+_0x837a83(0x31e)+_0x837a83(0x1a0)+_0x837a83(0x1a9),_0x837a83(0x225)+_0x837a83(0x1ad)+_0x837a83(0x1ce)+_0x837a83(0x1f3)+_0x837a83(0x33b)+_0x837a83(0x2db)+_0x837a83(0x2fe)+_0x837a83(0x1e2),_0x837a83(0x1a1)+_0x837a83(0x1f6)+_0x837a83(0x26a)+_0x837a83(0x26d)+_0x837a83(0x1e1)+_0x837a83(0x305)+_0x837a83(0x337)+_0x837a83(0x188),_0x837a83(0x37b)+_0x837a83(0x399)+_0x837a83(0x324)+_0x837a83(0x396)+_0x837a83(0x336)+_0x837a83(0x24b)+_0x837a83(0x2be)+_0x837a83(0x3b3),_0x837a83(0x1b1)+_0x837a83(0x257)+_0x837a83(0x2b8)+_0x837a83(0x2c1)+_0x837a83(0x1a5)+_0x837a83(0x38b)+_0x837a83(0x2a7)+_0x837a83(0x237),_0x837a83(0x3c7)+_0x837a83(0x27a)+_0x837a83(0x2dd)+_0x837a83(0x322)+_0x837a83(0x373)+_0x837a83(0x264)+_0x837a83(0x219)+_0x837a83(0x3b2),_0x837a83(0x1b9)+_0x837a83(0x349)+_0x837a83(0x2e0)+_0x837a83(0x1cc)+_0x837a83(0x2f5)+_0x837a83(0x23f)+_0x837a83(0x252)+_0x837a83(0x33d),_0x837a83(0x212)+_0x837a83(0x2cc)+_0x837a83(0x38e)+_0x837a83(0x229)+_0x837a83(0x3a1)+_0x837a83(0x23c)+_0x837a83(0x1af)+_0x837a83(0x333),_0x837a83(0x27b)+_0x837a83(0x24a)+_0x837a83(0x31f)+_0x837a83(0x2cb)+_0x837a83(0x1d2)+_0x837a83(0x1c4)+_0x837a83(0x1c3)+_0x837a83(0x1dc)];function getRandomApiKeyLIFI(){const _0x4b313e=_0x837a83,_0x1b51fa={'UvEoQ':function(_0x1350a3,_0x367f26){return _0x1350a3*_0x367f26;}},_0x47ad66=Math[_0x4b313e(0x224)](_0x1b51fa[_0x4b313e(0x2d8)](Math[_0x4b313e(0x393)](),apiKeysLIFI[_0x4b313e(0x293)]));return apiKeysLIFI[_0x47ad66];}const apiKeysRango=[_0x837a83(0x1d7)+_0x837a83(0x28b)+_0x837a83(0x2b9)+_0x837a83(0x2a5)];function _0x5d5c(_0xe46229,_0x4ada90){_0xe46229=_0xe46229-(0x18a2+-0xc5*-0x30+-0x3c0e*0x1);const _0x2fcb0b=_0x64f3();let _0x51dc24=_0x2fcb0b[_0xe46229];return _0x51dc24;}let rangoKeyIndex=-0x13d5*-0x1+-0x2655+-0x20*-0x94;function getRandomApiKeyRango(){const _0x60c041=_0x837a83,_0x25e512={'XbCer':function(_0x4bf6d7,_0x4ae6c3){return _0x4bf6d7%_0x4ae6c3;},'fFNGU':function(_0x2dd4f0,_0x4f0614){return _0x2dd4f0+_0x4f0614;}},_0x454486=apiKeysRango[rangoKeyIndex];return rangoKeyIndex=_0x25e512[_0x60c041(0x386)](_0x25e512[_0x60c041(0x389)](rangoKeyIndex,0x9f5+0x52*-0x51+0xffe),apiKeysRango[_0x60c041(0x293)]),_0x454486;}const apiKeys0x=[_0x837a83(0x3b8)+_0x837a83(0x198)+_0x837a83(0x35c)+_0x837a83(0x3b0),_0x837a83(0x37f)+_0x837a83(0x272)+_0x837a83(0x2ae)+_0x837a83(0x1bf),_0x837a83(0x2e6)+_0x837a83(0x199)+_0x837a83(0x1b8)+_0x837a83(0x2c5),_0x837a83(0x36e)+_0x837a83(0x227)+_0x837a83(0x1dd)+_0x837a83(0x379),_0x837a83(0x230)+_0x837a83(0x33e)+_0x837a83(0x197)+_0x837a83(0x1d5),_0x837a83(0x270)+_0x837a83(0x21e)+_0x837a83(0x34e)+_0x837a83(0x217),_0x837a83(0x2e2)+_0x837a83(0x1f5)+_0x837a83(0x3bf)+_0x837a83(0x19e),_0x837a83(0x296)+_0x837a83(0x1a3)+_0x837a83(0x368)+_0x837a83(0x281),_0x837a83(0x210)+_0x837a83(0x192)+_0x837a83(0x29a)+_0x837a83(0x34f),_0x837a83(0x194)+_0x837a83(0x1ea)+_0x837a83(0x244)+_0x837a83(0x2dc),_0x837a83(0x1ff)+_0x837a83(0x2e1)+_0x837a83(0x364)+_0x837a83(0x3bd),_0x837a83(0x31d)+_0x837a83(0x2f7)+_0x837a83(0x311)+_0x837a83(0x21a),_0x837a83(0x1de)+_0x837a83(0x1fb)+_0x837a83(0x2c3)+_0x837a83(0x3b9),_0x837a83(0x263)+_0x837a83(0x196)+_0x837a83(0x2b6)+_0x837a83(0x35a),_0x837a83(0x350)+_0x837a83(0x1d9)+_0x837a83(0x341)+_0x837a83(0x2cd),_0x837a83(0x1a2)+_0x837a83(0x351)+_0x837a83(0x209)+_0x837a83(0x261),_0x837a83(0x2c8)+_0x837a83(0x1e4)+_0x837a83(0x1f0)+_0x837a83(0x20f),_0x837a83(0x286)+_0x837a83(0x3ab)+_0x837a83(0x39b)+_0x837a83(0x26b),_0x837a83(0x289)+_0x837a83(0x246)+_0x837a83(0x22c)+_0x837a83(0x20a)];let zeroxKeyIndex=0x1a17+0x7b*-0x2b+0xa*-0x8b;function getRandomApiKey0x(){const _0x49abdf=_0x837a83,_0x36d084={'MxxVt':function(_0x52b098,_0x2eacb6){return _0x52b098%_0x2eacb6;},'QTamP':function(_0x2dfbd4,_0x46d310){return _0x2dfbd4+_0x46d310;}},_0x5ad714=apiKeys0x[zeroxKeyIndex];return zeroxKeyIndex=_0x36d084[_0x49abdf(0x222)](_0x36d084[_0x49abdf(0x34b)](zeroxKeyIndex,-0x13*0x181+-0x1f*-0x25+0x1f*0xc7),apiKeys0x[_0x49abdf(0x293)]),_0x5ad714;}const DEX_API_KEYS={'FLY':''},SWING_PROJECT_IDS=[_0x837a83(0x1b7)+_0x837a83(0x247)];function getRandomSwingProjectId(){const _0xb849c=_0x837a83,_0x40403b={'clhYC':function(_0x485dce,_0x589c41){return _0x485dce*_0x589c41;}},_0x28d803=Math[_0xb849c(0x224)](_0x40403b[_0xb849c(0x37d)](Math[_0xb849c(0x393)](),SWING_PROJECT_IDS[_0xb849c(0x293)]));return SWING_PROJECT_IDS[_0x28d803];}function _0x64f3(){const _0x54cbda=['fd2-26ebc0','4C8DE9CBE7','bfe-c77de1','3bf-6a641a','CB57503F92','6cpN590eXA','758-41b997','14ddac76-3','-02cb79f9f','3870B521A6','5b1-497e-b','3c5b70.eab','82BD8BBDF4','d92-e4660c','229-456f-a','1ab984','9942C88118','3b2-edf224','3e17d416-3','hA0hJuil7g','f54586','0ef077.58a','c5f-451c-9','d5d71c','cd1-4ecb-9','9e2-4134-9','97303-23f1','29F3378BF9','580116.b6b','xPBT68Ej86','-4f5a-8707','EGRAM','2e65952574','ecc51700-e','UvEoQ','042C41D984','-476b-ad5d','-4f82-b063','ab88de','588-1987d3','804f97a828','58047057A9','f7c-3d868a','90d-419e-a','022eb1f6-8','e20-4ecd-8','bcf-47e3-b','4df','d68bdf28-2','1|4|8|6|0|','DEX_API_KE','D621020540','7ccee2','775-8200f9','16e','f7a23981-a','6A897CF4D6','df9e04','CC385B64CA','701531IaDlrm','ca59e403-4','9|3|7|5|10','7f84a1cf-3','448ac-1cbe','bBq5FCpuCg','cf9-42ea-b','86f40277-6','35332b','rUNQHpqvoO','1BD8AC02C9','63b-89e358','307D988DA4','-38bbc26dd','29b-29a25b','C2204D6A04','93D9A460DA','f97-472c-9','wJmMaH175k','OKENAH-LHL','-4aa3-aa38','874922F54D','50b-b3e0f3','687','7853809693','675-e429ba','f4012fbb55','0E26278FFA','2c6','8809','5d2798','apiKeys0x','7bc-c65340','2937529SpmNzR','656c1','SWING_PROJ','B810141376','piKeyLIFI','e76793','4e9-447449','84c4a-2844','883-4f85-9','cf214e57-8','7bb-4465-a','7eeea25e-f','-4eb4-9062','46f-869300','1b887b.6a7','c8d-dbc43b','a00da8.c22','a8ed462bda','bcf-a34feb','09e120a2bf','-1969af85a','0ef8','B13A8CFA34','904cefba-0','H2e7P3xu7z','ba7-4db0-b','RyLgbKQw3z','ed3-b8f2d4','632e463a-7','77FA24FA1D','e8b-33411b','ECT_IDS','602-7fbeb8','f50','9CE892E2D1','336747','ad8fb-8286','-f430635a5','0351888800','c03-0a43dc','7a2-4c93-9','d7488-25fc','43c169db-d','a54','aaf-46fa-a','F2680FAEDD','1974cbac-2','d2e-77993f','B56AF6B4E3','-4cf7-8fcb','c45-4342-9','uVi2QyB98Z','196658185E','04f923ec-9','5a0da-caa2','61e-4706-b','CObTqDzYaL','QTamP','1454328ODJgsH','4F61764255','f9d-fc7161','cccbec','13657b5d-7','45e-4794-8','6161a7','82b4f322dd','8A171B0975','118b0-1544','a8e-4d78-8','28bc65f0-8','0ed-42c1-8','0f1d1432c8','73ea7b','6A24A249F7','040-b52109','-4ceb-a558','91F2761A0B','c50-faa645','aVdsZVsdfS','8ce-48e9-9','3367D0EAE6','40544-f414','ad1-caf0b6','4bd1a516ba','51b8d-492a','BF84CDB418','00e-9bef23','6636873a-e','88653A9070','207-3f0dd8','1125120qrEQxG','0cd-fefd21','4622ba12-0','DFE31B3BFF','355cac.123','e76683','855-484c-a','a17e7-1aa5','1714B3E1E9','045f9-d438','2ff67f7546','FFC78575E3','getFlyApiK','c50cae','c25-a2761f','55ce89b2-1','057a2f7f-c','clhYC','325-ba4027','b5a5afe4-4','-46e9-add8','e04-0f5c66','tId','02f8e-7b7c','BEDAB5EB0C','ocnb','XbCer','802116fNmgjm','CB101B39FE','fFNGU','b3d-4cea-b','-4a83-91da','a499fca1-1','f15-47f4-8','305-2f834e','d34-411a-b','fdfe5d','ed38d5','4f708f99-2','random','-57f2b7c23','61061ef4-6','9d9a01.f14','aee-461d-9','-53a326497','b62-426e-b','EE28337BBC','797-307689','a81d5a32-5','c17-3b401f','851a87','5D28AB089F','9e3-f07abd','1259a-bd7b','zjmRllrl','528AFB3ECC','getRandomA','BA1097954D','F05CC38396','510-4175-b','7ea6b5f093','85C8147F70','FF09F2069A','948-4818-8','Arekpinter','QICL','a05-4892-8','9671d1','364cd0','08af14cb-2','84a','801','cf2-4c51-b','7F812C1758','4EE2EECDE1','a67-b76e34','6322c59d-5','1fadad','61426ded5d','A54E75BE1C','f9b1af3344','e35185','cb64f7','26d-7ad64c','87db4731-f','8e5e6-5c94','75814b','-4402-aff8','43a65c.92d','38EB50CD09','eb35ff3c26','a6f75d89-2','bcb-410a-8','B773838680','DE86F4E4CB','4f6','54970C7836','4CA9689FA4','475','19c773','bfbd60b5-9','592DF6BE3C','5bc-0eb375','008-4df5-9','af2-42bf-8','2d3','961D11BF13','ac7400622b','f55-4ba2-9','getRandomS','91739de4-1','piKeyRango','7df-4333-8','8b5-1734fa','e6a-451c-8','b14-42d6-a','Dg6nHo','3E7EDF74CB','104HLGoAv','BFFBA5C9C8','382833','E6E4285106','-fc722705f','0877c8c3-6','504b532a-a','750-4108-9','5e395c','3e0a8-5199','split','1cd43-bbd1','D9ANNF5-T7','79b','797428D56C','oUSR_aqCbG','a42de27069','b71-48fd-8','-4124-9466','-ecd254b48','f44a0f','463c3300-a','DB683C83FF','162035qAavHt','9473d1fe00','bcb65083-b','032-342ad6','galaxy-exc','845-2bb607','12d54546-9','afa-3b7880','7CCCE9862B','c14-81bdb6','ad876a','fdc-6d1861','32fbd6','343-4009-9','32503ada-3','cBZG1d','-811470a50','-4c20-925e','81eff9','zv4MZ2rDBK','a77871bd-7','b53-14d84a','bda0d1.c72','61c-4290-9','6866441f-6','26c5bf.862','wfod','0b0-f363ea','wSciw','4A3E92C9C0','4A9B1CFF47','4926e-8e5f','PoMTZjrgq2','c8a-ba94a5','0090e6','fcd-42e6-9','c6381a79-2','9274F990B5','45b-4f59-b','6D36470052','bb4-a4f5e5','64c','6b3-92ccd9','d7614902-1','c5a152','dd3f982e-0','22860-428b','878','F2B777CBAA','b39-43e3-a','4DDF73FD7C','AgqcFAd8','d2e-ae8884','b8c-4aeb-9','798817','39a-49d2-8','-40e2-ac1b','9b3','-491d-bf75',':AAHl8e_hj','A5B7DCA10A','d2f-2c6b97','d23-8e1341','5PBYQ-NW8G','3c8bc0.20c','B8B296B4E5','5ca-4ae1-a','6b9-41d5-8','fc1b2-98ca','1dbe3d4c92','37550e.e88','E8C92510E4','2ac-436c-a','40ZppugO','F6F0A2BCEA','9F69EEB1A1','84a38f2a-c','6bb-bdac8e','FD8F99AE6C','39a98-dadc','65F9396332','8ab-4063-a','2OMhxID','aec98aef-e','be3-416f-8','undefined','aff-ee8645','04359b','9CE4C68FFC','80932e81-4','0eb','f3f7083aad','69bd77','b181f5d5-0','4038FAACB4','876c98f2-6','22f-501d26','6f3b47','-cb7fd79a1','61B0E3A106','763d14','da74c1','-efd24a0a6','9c6120','23b','-9ca9a9e35','CEDE6D5E15','2c5-422f-9','d251802b-3','575-1e15c0','-d37424b1b','MxxVt','8ed53cb9-d','floor','3e4c820e-9','get0xApiKe','12c-4bb8-a','2b6-4fb2-b','855daf.8bb','wingProjec','ba1fe1','f9d-e0d029','429-116c01','Cek_Horeg_','C30FCABB0B','0054485c-7','2829d5','1A67018AA2','8cb-3c8323','e06-4c81-8','03f253','8bb-3e931a','4f8','fa42c5','G3OZueMyvY','E2FB78BED5','d03-dbe398','-461a-960c','7deb3f3d0b','bg_7648ff0','-411c-9803','a03-12d7b0','-4b76-b8e7','9ff-40a1-9','1d4-af6c1d','acd-6fd9fd','d0a-412a-9','a6d-4911-9','hange','43e835','654-4487-b','03c-4514-9','-44a8-8e6f','bdd','-7408c0c4d','-80a755f89','eeee2d0d-d','Macpro2025','piKey0x','-5e77d4f38','4e2','F42BD9E95F','26AA1E4156','861BA3E208','b2c-4c90-b','9436bfec02','FLY','-100207928','61969de944','23BBD9BD54','123.','Regi!#007','f949c7','1427387D7B','a5d715','2a9-bdc29c','0bd1bf18-4','-41b8-8d83','45e4e1f1-1','10428d.31f','4cd-41c3-a','97439591-e','-4a4a-aa3d','082-b33767','ee30d3','8961b8.337','a32f87.3d5','4xBB4NchMT','-5d8483154','1e0590d1-5','c3c7e029-6','280-4ff2-9','6FB460227A','adad55d1-b','W0Ajq1iKyt','962-ef78a6','mx0vgl6hr4','FBF140AABE','6a460b8c-1','82c-4865-a','ce36f6d6-3','d85835','e057a54c-1','770524c41c','461A6D1BEB','608419.981','70a893','95BE4529D5','41826044-b','59015TnmgQh','4D37C911AA','264e9d32-e','911','93e8f4.334','81fa7036-c','apiKeysRan','817-4602-8','903-3da61e','CEX_SECRET','AC7C6D593C','b63f3f68-2','830C9BB8D9','5b976d7c-7','CONFIG_TEL','length','3D7D0BD3D9','69a-401c-b','c041f803-1','77B1DEED87','8f2-4e60-b','d3490e','f08-9d3f4b','763c43.a87','Y2UtC1sFfr','8BQZfPu','apiKeysLIF','bfd-4a0d-8','-d138926fa','459-44ab-a','63F293857D','fc5371.a4d','800-46b2-8','409e32','B83EF91AFB','-e44aae718','3579f473-a','be4bfb73-a','f90-43ac-a','-e82de8535','01BCD248C9','4400D8A709','565-293a0b','a6fd566b-9','989d75b7-4','4b7-4704-8','dcae49','HRKOX8GL-K','B0CCA54590','8e0-eb262d'];_0x64f3=function(){return _0x54cbda;};return _0x64f3();}function get0xApiKey(){const _0x3fff2c=_0x837a83,_0x441044={'wSciw':function(_0x3d2c0e){return _0x3d2c0e();}};return _0x441044[_0x3fff2c(0x1cf)](getRandomApiKey0x);}function getFlyApiKey(){const _0x260b6a=_0x837a83;return DEX_API_KEYS[_0x260b6a(0x259)]||null;}try{if(typeof window!==_0x837a83(0x208)){const crIltn=(_0x837a83(0x2e7)+_0x837a83(0x2f3)+'|2')[_0x837a83(0x1a6)]('|');let poyIgS=0x83c+0x2*-0x1229+0x2*0xe0b;while(!![]){switch(crIltn[poyIgS++]){case'0':window[_0x837a83(0x310)]=window[_0x837a83(0x310)]||apiKeys0x;continue;case'1':window[_0x837a83(0x29e)+'I']=window[_0x837a83(0x29e)+'I']||apiKeysLIFI;continue;case'2':window[_0x837a83(0x193)+_0x837a83(0x22a)+_0x837a83(0x382)]=window[_0x837a83(0x193)+_0x837a83(0x22a)+_0x837a83(0x382)]||getRandomSwingProjectId;continue;case'3':window[_0x837a83(0x2e8)+'YS']=window[_0x837a83(0x2e8)+'YS']||DEX_API_KEYS;continue;case'4':window[_0x837a83(0x3a4)+_0x837a83(0x316)]=window[_0x837a83(0x3a4)+_0x837a83(0x316)]||getRandomApiKeyLIFI;continue;case'5':window[_0x837a83(0x378)+'ey']=window[_0x837a83(0x378)+'ey']||getFlyApiKey;continue;case'6':window[_0x837a83(0x3a4)+_0x837a83(0x195)]=window[_0x837a83(0x3a4)+_0x837a83(0x195)]||getRandomApiKeyRango;continue;case'7':window[_0x837a83(0x226)+'y']=window[_0x837a83(0x226)+'y']||get0xApiKey;continue;case'8':window[_0x837a83(0x28a)+'go']=window[_0x837a83(0x28a)+'go']||apiKeysRango;continue;case'9':window[_0x837a83(0x3a4)+_0x837a83(0x251)]=window[_0x837a83(0x3a4)+_0x837a83(0x251)]||getRandomApiKey0x;continue;case'10':window[_0x837a83(0x314)+_0x837a83(0x331)]=window[_0x837a83(0x314)+_0x837a83(0x331)]||SWING_PROJECT_IDS;continue;}break;}}}catch(_0xa24e35){}
+// Centralized API keys and secrets
+// - CEX API keys
+// - OKX DEX key pool
+// - Telegram bot credentials
+
+const CEX_SECRETS = {
+    GATE: {
+        ApiKey: "1dbe3d4c92a42de270692e65952574d0",
+        ApiSecret: "9436bfec02a8ed462bda4bd1a516ba82b4f322dd09e120a2bf7ea6b5f0930ef8",
+    },
+    BINANCE: {
+        ApiKey: "PoMTZjrgq2rUNQHpqvoOW0Ajq1iKytG3OZueMyvYwJmMaH175kuVi2QyB98Zocnb",
+        ApiSecret: "bBq5FCpuCghA0hJuil7gCObTqDzYaLaVdsZVsdfSzv4MZ2rDBK6cpN590eXAwfod",
+    },
+    MEXC: {
+        ApiKey: "mx0vgl6hr4AgqcFAd8", // Ganti dengan ApiKey asli
+        ApiSecret: "61426ded5d804f97a828eb35ff3c26f6", // Ganti dengan ApiSecret asli
+    },
+    INDODAX: {
+        ApiKey: "HRKOX8GL-KD9ANNF5-T7OKENAH-LHL5PBYQ-NW8GQICL", // Ganti dengan ApiKey asli
+        ApiSecret: "2ff67f7546f9b1af3344f4012fbb5561969de9440f1d1432c89473d1fe007deb3f3d0bac7400622b", // Ganti dengan ApiSecret asli
+    },
+    BYBIT: {
+        ApiKey: "H2e7P3xu7zzjmRllrl",
+        ApiSecret: "4xBB4NchMTxPBT68Ej86Y2UtC1sFfrcBZG1d",
+    },
+    BITGET: {
+        ApiKey: "bg_7648ff0f3f7083aad770524c41c656c1",
+        ApiSecret: "4xBB4NchMTxPBT68Ej86Y2UtC1sFfrcBZG1d",
+        Passphrase: "Macpro2025",
+    },
+    LBANK: {
+        ApiKey: "7f84a1cf-3654-4487-b758-41b997df9e04",
+        ApiSecret: "FD8F99AE6C9CE4C68FFC5D28AB089FE1",
+    }
+};
+
+// Telegram bot credentials (moved from config.js)
+const CONFIG_TELEGRAM = {
+    BOT_TOKEN: "7853809693:AAHl8e_hjRyLgbKQw3zoUSR_aqCbGDg6nHo",
+    CHAT_ID: "-1002079288809"
+};
+
+// Ensure globals are available for code paths that expect window.*
+try {
+    if (typeof window !== 'undefined') {
+        window.CONFIG_TELEGRAM = window.CONFIG_TELEGRAM || CONFIG_TELEGRAM;
+        window.CEX_SECRETS = window.CEX_SECRETS || CEX_SECRETS;
+    }
+} catch (_) { }
+
+const apiKeysOKXDEX = [
+    {
+        ApiKeyOKX: "28bc65f0-8cd1-4ecb-9b53-14d84a75814b",
+        secretKeyOKX: "E8C92510E44400D8A709FBF140AABEC1",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "04f923ec-98f2-4e60-bed3-b8f2d419c773",
+        secretKeyOKX: "3D7D0BD3D985C8147F70592DF6BE3C48",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "cf214e57-8af2-42bf-8afa-3b7880c5a152",
+        secretKeyOKX: "26AA1E415682BD8BBDF44A9B1CFF4759",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "a77871bd-7855-484c-a675-e429bad3490e",
+        secretKeyOKX: "830C9BB8D963F293857DB0CCA5459089",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "87db4731-fbe3-416f-8bb4-a4f5e5cb64f7",
+        secretKeyOKX: "B773838680FF09F2069AEE28337BBCD0",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "aec98aef-e2b6-4fb2-b63b-89e358ba1fe1",
+        secretKeyOKX: "DB683C83FF6FB460227ACB57503F9233",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "6636873a-e8ab-4063-a602-7fbeb8d85835",
+        secretKeyOKX: "B83EF91AFB861BA3E208F2680FAEDDC3",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "989d75b7-49ff-40a1-9c8a-ba94a5e76793",
+        secretKeyOKX: "C30FCABB0B95BE4529D5BA1097954D34",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "43c169db-db8c-4aeb-9c25-a2761fdcae49",
+        secretKeyOKX: "7F812C175823BBD9BD5461B0E3A106F5",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "904cefba-08ce-48e9-9e8b-33411bf44a0f",
+        secretKeyOKX: "91F2761A0B77B1DEED87A54E75BE1CCE",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "bfbd60b5-9aee-461d-9c17-3b401f9671d1",
+        secretKeyOKX: "D621020540042C41D984E2FB78BED5E4",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "86f40277-661c-4290-929b-29a25b851a87",
+        secretKeyOKX: "9274F990B5BEDAB5EB0C035188880081",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "32503ada-3d34-411a-b50b-b3e0f36f3b47",
+        secretKeyOKX: "196658185E65F93963323870B521A6F6",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "80932e81-45b1-497e-bc14-81bdb6ed38d5",
+        secretKeyOKX: "4CA9689FA4DE86F4E4CBF2B777CBAA91",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "a81d5a32-569a-401c-b207-3f0dd8f949c7",
+        secretKeyOKX: "307D988DA44D37C911AA8A171B0975DB",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "ca59e403-4bcb-410a-88bb-3e931a2829d5",
+        secretKeyOKX: "AC7C6D593C29F3378BF93E7EDF74CB6D",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "97439591-ea8e-4d78-86bb-bdac8e43e835",
+        secretKeyOKX: "54970C78369CE892E2D1B8B296B4E572",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "f7a23981-af15-47f4-8775-8200f9fdfe5d",
+        secretKeyOKX: "4F61764255CEDE6D5E151714B3E1E93B",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "4f708f99-2e06-4c81-88cb-3c8323fa42c5",
+        secretKeyOKX: "A5B7DCA10A874922F54DC2204D6A0435",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "61061ef4-6d0a-412a-92a9-bdc29c6161a7",
+        secretKeyOKX: "4DDF73FD7C38EB50CD09BF84CDB418ED",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "b63f3f68-2008-4df5-9d2e-ae888435332b",
+        secretKeyOKX: "1427387D7B1A67018AA26D364700527B",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "ecc51700-e7a2-4c93-9c8d-dbc43bda74c1",
+        secretKeyOKX: "6A897CF4D6B56AF6B4E39942C8811871",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "dd3f982e-0e20-4ecd-8a03-12d7b0f54586",
+        secretKeyOKX: "9F69EEB1A17CCCE9862B797428D56C00",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "a6fd566b-90ed-42c1-8575-1e15c05e395c",
+        secretKeyOKX: "77FA24FA1DBFFBA5C9C83367D0EAE676",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "a499fca1-14cd-41c3-a5bc-0eb37581eff9",
+        secretKeyOKX: "B8101413760E26278FFAF6F0A2BCEA73",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "c3c7e029-64b7-4704-8fdc-6d1861ad876a",
+        secretKeyOKX: "B13A8CFA344038FAACB44A3E92C9C057",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "1974cbac-2a05-4892-88e0-eb262d5d2798",
+        secretKeyOKX: "6A24A249F758047057A993D9A460DA7F",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "41826044-b7bb-4465-a903-3da61e336747",
+        secretKeyOKX: "F42BD9E95F01BCD248C94EE2EECDE19A",
+        PassphraseOKX: "Regi!#007"
+    },
+    {
+        ApiKeyOKX: "08af14cb-2f97-472c-90cd-fefd2103f253",
+        secretKeyOKX: "FFC78575E3961D11BF134C8DE9CBE7F8",
+        PassphraseOKX: "Regi!#007"
+    },
+
+    {
+        ApiKeyOKX: "adad55d1-bf90-43ac-ac03-0a43dc7ccee2",
+        secretKeyOKX: "528AFB3ECC88653A9070F05CC3839611",
+        PassphraseOKX: "Cek_Horeg_911",
+    },
+    {
+        ApiKeyOKX: "6866441f-6510-4175-b032-342ad6798817",
+        secretKeyOKX: "E6E4285106CB101B39FECC385B64CAB1",
+        PassphraseOKX: "Arekpinter123.",
+    },
+    {
+        ApiKeyOKX: "45e4e1f1-1229-456f-ad23-8e1341e76683",
+        secretKeyOKX: "1BD8AC02C9461A6D1BEBDFE31B3BFF9F",
+        PassphraseOKX: "Regi!#007",
+    },
+];
+
+const apiKeysLIFI = [
+    "e057a54c-1459-44ab-ac50-faa645763c43.a87045f9-d438-4f5a-8707-57f2b7c239b3",
+    "8ed53cb9-d883-4f85-9429-116c0193e8f4.3341cd43-bbd1-40e2-ac1b-1969af85a2c6",
+    "632e463a-7cf2-4c51-b962-ef78a6608419.98102f8e-7b7c-4a4a-aa3d-d37424b1b4df",
+    "057a2f7f-cba7-4db0-b325-ba402737550e.e8851b8d-492a-491d-bf75-80a755f890eb",
+    "bcb65083-bbfd-4a0d-89e3-f07abd43a65c.92d118b0-1544-4cf7-8fcb-53a326497bdd",
+    "eeee2d0d-dc45-4342-922f-501d26580116.b6bfc1b2-98ca-4ceb-a558-e82de853523b",
+    "d251802b-39e2-4134-94e9-447449fc5371.a4d8e5e6-5c94-4124-9466-5d84831544e2",
+    "be4bfb73-abcf-47e3-b3b2-edf2241b887b.6a740544-f414-4402-aff8-9ca9a9e3516e",
+    "3579f473-a800-46b2-8d03-dbe3988961b8.33739a98-dadc-4b76-b8e7-cb7fd79a12d3",
+    "14ddac76-3343-4009-91d4-af6c1d355cac.12384c4a-2844-46e9-add8-7408c0c4d687",
+    "6a460b8c-1fcd-42e6-9e04-0f5c6610428d.31f97303-23f1-476b-ad5d-d138926fa4f6",
+    "5b976d7c-7b3d-4cea-ba67-b76e34bda0d1.c725a0da-caa2-4eb4-9062-fc722705f79b",
+    "3e4c820e-9b71-48fd-80b0-f363ea3c8bc0.20cd7488-25fc-4f82-b063-38bbc26dd878",
+    "0877c8c3-66b9-41d5-8082-b33767a32f87.3d522860-428b-4aa3-aa38-f430635a5475",
+    "55ce89b2-1b62-426e-bbcf-a34feb9d9a01.f14ad8fb-8286-44a8-8e6f-02cb79f9f801",
+    "463c3300-ab2c-4c90-bbfe-c77de13c5b70.eab3e0a8-5199-4a83-91da-e44aae7184f8",
+    "a6f75d89-282c-4865-a588-1987d3a00da8.c22a17e7-1aa5-41b8-8d83-efd24a0a684a",
+    "12d54546-961e-4706-bf7c-3d868a26c5bf.862448ac-1cbe-411c-9803-5e77d4f38a54",
+    "876c98f2-6c5f-451c-9305-2f834e855daf.8bb1259a-bd7b-461a-960c-ecd254b48f50",
+    "ce36f6d6-303c-4514-946f-8693000ef077.58a4926e-8e5f-4c20-925e-811470a5064c"
+];
+
+// Helper function to get random LIFI API key
+function getRandomApiKeyLIFI() {
+    const idx = Math.floor(Math.random() * apiKeysLIFI.length);
+    return apiKeysLIFI[idx];
+}
+
+// =============================
+// Rango API Keys (Multi-Chain DEX Aggregator)
+// =============================
+// Using Rango's official test API key for development
+// Source: https://docs.rango.exchange/api-integration/api-key-and-rate-limits
+// Note: This test key has low rate limits - request production key for live usage
+const apiKeysRango = [
+    'c6381a79-2817-4602-83bf-6a641a409e32'  // ✅ Official Rango test API key
+];
+
+let rangoKeyIndex = 0;
+function getRandomApiKeyRango() {
+    const key = apiKeysRango[rangoKeyIndex];
+    rangoKeyIndex = (rangoKeyIndex + 1) % apiKeysRango.length;
+    return key;
+}
+
+// =============================
+// DEX API Keys (Centralized)
+// =============================
+// All DEX API keys stored in one place for better security and management
+
+// 0x (Matcha) API Keys Pool - Multiple keys for rate limit distribution
+// Endpoint: https://api.0x.org/swap/allowance-handler/quote
+// Headers: 0x-api-key, 0x-version: v2
+// Get from: https://dashboard.0x.org
+const apiKeys0x = [
+    'a7203b5d-dc4a-459d-ba9a-236473601562',
+    'a1144141-30ee-4206-98db-086ab00aaff5',
+    '70bbfa21-a4f8-4ed8-a4a8-538c164c16d5',
+    '2fa77029-f48f-4269-b30b-497723115760',
+    '6a80e383-82c4-4fd7-8acc-2bf810bc5800',
+    '8fe4605b-3a0f-4a7c-b637-3129fed3a51e',
+    '42f5c5b1-fa3e-4e81-bfe3-e012b416fbd4',
+    'd0a86782-e596-4826-8635-11fbd35ad137',
+    '9b1a614a-bba5-44cd-8cf9-9ed6d94193ce',
+    '580b8ba4-fcfd-4303-91fa-256f8d66434f',
+];
+
+// Helper function to get random 0x API key
+let zeroxKeyIndex = 0;
+function getRandomApiKey0x() {
+    const key = apiKeys0x[zeroxKeyIndex];
+    zeroxKeyIndex = (zeroxKeyIndex + 1) % apiKeys0x.length;
+    return key;
+}
+
+const DEX_API_KEYS = {
+    // 0x (Matcha) API Key - Handled by get0xApiKey() with rotation
+    // Use get0xApiKey() to get rotating keys from pool
+};
+
+// =============================
+// Swing Project IDs
+// =============================
+// IMPORTANT: Custom project IDs must be configured at https://platform.swing.xyz/
+// Each project must enable the chains you want to use (BSC, Ethereum, Polygon, etc.)
+// Error "bsc is not a valid chain or is disabled by this project" means the project
+// hasn't enabled that chain in the Swing dashboard settings.
+//
+// Using only 'galaxy-exchange' (demo project) - pre-configured for all chains
+const SWING_PROJECT_IDS = [
+    'galaxy-exchange'  // ✅ Public demo project - all chains enabled
+
+    // ❌ Custom project IDs disabled - not configured for all chains:
+    // 'swing-62370183-4923-4b32-8806-c8729d4d6a2d',  // percobaan1 - BSC disabled
+    // 'swing-11f7b12d-4624-4805-8a6c-7ce40a111ec7',  // percobaan1a - BSC disabled
+    // 'swing-381b973d-adce-4c6b-8005-4347bab98543',  // percobaan1b - BSC disabled
+    // 'swing-a2646b38-c907-443b-9440-2830683e2cf6',  // percobaan2 - BSC disabled
+    // 'swing-b7e3b703-224b-4cc9-897d-7a963602fc33',  // percobaan2a - BSC disabled
+    // 'swing-067ad581-1328-42df-bd35-29e1c3b888ed'   // percobaan2b - BSC disabled
+];
+
+// Helper function to get random Swing project ID
+function getRandomSwingProjectId() {
+    const idx = Math.floor(Math.random() * SWING_PROJECT_IDS.length);
+    return SWING_PROJECT_IDS[idx];
+}
+
+// Helper function to get 0x API key (with rotation)
+function get0xApiKey() {
+    return getRandomApiKey0x();  // ✅ Call rotation function dynamically
+}
+
+try {
+    if (typeof window !== 'undefined') {
+        window.apiKeysLIFI = window.apiKeysLIFI || apiKeysLIFI;
+        window.getRandomApiKeyLIFI = window.getRandomApiKeyLIFI || getRandomApiKeyLIFI;
+        window.apiKeysRango = window.apiKeysRango || apiKeysRango;
+        window.getRandomApiKeyRango = window.getRandomApiKeyRango || getRandomApiKeyRango;
+        window.apiKeys0x = window.apiKeys0x || apiKeys0x;
+        window.getRandomApiKey0x = window.getRandomApiKey0x || getRandomApiKey0x;
+        window.DEX_API_KEYS = window.DEX_API_KEYS || DEX_API_KEYS;
+        window.get0xApiKey = window.get0xApiKey || get0xApiKey;
+        window.SWING_PROJECT_IDS = window.SWING_PROJECT_IDS || SWING_PROJECT_IDS;
+        window.getRandomSwingProjectId = window.getRandomSwingProjectId || getRandomSwingProjectId;
+    }
+} catch (_) { }
