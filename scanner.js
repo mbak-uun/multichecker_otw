@@ -892,7 +892,27 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                 setDexErrorBackground(cell);
                                 statusSpan.classList.remove('uk-text-warning');
                                 statusSpan.classList.add('uk-text-danger');
-                                statusSpan.innerHTML = `<span class=\"uk-label uk-label-warning\">TIMEOUT</span>`;
+
+                                // ✅ Generate DEX link for manual check
+                                let dexLink = '#';
+                                try {
+                                    if (typeof generateDexLink === 'function') {
+                                        const scIn = isKiri ? token.sc_in : token.sc_out;
+                                        const scOut = isKiri ? token.sc_out : token.sc_in;
+                                        const codeChain = CONFIG_CHAINS[token.chain.toLowerCase()]?.Kode_Chain;
+                                        dexLink = generateDexLink(
+                                            dexName || dex,
+                                            token.chain,
+                                            codeChain,
+                                            isKiri ? token.symbol_in : token.symbol_out,
+                                            scIn,
+                                            isKiri ? token.symbol_out : token.symbol_in,
+                                            scOut
+                                        ) || '#';
+                                    }
+                                } catch (_) { }
+
+                                statusSpan.innerHTML = `<span class="uk-label uk-label-warning">TIMEOUT</span> <a href="${dexLink}" target="_blank" rel="noopener" class="uk-link-muted" title="Check swap manually on DEX" style="font-size:0.9em;">🔗</a>`;
                                 // REFACTORED: Tooltip menampilkan error dari fallback saja (bukan primary)
                                 // Message berisi error dari alternatif DEX
                                 if (message) {
@@ -925,7 +945,27 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                 setDexErrorBackground(cell);
                                 statusSpan.classList.remove('uk-text-warning');
                                 statusSpan.classList.add('uk-text-danger');
-                                statusSpan.innerHTML = `<span class=\"uk-label uk-label-danger\">ERROR</span>`;
+
+                                // ✅ Generate DEX link for manual check
+                                let dexLink = '#';
+                                try {
+                                    if (typeof generateDexLink === 'function') {
+                                        const scIn = isKiri ? token.sc_in : token.sc_out;
+                                        const scOut = isKiri ? token.sc_out : token.sc_in;
+                                        const codeChain = CONFIG_CHAINS[token.chain.toLowerCase()]?.Kode_Chain;
+                                        dexLink = generateDexLink(
+                                            dexName || dex,
+                                            token.chain,
+                                            codeChain,
+                                            isKiri ? token.symbol_in : token.symbol_out,
+                                            scIn,
+                                            isKiri ? token.symbol_out : token.symbol_in,
+                                            scOut
+                                        ) || '#';
+                                    }
+                                } catch (_) { }
+
+                                statusSpan.innerHTML = `<span class="uk-label uk-label-danger">ERROR</span> <a href="${dexLink}" target="_blank" rel="noopener" class="uk-link-muted" title="Check swap manually on DEX" style="font-size:0.9em;">🔗</a>`;
                                 if (message) {
                                     statusSpan.title = String(message);
                                     setCellTitleByEl(cell, String(message));

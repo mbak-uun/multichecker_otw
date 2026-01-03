@@ -1736,23 +1736,30 @@ function InfoSinyal(DEXPLUS, TokenPair, PNL, totalFee, cex, NameToken, NamePair,
       </a>
     </div>`;
 
-  // FIX: Cek apakah signal dengan ID ini sudah ada, jika sudah skip (prevent duplicate)
-  const dexLowerKey = String(DEXPLUS).toLowerCase();
+  // ✅ FIX: Alias mapping untuk menangani variasi nama DEX (0x <-> matcha)
+  const dexAliasMap = {
+    '0x': 'matcha',
+    'matcha': 'matcha'
+  };
+
+  const normalizedDex = String(DEXPLUS).toLowerCase();
+  const dexLowerKey = dexAliasMap[normalizedDex] || normalizedDex;
   const $container = $("#sinyal" + dexLowerKey);
   const existingSignal = document.getElementById(signalItemId);
 
   // ⚠️ CRITICAL FIX: Check if signal card container exists
   if (!$container || $container.length === 0) {
-    console.warn(`❌ [InfoSinyal] Signal card container NOT FOUND for DEX: "${DEXPLUS}" (looking for #sinyal${dexLowerKey})`);
-    console.warn(`   Token: ${NameToken}->${NamePair}, CEX: ${cex}, PNL: ${Number(PNL).toFixed(2)}, Chain: ${nameChain}`);
-    console.warn(`   Available signal cards:`, Array.from(document.querySelectorAll('[id^="sinyal"]')).map(el => el.id));
+    console.warn(`❌ [InfoSinyal] Signal card container NOT FOUND for DEX: "${DEXPLUS}"`);
+    console.warn(`   ∟ Original: ${DEXPLUS}, Normalized: ${dexLowerKey}, Container: #sinyal${dexLowerKey}`);
+    console.warn(`   ∟ Token: ${NameToken}->${NamePair}, CEX: ${cex}, PNL: ${Number(PNL).toFixed(2)}, Chain: ${nameChain}`);
+    console.warn(`   ∟ Available:`, Array.from(document.querySelectorAll('[id^="sinyal"]')).map(el => el.id));
     return; // Exit early if container doesn't exist
   }
 
   if (!existingSignal) {
     // Signal belum ada, tambahkan
     $container.append(sLink);
-    console.log(`✅ [InfoSinyal] Signal added to DEX: ${DEXPLUS}, Token: ${NameToken}->${NamePair}, PNL: ${Number(PNL).toFixed(2)}`);
+    console.log(`✅ [InfoSinyal] Signal added to DEX: ${DEXPLUS} (normalized: ${dexLowerKey}), Token: ${NameToken}->${NamePair}, PNL: ${Number(PNL).toFixed(2)}`);
   } else {
     // Signal sudah ada, update saja (optional: bisa skip update jika tidak perlu)
     // Untuk sekarang kita skip agar tidak duplicate

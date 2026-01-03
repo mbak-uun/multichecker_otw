@@ -179,7 +179,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://bscscan.com/tx/${hash}`
             }
         },
-        DEXS: ["odos", "velora", "matcha", "kyber", "sushi", "lifi", "swing", "okx"],
+        DEXS: ["odos", "velora", "matcha", "kyber", "sushi", "lifi", "okx", "1inch"],
         WALLET_CEX: {
             GATE: { address: '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX: 'BSC' },
             BINANCE: { address: '0x8894E0a0c962CB723c1976a4421c95949bE2D4E3', address2: '0xe2fc31F816A9b94326492132018C3aEcC4a93aE1', chainCEX: 'BSC' },
@@ -206,7 +206,7 @@ const CONFIG_CHAINS = {
         DATAJSON: 'https://monitoring-koin.vercel.app/JSON_KOIN/POLYGON.json',
         BaseFEEDEX: "MATICUSDT", // Corrected from POLUSDT
         GASLIMIT: 80000,
-        DEXS: ["odos", "velora", "matcha", "kyber", "sushi", "lifi", "swing", "okx"],
+        DEXS: ["odos", "velora", "matcha", "kyber", "sushi", "lifi", "okx", "1inch"],
         LINKS: {
             explorer: {
                 token: (address) => `https://polygonscan.com/token/${address}`,
@@ -240,7 +240,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://arbiscan.io/tx/${hash}`
             }
         },
-        DEXS: ["odos", "velora", "matcha", "kyber", "sushi", "lifi", "swing", "okx"],
+        DEXS: ["odos", "velora", "matcha", "kyber", "sushi", "lifi", "okx", "1inch"],
         WALLET_CEX: {
             GATE: { address: '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX: 'ARBITRUM' },
             BINANCE: { address: '0x290275e3db66394C52272398959845170E4DCb88', address2: '0xe7804c37c13166fF0b37F5aE0BB07A3aEbb6e245', chainCEX: 'ARBITRUM' },
@@ -265,7 +265,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://etherscan.io/tx/${hash}`
             }
         },
-        DEXS: ["odos", "velora", "matcha", "kyber", "sushi", "lifi", "swing", "okx"],
+        DEXS: ["odos", "velora", "matcha", "kyber", "sushi", "lifi", "okx", "1inch"],
         WALLET_CEX: {
             GATE: { address: '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX: 'ETH' },
             BINANCE: { address: '0xDFd5293D8e347dFe59E90eFd55b2956a1343963d', address2: '0x28C6c06298d514Db089934071355E5743bf21d60', address3: '0x21a31Ee1afC51d94C2eFcCAa2092aD1028285549', chainCEX: 'ETH' },
@@ -293,7 +293,7 @@ const CONFIG_CHAINS = {
                 tx: (hash) => `https://basescan.org/tx/${hash}`
             }
         },
-        DEXS: ["odos", "velora", "matcha", "kyber", "sushi", "lifi", "swing", "okx"],
+        DEXS: ["odos", "velora", "matcha", "kyber", "sushi", "lifi", "okx", "1inch"],
         WALLET_CEX: {
             GATE: { address: '0x0D0707963952f2fBA59dD06f2b425ace40b492Fe', chainCEX: 'BASE' },
             BINANCE: { address: '0xDFd5293D8e347dFe59E90eFd55b2956a1343963d', address2: '0x28C6c06298d514Db089934071355E5743bf21d60', chainCEX: 'BASE' },
@@ -368,7 +368,8 @@ const CONFIG_UI = {
         { key: 'kyber', label: 'KyberSwap', badgeClass: 'bg-kyberswap', fallbackSlug: 'kyberswap' },
         { key: 'sushi', label: 'SUSHI', badgeClass: 'bg-sushi', fallbackSlug: 'sushi' },
         { key: 'lifi', label: 'LIFI', badgeClass: 'bg-lifi', fallbackSlug: 'lifi' },
-        { key: 'swing', label: 'Swing', badgeClass: 'bg-swing', fallbackSlug: 'swing' },
+        { key: '1inch', label: '1inch', badgeClass: 'bg-1inch', fallbackSlug: '1inch' },
+        //   { key: 'swing', label: 'Swing', badgeClass: 'bg-swing', fallbackSlug: 'swing' },
         { key: 'jupiter', label: 'Jupiter', badgeClass: 'bg-jupiter', fallbackSlug: 'jupiter' },
         { key: 'okx', label: 'OKX', badgeClass: 'bg-okx', fallbackSlug: 'okx' }
     ],
@@ -678,13 +679,9 @@ const CONFIG_DEXS = {
             primary: {
                 tokentopair: 'sushi',       // CEX→DEX: SushiSwap API v7
                 pairtotoken: 'sushi'        // DEX→CEX: SushiSwap API v7
-            },
-            alternative: {
-                tokentopair: 'swoop',   // Fallback CEX→DEX: SWOOP aggregator
-                pairtotoken: 'swoop'    // Fallback DEX→CEX: SWOOP aggregator
             }
         },
-        allowFallback: true,
+        allowFallback: false,
     },
     matcha: {
         label: 'Matcha',
@@ -721,15 +718,15 @@ const CONFIG_DEXS = {
         // OPTIMIZED STRATEGY: Diversifikasi endpoint untuk load balancing & reliability
         // - KIRI (CEX→DEX): Direct ODOS v3 API (official, latest version)
         // - KANAN (DEX→CEX): Hinkal proxy (faster, 1-2s response time)
-        // - Alternative: SWOOP (more stable than DZAP for ODOS family)
+        // - Alternative: LIFI-ODOS (LIFI API filtered for ODOS only, single-DEX format)
         fetchdex: {
             primary: {
                 tokentopair: 'odos3',        // CEX→DEX (KIRI): Official ODOS v3 API
                 pairtotoken: 'hinkal-odos'   // DEX→CEX (KANAN): Hinkal proxy (faster)
             },
             alternative: {
-                tokentopair: 'swoop',        // Fallback CEX→DEX: SWOOP aggregator
-                pairtotoken: 'swoop'         // Fallback DEX→CEX: SWOOP aggregator
+                tokentopair: 'lifi-odos',    // Fallback CEX→DEX: LIFI filtered for ODOS
+                pairtotoken: 'lifi-odos'     // Fallback DEX→CEX: LIFI filtered for ODOS
             }
         },
         allowFallback: true,
@@ -737,7 +734,7 @@ const CONFIG_DEXS = {
         // 1. Diversified endpoints (reduce single point of failure)
         // 2. Official v3 API for tokentopair (latest features)
         // 3. Faster Hinkal proxy for pairtotoken (1-2s faster)
-        // 4. SWOOP fallback (more reliable for ODOS than DZAP)
+        // 4. LIFI-ODOS fallback (uses LIFI API but returns single-DEX style for ODOS)
     },
     // ============ DISABLED DEXes ============
     okx: {
@@ -753,18 +750,18 @@ const CONFIG_DEXS = {
         },
         allowFallback: true, // ✅ Enable fallback to SWOOP
     },
-    // '1inch': {
-    //     label: '1inch',
-    //     badgeClass: 'bg-1inch',
-    //     disabled: true, // ⚠️ DISABLED - Disabled by user request
-    //     warna: "#06109bff",
-    //     builder: ({ chainCode, NameToken, NamePair }) => `https://1inch.com/swap?src=${chainCode}:${NameToken}&dst=${chainCode}:${NamePair}`,
-    //     fetchdex: {
-    //         primary: { tokentopair: 'hinkal-1inch', pairtotoken: 'hinkal-1inch' },
-    //         alternative: { tokentopair: 'zero-1inch', pairtotoken: 'zero-1inch' }
-    //     },
-    //     allowFallback: true, // Enable fallback ke alternative
-    // },
+    '1inch': {
+        label: '1inch',
+        badgeClass: 'bg-1inch',
+        disabled: false, // ✅ ENABLED - Activated for EVM chains
+        warna: "#ea0a0aff",
+        builder: ({ chainCode, NameToken, NamePair }) => `https://1inch.com/swap?src=${chainCode}:${NameToken}&dst=${chainCode}:${NamePair}`,
+        fetchdex: {
+            primary: { tokentopair: 'hinkal-1inch', pairtotoken: 'hinkal-1inch' },
+            alternative: { tokentopair: 'zero-1inch', pairtotoken: 'zero-1inch' }
+        },
+        allowFallback: true, // Enable fallback ke alternative
+    },
     /*
     rubic: {
         label: 'Rubic',
@@ -940,40 +937,40 @@ const CONFIG_DEXS = {
         allowFallback: false // Kamino is Solana-specific multi-DEX aggregator
     },
 
-    swing: {
-        label: 'Swing',
-        badgeClass: 'bg-swing',
-        proxy: true,
-        warna: "#024f0eff", // Purple for Swing
-        isMultiDex: true, // ⭐ Multi-DEX aggregator like LIFI/DZAP
-        // ✅ Project ID managed in secrets.js (using demo 'galaxy-exchange')
-        // Custom project IDs require chain configuration at https://platform.swing.xyz/
-        builder: ({ chainCode, chainName, tokenAddress, pairAddress }) => {
-            // Swing uses chain slugs instead of chain IDs
-            const chainSlugMap = {
-                1: 'ethereum',
-                56: 'bsc',
-                137: 'polygon',
-                42161: 'arbitrum',
-                10: 'optimism',
-                8453: 'base',
-                43114: 'avalanche'
-            };
-            const chainSlug = chainSlugMap[chainCode] || String(chainName || '').toLowerCase();
+    // swing: {
+    //     label: 'Swing',
+    //     badgeClass: 'bg-swing',
+    //     proxy: true,
+    //     warna: "#024f0eff", // Purple for Swing
+    //     isMultiDex: true, // ⭐ Multi-DEX aggregator like LIFI/DZAP
+    //     // ✅ Project ID managed in secrets.js (using demo 'galaxy-exchange')
+    //     // Custom project IDs require chain configuration at https://platform.swing.xyz/
+    //     builder: ({ chainCode, chainName, tokenAddress, pairAddress }) => {
+    //         // Swing uses chain slugs instead of chain IDs
+    //         const chainSlugMap = {
+    //             1: 'ethereum',
+    //             56: 'bsc',
+    //             137: 'polygon',
+    //             42161: 'arbitrum',
+    //             10: 'optimism',
+    //             8453: 'base',
+    //             43114: 'avalanche'
+    //         };
+    //         const chainSlug = chainSlugMap[chainCode] || String(chainName || '').toLowerCase();
 
-            // ✅ FIXED: Use proper Swing URL format with query params
-            // Format: ?fromChain={chain}&fromToken={scAddress}&toChain={chain}&toToken={scAddress}&view=swap
-            return `https://app.swing.xyz/?fromChain=${chainSlug}&fromToken=${tokenAddress}&toChain=${chainSlug}&toToken=${pairAddress}&view=swap`;
-        },
-        fetchdex: {
-            primary: {
-                tokentopair: 'swing',    // CEX→DEX: Swing multi-DEX aggregator
-                pairtotoken: 'swing'     // DEX→CEX: Swing multi-DEX aggregator (kedua arah)
-            }
-        },
-        allowFallback: false, // Swing is already a multi-DEX aggregator
-        maxProviders: 2 // Display top 2 routes (sesuai config)
-    },
+    //         // ✅ FIXED: Use proper Swing URL format with query params
+    //         // Format: ?fromChain={chain}&fromToken={scAddress}&toChain={chain}&toToken={scAddress}&view=swap
+    //         return `https://app.swing.xyz/?fromChain=${chainSlug}&fromToken=${tokenAddress}&toChain=${chainSlug}&toToken=${pairAddress}&view=swap`;
+    //     },
+    //     fetchdex: {
+    //         primary: {
+    //             tokentopair: 'swing',    // CEX→DEX: Swing multi-DEX aggregator
+    //             pairtotoken: 'swing'     // DEX→CEX: Swing multi-DEX aggregator (kedua arah)
+    //         }
+    //     },
+    //     allowFallback: false, // Swing is already a multi-DEX aggregator
+    //     maxProviders: 2 // Display top 2 routes (sesuai config)
+    // },
 };
 
 try {

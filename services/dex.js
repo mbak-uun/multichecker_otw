@@ -1128,6 +1128,89 @@
   };
 
   // =============================
+  // LIFI-ODOS Strategy - LIFI filtered for ODOS only (single-DEX style)
+  // =============================
+  // Digunakan sebagai alternative untuk ODOS - memanggil LIFI API dengan filter khusus ODOS
+  // Response dalam format single-DEX (bukan multi-provider)
+  dexStrategies['lifi-odos'] = {
+    buildRequest: ({ codeChain, sc_input, sc_output, sc_input_in, sc_output_in, amount_in_big, SavedSettingData, chainName }) => {
+      const apiKey = (typeof getRandomApiKeyLIFI === 'function') ? getRandomApiKeyLIFI() : '';
+
+      const chainConfig = (root.CONFIG_CHAINS || {})[String(chainName || '').toLowerCase()];
+      const lifiChainId = chainConfig?.LIFI_CHAIN_ID || Number(codeChain);
+      const isSolana = String(chainName || '').toLowerCase() === 'solana';
+
+      const fromToken = isSolana ? sc_input_in : sc_input.toLowerCase();
+      const toToken = isSolana ? sc_output_in : sc_output.toLowerCase();
+
+      const defaultEvmAddr = '0x0000000000000000000000000000000000000000';
+      const defaultSolAddr = 'So11111111111111111111111111111111111111112';
+      const userAddr = isSolana
+        ? (SavedSettingData?.walletSolana || defaultSolAddr)
+        : (SavedSettingData?.walletMeta || defaultEvmAddr);
+
+      // ✅ FILTER: Hanya ODOS provider
+      const options = {
+        slippage: 0.03,
+        order: 'RECOMMENDED',
+        allowSwitchChain: false,
+        exchanges: {
+          allow: ['odos']  // Filter khusus ODOS saja
+        }
+      };
+
+      const body = {
+        fromChainId: lifiChainId,
+        toChainId: lifiChainId,
+        fromTokenAddress: fromToken,
+        toTokenAddress: toToken,
+        fromAmount: amount_in_big.toString(),
+        fromAddress: userAddr,
+        toAddress: userAddr,
+        options: options
+      };
+
+      return {
+        url: 'https://li.quest/v1/advanced/routes',
+        method: 'POST',
+        data: JSON.stringify(body),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-lifi-api-key': apiKey
+        }
+      };
+    },
+    parseResponse: (response, { des_output, chainName }) => {
+      // Parse LIFI response dengan filter ODOS - return single-DEX style (bukan multi-provider)
+      const routes = response?.routes;
+
+      if (!routes || !Array.isArray(routes) || routes.length === 0) {
+        throw new Error("LIFI-ODOS: No ODOS routes found");
+      }
+
+      // Ambil route terbaik (pertama)
+      const bestRoute = routes[0];
+      if (!bestRoute || !bestRoute.toAmount) {
+        throw new Error("LIFI-ODOS: Invalid route structure");
+      }
+
+      const amount_out = parseFloat(bestRoute.toAmount) / Math.pow(10, des_output);
+      const gasCostUsd = parseFloat(bestRoute.gasCostUSD || 0);
+      const FeeSwap = (Number.isFinite(gasCostUsd) && gasCostUsd > 0) ? gasCostUsd : getFeeSwap(chainName);
+
+      console.log(`[LIFI-ODOS] Using ODOS via LIFI: ${amount_out.toFixed(6)} output, gas: $${FeeSwap.toFixed(4)}`);
+
+      // Return format single-DEX (BUKAN multi-provider seperti LIFI biasa)
+      return {
+        amount_out: amount_out,
+        FeeSwap: FeeSwap,
+        dexTitle: 'ODOS',
+        routeTool: 'via LIFI'  // Indicator bahwa ini dari LIFI API
+      };
+    }
+  };
+
+  // =============================
   // SWING Strategy - Multi-DEX Aggregator (Top 3 Routes)
   // =============================
   dexStrategies.swing = {
