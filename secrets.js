@@ -269,16 +269,28 @@ function getRandomApiKeyRango() {
 // Headers: 0x-api-key, 0x-version: v2
 // Get from: https://dashboard.0x.org
 const apiKeys0x = [
-    'a7203b5d-dc4a-459d-ba9a-236473601562',
-    'a1144141-30ee-4206-98db-086ab00aaff5',
-    '70bbfa21-a4f8-4ed8-a4a8-538c164c16d5',
-    '2fa77029-f48f-4269-b30b-497723115760',
-    '6a80e383-82c4-4fd7-8acc-2bf810bc5800',
-    '8fe4605b-3a0f-4a7c-b637-3129fed3a51e',
-    '42f5c5b1-fa3e-4e81-bfe3-e012b416fbd4',
-    'd0a86782-e596-4826-8635-11fbd35ad137',
-    '9b1a614a-bba5-44cd-8cf9-9ed6d94193ce',
-    '580b8ba4-fcfd-4303-91fa-256f8d66434f',
+   // 'a7203b5d-dc4a-459d-ba9a-236473601562',
+   // 'a1144141-30ee-4206-98db-086ab00aaff5',
+   // '70bbfa21-a4f8-4ed8-a4a8-538c164c16d5',
+   // '2fa77029-f48f-4269-b30b-497723115760',
+   // '6a80e383-82c4-4fd7-8acc-2bf810bc5800',
+   // '8fe4605b-3a0f-4a7c-b637-3129fed3a51e',
+   // '42f5c5b1-fa3e-4e81-bfe3-e012b416fbd4',
+   // 'd0a86782-e596-4826-8635-11fbd35ad137',
+   // '9b1a614a-bba5-44cd-8cf9-9ed6d94193ce',
+  //  '580b8ba4-fcfd-4303-91fa-256f8d66434f',
+    'b52adb8e-aa3b-45ab-8341-dc27e006f945',
+'fb46960e-2bc2-4b64-a9a0-c02278a7ace6',
+'b51ebca4-6cb5-4eb3-8d8a-23052b770eca',
+'1acb6d53-00bc-496d-8d1e-31004b0cfdbb',
+'eb5c5b8b-0952-4012-add3-956702b5261e',
+'5c0037cf-d674-44d5-8890-2b049954b14f',
+'167fa150-9295-4f2b-a7f4-fc48d40a5ee3',
+'e112a25f-c671-47db-9ab2-630871bb4437',
+'429513b3-a305-4caf-a712-4b2d694176cc',
+'fbce1ee3-18f2-4550-8e28-28ad4cdfbee9',
+'a57447d9-46e4-452b-b593-5399179c43c0',
+'e15090b8-8438-42e5-ac3f-59b855cc2912'
 ];
 
 // Helper function to get random 0x API key
