@@ -2,7 +2,7 @@
 const CONFIG_APP = {
     APP: {
         NAME: "MARKETWATCH-DEV",
-        VERSION: "2026.01.14",
+        VERSION: "2026.01.15",
         SCAN_LIMIT: false,
         AUTORUN: true,
         AUTO_VOLUME: true,   // Set false untuk menyembunyikan & menonaktifkan fitur auto volume
@@ -827,11 +827,11 @@ const CONFIG_DEXS = {
         fetchdex: {
             primary: {
                 tokentopair: 'delta-matcha',   // CEX→DEX: 1Delta proxy (fast, free, no API key)
-                pairtotoken: 'matcha'          // DEX→CEX: Direct 0x API (requires API key)
+                pairtotoken: 'swoop-matcha'          // DEX→CEX: Direct 0x API (requires API key)
             },
-            secondary: {  // ← RENAMED from 'alternative'
+            alternative: {  // ← RENAMED from 'alternative'
                 tokentopair: 'matcha',   // CEX→DEX: SWOOP aggregator (8s timeout)
-                pairtotoken: 'swoop-matcha'    // DEX→CEX: SWOOP aggregator (backup)
+                pairtotoken: 'matcha'    // DEX→CEX: SWOOP aggregator (backup)
             }
         }
         // ✅ allowFallback removed - managed globally
