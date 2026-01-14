@@ -20,48 +20,48 @@
  * - flattenDataKoin: Flatten token data creating separate entry for each CEX
  */
 
-(function() {
+(function () {
     'use strict';
 
     // =================================================================================
     // SORTING HELPERS (symbol_in ASC/DESC) BASED ON IDB DATA
     // =================================================================================
-    function sortBySymbolIn(list, pref){
+    function sortBySymbolIn(list, pref) {
         const dir = (pref === 'Z') ? -1 : 1; // default ASC
-        return (Array.isArray(list) ? [...list] : []).sort((a,b)=>{
-            const A = String(a.symbol_in||'').toUpperCase();
-            const B = String(b.symbol_in||'').toUpperCase();
+        return (Array.isArray(list) ? [...list] : []).sort((a, b) => {
+            const A = String(a.symbol_in || '').toUpperCase();
+            const B = String(b.symbol_in || '').toUpperCase();
             if (A < B) return -1 * dir;
-            if (A > B) return  1 * dir;
+            if (A > B) return 1 * dir;
             return 0;
         });
     }
 
-    function getSortPrefForMulti(){ // REFACTORED
+    function getSortPrefForMulti() { // REFACTORED
         const f = getFromLocalStorage('FILTER_MULTICHAIN', null);
-        return (f && (f.sort==='A'||f.sort==='Z')) ? f.sort : 'A';
+        return (f && (f.sort === 'A' || f.sort === 'Z')) ? f.sort : 'A';
     }
-    function getSortPrefForChain(chain){ // REFACTORED
+    function getSortPrefForChain(chain) { // REFACTORED
         const key = `FILTER_${String(chain).toUpperCase()}`;
         const f = getFromLocalStorage(key, null);
-        return (f && (f.sort==='A'||f.sort==='Z')) ? f.sort : 'A';
+        return (f && (f.sort === 'A' || f.sort === 'Z')) ? f.sort : 'A';
     }
 
-    function getFlattenedSortedMulti(){
+    function getFlattenedSortedMulti() {
         const pref = getSortPrefForMulti();
         const tokens = getTokensMulti();
         const flat = flattenDataKoin(tokens);
         return sortBySymbolIn(flat, pref);
     }
 
-    function getFlattenedSortedChain(chain){
+    function getFlattenedSortedChain(chain) {
         const pref = getSortPrefForChain(chain);
         const tokens = getTokensChain(chain);
         const flat = flattenDataKoin(tokens);
         return sortBySymbolIn(flat, pref);
     }
 
-    function getTokensMulti(){
+    function getTokensMulti() {
         let t = getFromLocalStorage('TOKEN_MULTICHAIN', []);
         if (!Array.isArray(t)) return [];
         // Ensure every token has a stable non-empty id
@@ -79,7 +79,7 @@
         return fixed;
     }
 
-    function setTokensMulti(list){
+    function setTokensMulti(list) {
         const prev = getFromLocalStorage('TOKEN_MULTICHAIN', []);
         const arr = Array.isArray(list) ? list : [];
         saveToLocalStorage('TOKEN_MULTICHAIN', arr);
@@ -91,19 +91,26 @@
             const cex = Object.keys(window.CONFIG_CEX || {}).map(k => String(k).toUpperCase());
             const dex = Object.keys(window.CONFIG_DEXS || {}).map(k => String(k).toLowerCase());
             const existing = getFromLocalStorage('FILTER_MULTICHAIN', null);
-            const empty = !existing || ((existing.chains||[]).length===0 && (existing.cex||[]).length===0 && (existing.dex||[]).length===0);
-            if (empty) setFilterMulti({ chains, cex, dex });
+            // ✅ FIX: Check _filterInitialized flag to prevent overwriting user's filter settings
+            const alreadyInitialized = existing && existing._filterInitialized === true;
+            const empty = !existing || ((existing.chains || []).length === 0 && (existing.cex || []).length === 0 && (existing.dex || []).length === 0);
+            if (empty && !alreadyInitialized) {
+                try { if (window.SCAN_LOG_ENABLED) console.log('[TOKEN DEBUG] setTokensMulti: Auto-initializing filter (first time)'); } catch (_) { }
+                setFilterMulti({ chains, cex, dex });
+            } else {
+                try { if (window.SCAN_LOG_ENABLED) console.log('[TOKEN DEBUG] setTokensMulti: Skipping auto-init, filter already exists or initialized', { alreadyInitialized, empty }); } catch (_) { }
+            }
         }
     }
 
     // Async variants for explicit success/failure reporting (non-breaking: new helpers)
-    async function setTokensMultiAsync(list){
+    async function setTokensMultiAsync(list) {
         const arr = Array.isArray(list) ? list : [];
         const { ok } = await (window.saveToLocalStorageAsync ? window.saveToLocalStorageAsync('TOKEN_MULTICHAIN', arr) : Promise.resolve({ ok: true }));
         return ok;
     }
 
-    function getTokensChain(chain){
+    function getTokensChain(chain) {
         const chainKey = String(chain).toLowerCase();
         const primaryKey = `TOKEN_${String(chainKey).toUpperCase()}`;
         let t = getFromLocalStorage(primaryKey, []);
@@ -144,7 +151,7 @@
         return Array.isArray(t) ? t : [];
     }
 
-    function setTokensChain(chain, list){
+    function setTokensChain(chain, list) {
         const chainKey = String(chain).toLowerCase();
         const key = `TOKEN_${String(chainKey).toUpperCase()}`;
         const prev = getFromLocalStorage(key, []);
@@ -160,12 +167,19 @@
             const dex = (cfg.DEXS || []).map(x => String(x).toLowerCase());
             const fkey = `FILTER_${String(chainKey).toUpperCase()}`;
             const existing = getFromLocalStorage(fkey, null);
-            const empty = !existing || ((existing.cex||[]).length===0 && (existing.pair||[]).length===0 && (existing.dex||[]).length===0);
-            if (empty) setFilterChain(chain, { cex, pair: pairs, dex });
+            // ✅ FIX: Check _filterInitialized flag to prevent overwriting user's filter settings
+            const alreadyInitialized = existing && existing._filterInitialized === true;
+            const empty = !existing || ((existing.cex || []).length === 0 && (existing.pair || []).length === 0 && (existing.dex || []).length === 0);
+            if (empty && !alreadyInitialized) {
+                try { if (window.SCAN_LOG_ENABLED) console.log(`[TOKEN DEBUG] setTokensChain(${chain}): Auto-initializing filter (first time)`); } catch (_) { }
+                setFilterChain(chain, { cex, pair: pairs, dex });
+            } else {
+                try { if (window.SCAN_LOG_ENABLED) console.log(`[TOKEN DEBUG] setTokensChain(${chain}): Skipping auto-init, filter already exists or initialized`, { alreadyInitialized, empty }); } catch (_) { }
+            }
         }
     }
 
-    async function setTokensChainAsync(chain, list){
+    async function setTokensChainAsync(chain, list) {
         const key = `TOKEN_${String(chain).toLowerCase().toUpperCase()}`; // keep current primary
         const arr = Array.isArray(list) ? list : [];
         const { ok } = await (window.saveToLocalStorageAsync ? window.saveToLocalStorageAsync(key, arr) : Promise.resolve({ ok: true }));
@@ -207,7 +221,7 @@
                     id: item.id,
                     cex: cexUpper,
                     feeWDToken: parseFloat(cexInfo.feeWDToken) || 0,
-                    feeWDPair:  parseFloat(cexInfo.feeWDPair)  || 0,
+                    feeWDPair: parseFloat(cexInfo.feeWDPair) || 0,
                     depositToken: !!cexInfo.depositToken,
                     withdrawToken: !!cexInfo.withdrawToken,
                     depositPair: !!cexInfo.depositPair,

@@ -2821,12 +2821,18 @@
       const ak = actionKey(action);
       let primary = map.primary && map.primary[ak] ? String(map.primary[ak]).toLowerCase() : null;
 
-      // ✅ RENAMED: alternative → secondary (no fallback logic)
-      // If no secondary is specified in config, secondary will be null
+      // ✅ DUAL STRATEGY SYSTEM:
+      // - 'alternative' key → FALLBACK behavior (if primary error → try alternative)
+      // - 'secondary' key → ROTATION behavior (round-robin alternating)
+      let alternative = map.alternative && map.alternative[ak] ? String(map.alternative[ak]).toLowerCase() : null;
       let secondary = map.secondary && map.secondary[ak] ? String(map.secondary[ak]).toLowerCase() : null;
 
-      return { primary, secondary, normalizedKey: key };  // ← RENAMED from 'alternative'
-    } catch (_) { return { primary: null, secondary: null, normalizedKey: null }; }
+      // Determine strategy mode based on which key is present
+      // Priority: alternative (fallback) > secondary (rotation)
+      const strategyMode = alternative ? 'fallback' : (secondary ? 'rotation' : 'primary-only');
+
+      return { primary, alternative, secondary, strategyMode, normalizedKey: key };
+    } catch (_) { return { primary: null, alternative: null, secondary: null, strategyMode: 'primary-only', normalizedKey: null }; }
   }
 
   // ========== REQUEST DEDUPLICATION & CACHING ==========
@@ -2846,7 +2852,7 @@
   const DEX_ROTATION_STATE = new Map();
 
   /**
-   * Helper function to determine which strategy to use (primary or secondary)
+   * Helper function to determine which strategy to use for ROTATION mode
    * Uses round-robin rotation to alternate between primary and secondary
    * @param {string} dexType - The DEX type key
    * @param {string} primary - Primary strategy name
@@ -2876,8 +2882,23 @@
 
     return {
       selectedStrategy,
-      isSecondary: useSecondary
-      // ✅ NO fallbackStrategy - fallback logic removed
+      isSecondary: useSecondary,
+      fallbackStrategy: null  // Rotation mode has no fallback
+    };
+  }
+
+  /**
+   * Helper function for FALLBACK mode - always start with primary
+   * If primary fails, caller should retry with alternative
+   * @param {string} primary - Primary strategy name
+   * @param {string|null} alternative - Alternative strategy for fallback
+   * @returns {Object} { selectedStrategy: string, fallbackStrategy: string|null }
+   */
+  function selectFallbackStrategy(primary, alternative) {
+    return {
+      selectedStrategy: primary,
+      isSecondary: false,
+      fallbackStrategy: alternative || null  // Alternative to try if primary fails
     };
   }
 
@@ -3171,18 +3192,39 @@
 
       const plan = resolveFetchPlan(dexType, action, chainName);
       const primary = plan.primary || String(dexType || '').toLowerCase();
-      const secondary = plan.secondary || null;  // ← RENAMED from 'alternative'
+      const alternative = plan.alternative || null;  // For FALLBACK mode
+      const secondary = plan.secondary || null;      // For ROTATION mode
+      const strategyMode = plan.strategyMode || 'primary-only';
       const normalizedKey = plan.normalizedKey || String(dexType || '').toLowerCase();
 
-      // ========== ROTATION STRATEGY SELECTION ==========
-      // Use round-robin rotation to alternate between primary and secondary
-      const rotation = selectRotationStrategy(normalizedKey, primary, secondary);
-      const selectedStrategy = rotation.selectedStrategy;
-      const isUsingSecondary = rotation.isSecondary;  // ← RENAMED from 'isAlternative'
+      // ========== DUAL STRATEGY SELECTION ==========
+      // Choose between FALLBACK and ROTATION based on config keys
+      let selectedStrategy, fallbackStrategy, isUsingSecondary;
 
-      // DEBUG: Log strategy selection with rotation info
+      if (strategyMode === 'fallback') {
+        // FALLBACK MODE: Start with primary, alternative is backup if error
+        const selection = selectFallbackStrategy(primary, alternative);
+        selectedStrategy = selection.selectedStrategy;
+        fallbackStrategy = selection.fallbackStrategy;
+        isUsingSecondary = false;
+        try { if (window.SCAN_LOG_ENABLED) console.log(`[DEX FALLBACK] ${chainName?.toUpperCase() || 'CHAIN'} ${normalizedKey.toUpperCase()} ${action}: primary='${selectedStrategy}', fallback='${fallbackStrategy}'`); } catch (_) { }
+      } else if (strategyMode === 'rotation') {
+        // ROTATION MODE: Round-robin between primary and secondary
+        const rotation = selectRotationStrategy(normalizedKey, primary, secondary);
+        selectedStrategy = rotation.selectedStrategy;
+        fallbackStrategy = null;  // Rotation mode has no fallback
+        isUsingSecondary = rotation.isSecondary;
+        try { if (window.SCAN_LOG_ENABLED) console.log(`[DEX ROTATION] ${chainName?.toUpperCase() || 'CHAIN'} ${normalizedKey.toUpperCase()} ${action}: selected='${selectedStrategy}' (${isUsingSecondary ? 'SECONDARY' : 'PRIMARY'})`); } catch (_) { }
+      } else {
+        // PRIMARY-ONLY MODE: No alternative or secondary configured
+        selectedStrategy = primary;
+        fallbackStrategy = null;
+        isUsingSecondary = false;
+        try { if (window.SCAN_LOG_ENABLED) console.log(`[DEX PRIMARY-ONLY] ${chainName?.toUpperCase() || 'CHAIN'} ${normalizedKey.toUpperCase()} ${action}: using='${selectedStrategy}'`); } catch (_) { }
+      }
+
+      // DEBUG: Log strategy selection
       const displayDex = normalizedKey !== String(dexType || '').toLowerCase() ? `${dexType.toUpperCase()}→${normalizedKey.toUpperCase()}` : dexType.toUpperCase();
-      try { if (window.SCAN_LOG_ENABLED) console.log(`[DEX ROTATION] ${chainName?.toUpperCase() || 'CHAIN'} ${displayDex} ${action}: selected='${selectedStrategy}' (${isUsingSecondary ? 'SECONDARY' : 'PRIMARY'})`); } catch (_) { }
 
       // ✅ Resolve timeout from global config
       const strategyTimeout = resolveStrategyTimeout(selectedStrategy);
@@ -3200,9 +3242,32 @@
           return result;
         })
         .catch((error) => {
-          // ✅ NO FALLBACK - Just throw error directly (pure rotation, no retry)
+          // ========== FALLBACK LOGIC ==========
+          // Only try fallback if in FALLBACK mode and fallbackStrategy exists
+          if (strategyMode === 'fallback' && fallbackStrategy) {
+            try { if (window.SCAN_LOG_ENABLED) console.warn(`[DEX FALLBACK] ${normalizedKey.toUpperCase()}: Primary '${selectedStrategy}' failed, trying fallback '${fallbackStrategy}'...`); } catch (_) { }
+
+            // Retry with fallback strategy
+            return runStrategy(fallbackStrategy)
+              .then((fallbackResult) => {
+                // SUCCESS with fallback: Cache the response
+                DEX_RESPONSE_CACHE.set(cacheKey, {
+                  response: fallbackResult,
+                  timestamp: Date.now()
+                });
+                try { if (window.SCAN_LOG_ENABLED) console.log(`[DEX FALLBACK SUCCESS] ${normalizedKey.toUpperCase()}: Fallback '${fallbackStrategy}' succeeded!`); } catch (_) { }
+                return fallbackResult;
+              })
+              .catch((fallbackError) => {
+                // Both primary and fallback failed
+                console.error(`[DEX FALLBACK FAILED] ${normalizedKey.toUpperCase()}: Both primary and fallback failed`);
+                throw fallbackError;  // Throw fallback error
+              });
+          }
+
+          // ROTATION or PRIMARY-ONLY mode: No fallback, throw error directly
           console.error(`[DEX ERROR] ${chainName?.toUpperCase() || 'CHAIN'} ${dexType.toUpperCase()}: ${selectedStrategy} failed:`, error.message || error.pesanDEX || 'Unknown error');
-          throw error;  // No fallback, throw error immediately
+          throw error;
         })
         .finally(() => {
           // CLEANUP: Remove from inflight cache after completion (success or error)

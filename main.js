@@ -331,43 +331,40 @@ $(document).off('click.globalEdit').on('click.globalEdit', '.edit-token-button',
 });
 
 function refreshTokensTable() {
-    const storedFilter = getFromLocalStorage('FILTER_MULTICHAIN', null);
-    const filtersActive = storedFilter !== null; // null = first load
-
     const fm = getFilterMulti();
     const chainsSel = (fm.chains || []).map(c => String(c).toLowerCase());
     const cexSel = (fm.cex || []).map(c => String(c).toUpperCase());
     const dexSel = (fm.dex || []).map(d => String(d).toLowerCase());
 
+    // ✅ FIX: Use _hasFilters flag from getFilterMulti() to distinguish:
+    // - _hasFilters = false: Filter properties never existed (first load) → show all
+    // - _hasFilters = true + empty arrays: User explicitly unchecked all → show 0
+    // - _hasFilters = true + non-empty arrays: Apply filters normally
+    const filtersExplicitlySet = fm._hasFilters === true;
+
     // Ambil data ter-flatten dan terurut dari IndexedDB berdasarkan symbol_in (ASC/DESC)
     let flatTokens = (typeof getFlattenedSortedMulti === 'function') ? getFlattenedSortedMulti() : flattenDataKoin(getTokensMulti());
 
     let filteredByChain = [];
-    // ✅ FIX: If saved filter exists but all arrays empty → show 0 data (user unchecked all)
-    // Only show all if NO saved filter at all (first load)
     const hasChainFilter = chainsSel.length > 0;
     const hasCexFilter = cexSel.length > 0;
     const hasDexFilter = dexSel.length > 0;
-    const hasAnyFilter = hasChainFilter || hasCexFilter || hasDexFilter;
+    // ✅ REFACTORED: Use AND logic (consistent with TOTAL KOIN calculation in renderFilterCard)
+    // All three filters (CHAIN, CEX, DEX) must have selections for data to be displayed
 
-    if (!filtersActive) {
-        // First load (no saved FILTER_MULTICHAIN): show all data
+    if (!filtersExplicitlySet) {
+        // Filter properties never existed (first load): show all data
         filteredByChain = flatTokens;
-    } else if (!hasAnyFilter) {
-        // Saved filter exists but all empty: show 0 data (user unchecked all)
+    } else if (!hasChainFilter || !hasCexFilter || !hasDexFilter) {
+        // ✅ FIX: If ANY filter category is empty after explicit set, show 0 data
+        // This is consistent with TOTAL KOIN calculation in renderFilterCard()
         filteredByChain = [];
     } else {
-        // Apply only the filters that have selections
-        filteredByChain = flatTokens;
-        if (hasChainFilter) {
-            filteredByChain = filteredByChain.filter(t => chainsSel.includes(String(t.chain || '').toLowerCase()));
-        }
-        if (hasCexFilter) {
-            filteredByChain = filteredByChain.filter(t => cexSel.includes(String(t.cex || '').toUpperCase()));
-        }
-        if (hasDexFilter) {
-            filteredByChain = filteredByChain.filter(t => (t.dexs || []).some(d => dexSel.includes(String(d.dex || '').toLowerCase())));
-        }
+        // All filters have selections: apply AND logic (chain all filters)
+        filteredByChain = flatTokens
+            .filter(t => chainsSel.includes(String(t.chain || '').toLowerCase()))
+            .filter(t => cexSel.includes(String(t.cex || '').toUpperCase()))
+            .filter(t => (t.dexs || []).some(d => dexSel.includes(String(d.dex || '').toLowerCase())));
     }
 
     // Tidak perlu sort ulang di sini; sumber sudah sorted berdasarkan preferensi
@@ -409,42 +406,42 @@ function loadAndDisplaySingleChainTokens() {
 
     // Apply single-chain filters: CEX, PAIR (persisted in unified settings, fallback legacy)
     try {
-        const rawSaved = getFromLocalStorage(`FILTER_${String(activeSingleChainKey).toUpperCase()}`, null);
         const filters = getFilterChain(activeSingleChainKey);
         const selCex = (filters.cex || []).map(x => String(x).toUpperCase());
         const selPair = (filters.pair || []).map(x => String(x).toUpperCase());
         const selDex = (filters.dex || []).map(x => String(x).toLowerCase());
 
-        // ✅ FIX: If saved filter exists but all arrays empty → show 0 data (user unchecked all)
-        // Only show all if NO saved filter at all (first load)
+        // ✅ FIX: Use _hasFilters flag from getFilterChain() to distinguish:
+        // - _hasFilters = false: Filter properties never existed (first load) → show all
+        // - _hasFilters = true + empty arrays: User explicitly unchecked all → show 0
+        // - _hasFilters = true + non-empty arrays: Apply filters normally
+        const filtersExplicitlySet = filters._hasFilters === true;
+
         const hasCexFilter = selCex.length > 0;
         const hasPairFilter = selPair.length > 0;
         const hasDexFilter = selDex.length > 0;
-        const hasAnyFilter = hasCexFilter || hasPairFilter || hasDexFilter;
+        // ✅ REFACTORED: Use AND logic (consistent with TOTAL KOIN calculation in renderFilterCard)
+        // All three filters (CEX, PAIR, DEX) must have selections for data to be displayed
+        // This prevents showing all data when filter result should be 0
 
-        if (!rawSaved) {
-            // No saved filter at all (first load): show all data
+        if (!filtersExplicitlySet) {
+            // Filter properties never existed (first load): show all data
             // keep flatTokens as is
-        } else if (!hasAnyFilter) {
-            // Saved filter exists but all empty: show 0 data (user unchecked all)
+        } else if (!hasCexFilter || !hasPairFilter || !hasDexFilter) {
+            // ✅ FIX: If ANY filter category is empty after explicit set, show 0 data
+            // This is consistent with TOTAL KOIN calculation in renderFilterCard()
             flatTokens = [];
         } else {
-            // Apply only the filters that have selections
-            if (hasCexFilter) {
-                flatTokens = flatTokens.filter(t => selCex.includes(String(t.cex).toUpperCase()));
-            }
-            if (hasPairFilter) {
-                flatTokens = flatTokens.filter(t => {
-                    const chainCfg = CONFIG_CHAINS[(t.chain || '').toLowerCase()] || {};
-                    const pairDefs = chainCfg.PAIRDEXS || {};
+            // All filters have selections: apply AND logic (chain all filters)
+            const pairDefs = CONFIG_CHAINS[activeSingleChainKey]?.PAIRDEXS || {};
+            flatTokens = flatTokens
+                .filter(t => selCex.includes(String(t.cex).toUpperCase()))
+                .filter(t => {
                     const p = String(t.symbol_out || '').toUpperCase();
                     const mapped = pairDefs[p] ? p : 'NON';
                     return selPair.includes(mapped);
-                });
-            }
-            if (hasDexFilter) {
-                flatTokens = flatTokens.filter(t => (t.dexs || []).some(d => selDex.includes(String(d.dex || '').toLowerCase())));
-            }
+                })
+                .filter(t => (t.dexs || []).some(d => selDex.includes(String(d.dex || '').toLowerCase())));
         }
         // Tidak perlu sort ulang; sudah terurut dari sumber
     } catch (e) { /* debug logs removed */ }

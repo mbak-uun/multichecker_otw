@@ -716,7 +716,7 @@ const CONFIG_DEXS = {
                 tokentopair: 'kyber',          // CEX→DEX: Official KyberSwap API
                 pairtotoken: 'kyber'           // DEX→CEX: Official KyberSwap API
             },
-            secondary: {  // ✅ ADDED: LIFI-Kyber to reduce load on KyberSwap API
+            alternative: {  // ✅ ADDED: LIFI-Kyber to reduce load on KyberSwap API
                 tokentopair: 'lifi-kyber',     // CEX→DEX: LIFI filtered to KyberSwap
                 pairtotoken: 'lifi-kyber'      // DEX→CEX: LIFI filtered to KyberSwap
             }
@@ -830,7 +830,7 @@ const CONFIG_DEXS = {
                 pairtotoken: 'matcha'          // DEX→CEX: Direct 0x API (requires API key)
             },
             secondary: {  // ← RENAMED from 'alternative'
-                tokentopair: 'swoop-matcha',   // CEX→DEX: SWOOP aggregator (8s timeout)
+                tokentopair: 'matcha',   // CEX→DEX: SWOOP aggregator (8s timeout)
                 pairtotoken: 'swoop-matcha'    // DEX→CEX: SWOOP aggregator (backup)
             }
         }
@@ -864,7 +864,7 @@ const CONFIG_DEXS = {
                 tokentopair: 'odos3',        // CEX→DEX: Official ODOS v3 API
                 pairtotoken: 'hinkal-odos'   // DEX→CEX: Hinkal ODOS Proxy (faster + privacy)
             },
-            secondary: {  // ← RENAMED from 'alternative'
+            alternative: {  // ← RENAMED from 'alternative'
                 tokentopair: 'swoop-odos',   // CEX→DEX: SWOOP filtered (rotation)
                 pairtotoken: 'lifi-odos'     // DEX→CEX: LIFI filtered (rotation)
             }

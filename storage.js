@@ -244,7 +244,7 @@
     }
 
     // ✅ Expose flush function for critical saves
-    window.__IDB_FLUSH_PENDING__ = async function() {
+    window.__IDB_FLUSH_PENDING__ = async function () {
         if (writeBatcher && writeBatcher.getQueueSize() > 0) {
             await writeBatcher.flush();
         }
@@ -300,6 +300,7 @@
 
     // ✅ OPTIMIZATION: Warm critical keys on startup (faster startup)
     // ✅ FIXED: Added TOKEN keys to prevent data loss
+    // ✅ FIXED: Added FILTER keys to prevent race condition when reading filters after refresh
     const criticalKeys = [
         (window.storagePrefix || '') + 'SETTING_SCANNER',
         (window.storagePrefix || '') + 'FILTER_MULTICHAIN',
@@ -313,7 +314,15 @@
         (window.storagePrefix || '') + 'TOKEN_ETHEREUM',
         (window.storagePrefix || '') + 'TOKEN_BASE',
         (window.storagePrefix || '') + 'TOKEN_AVALANCHE',
-        (window.storagePrefix || '') + 'TOKEN_OPTIMISM'
+        (window.storagePrefix || '') + 'TOKEN_OPTIMISM',
+        // ✅ FILTER KEYS - Prevent race condition when reading filters after refresh
+        (window.storagePrefix || '') + 'FILTER_BSC',
+        (window.storagePrefix || '') + 'FILTER_POLYGON',
+        (window.storagePrefix || '') + 'FILTER_ARBITRUM',
+        (window.storagePrefix || '') + 'FILTER_ETHEREUM',
+        (window.storagePrefix || '') + 'FILTER_BASE',
+        (window.storagePrefix || '') + 'FILTER_AVALANCHE',
+        (window.storagePrefix || '') + 'FILTER_OPTIMISM'
     ];
 
     try {
@@ -323,7 +332,7 @@
                 if (window.SCAN_LOG_ENABLED) {
                     console.log(`[Storage] ✅ Warmed ${count} critical keys`);
                 }
-            } catch (_) {}
+            } catch (_) { }
 
             // Lazy load all other keys in background (non-blocking)
             setTimeout(() => {
@@ -332,7 +341,7 @@
                         if (window.SCAN_LOG_ENABLED) {
                             console.log('[Storage] ✅ Full cache warmed (background)');
                         }
-                    } catch (_) {}
+                    } catch (_) { }
                 });
             }, 2000); // 2 seconds delay
 
@@ -366,6 +375,9 @@
         }
     };
 
+    // ✅ FIX: Track keys that were recently written to prevent lazy load race condition
+    const recentlyWrittenKeys = new Set();
+
     // Public API (kept sync signatures for backward compatibility)
     // ✅ FIXED: Restore lazy load behavior to prevent data loss
     window.getFromLocalStorage = function (key, defaultValue) {
@@ -375,8 +387,16 @@
             if (Object.prototype.hasOwnProperty.call(cache, nsKey)) {
                 return cache[nsKey];
             }
-            // ✅ RESTORED: Lazy load from IDB (async, but populates cache for next read)
-            idbGet(nsKey).then(val => { if (val !== undefined) cache[nsKey] = val; });
+            // ✅ FIX: Only trigger lazy load if this key wasn't recently written
+            // This prevents race condition where async IDB read overwrites fresh cache
+            if (!recentlyWrittenKeys.has(nsKey)) {
+                idbGet(nsKey).then(val => {
+                    // Double-check: only update cache if key still not in recentlyWritten
+                    if (val !== undefined && !recentlyWrittenKeys.has(nsKey)) {
+                        cache[nsKey] = val;
+                    }
+                });
+            }
 
             // Return defaultValue immediately (will use cached value on next call)
             return defaultValue;
@@ -384,6 +404,13 @@
             return defaultValue;
         }
     };
+
+    // ✅ FIX: Mark key as recently written and clear after delay
+    function markKeyAsRecentlyWritten(nsKey) {
+        recentlyWrittenKeys.add(nsKey);
+        // Clear after 5 seconds to allow normal lazy load behavior for stale keys
+        setTimeout(() => recentlyWrittenKeys.delete(nsKey), 5000);
+    }
 
     // History helpers (append-only list in KV)
     function resolveModeInfo() {
@@ -484,6 +511,8 @@
         try {
             const nsKey = String((window.storagePrefix || '') + key);
             cache[nsKey] = value;
+            // ✅ FIX: Mark as recently written to prevent lazy load race condition
+            markKeyAsRecentlyWritten(nsKey);
             idbSet(nsKey, value);
             // Broadcast key update (e.g., APP_STATE) to other tabs
             try { if (window.__MC_BC) window.__MC_BC.postMessage({ type: 'kv', key, val: value }); } catch (_) { }
@@ -496,6 +525,8 @@
         const nsKey = String((window.storagePrefix || '') + key);
         try {
             cache[nsKey] = value;
+            // ✅ FIX: Mark as recently written to prevent lazy load race condition
+            markKeyAsRecentlyWritten(nsKey);
             const ok = await idbSet(nsKey, value);
             // no localStorage mirror
             if (!ok) {
@@ -1344,7 +1375,7 @@ window.getModalProfileKey = function (chainKey) {
  */
 window.loadModalProfiles = async function (chainKey) {
     if (!chainKey || String(chainKey).toLowerCase() === 'multichain') {
-        try { if (window.SCAN_LOG_ENABLED) console.warn('[Modal Profile] Cannot load profiles for multichain mode'); } catch(_) {}
+        try { if (window.SCAN_LOG_ENABLED) console.warn('[Modal Profile] Cannot load profiles for multichain mode'); } catch (_) { }
         return []; // No profiles for multichain
     }
 
@@ -1352,7 +1383,7 @@ window.loadModalProfiles = async function (chainKey) {
         const key = window.getModalProfileKey(chainKey);
         const profiles = getFromLocalStorage(key, []);
         const result = Array.isArray(profiles) ? profiles : [];
-        try { if (window.SCAN_LOG_ENABLED) console.log(`[Modal Profile] Loaded ${result.length} profiles for chain: ${chainKey}`); } catch(_) {}
+        try { if (window.SCAN_LOG_ENABLED) console.log(`[Modal Profile] Loaded ${result.length} profiles for chain: ${chainKey}`); } catch (_) { }
         return result;
     } catch (e) {
         console.error('[Modal Profile] Error loading profiles:', e);
@@ -1368,7 +1399,7 @@ window.loadModalProfiles = async function (chainKey) {
  */
 window.saveModalProfiles = async function (chainKey, profiles) {
     if (!chainKey || String(chainKey).toLowerCase() === 'multichain') {
-        try { if (window.SCAN_LOG_ENABLED) console.warn('[Modal Profile] Cannot save profiles for multichain mode'); } catch(_) {}
+        try { if (window.SCAN_LOG_ENABLED) console.warn('[Modal Profile] Cannot save profiles for multichain mode'); } catch (_) { }
         return false; // No save for multichain
     }
 
@@ -1379,14 +1410,14 @@ window.saveModalProfiles = async function (chainKey, profiles) {
         }
 
         const key = window.getModalProfileKey(chainKey);
-        try { if (window.SCAN_LOG_ENABLED) console.log(`[Modal Profile] Saving ${profiles.length} profiles for chain: ${chainKey}`); } catch(_) {}
+        try { if (window.SCAN_LOG_ENABLED) console.log(`[Modal Profile] Saving ${profiles.length} profiles for chain: ${chainKey}`); } catch (_) { }
 
         saveToLocalStorage(key, profiles);
 
         // Flush to IndexedDB immediately
         if (window.__IDB_FLUSH_PENDING__) {
             await window.__IDB_FLUSH_PENDING__();
-            try { if (window.SCAN_LOG_ENABLED) console.log('[Modal Profile] ✅ Flushed to IndexedDB'); } catch(_) {}
+            try { if (window.SCAN_LOG_ENABLED) console.log('[Modal Profile] ✅ Flushed to IndexedDB'); } catch (_) { }
         }
 
         return true;
@@ -1403,13 +1434,13 @@ window.saveModalProfiles = async function (chainKey, profiles) {
  */
 window.deleteModalProfiles = async function (chainKey) {
     if (!chainKey || String(chainKey).toLowerCase() === 'multichain') {
-        try { if (window.SCAN_LOG_ENABLED) console.warn('[Modal Profile] Cannot delete profiles for multichain mode'); } catch(_) {}
+        try { if (window.SCAN_LOG_ENABLED) console.warn('[Modal Profile] Cannot delete profiles for multichain mode'); } catch (_) { }
         return false;
     }
 
     try {
         const key = window.getModalProfileKey(chainKey);
-        try { if (window.SCAN_LOG_ENABLED) console.log(`[Modal Profile] Deleting all profiles for chain: ${chainKey}`); } catch(_) {}
+        try { if (window.SCAN_LOG_ENABLED) console.log(`[Modal Profile] Deleting all profiles for chain: ${chainKey}`); } catch (_) { }
 
         removeFromLocalStorage(key);
 
@@ -1446,7 +1477,7 @@ window.migrateOldModalProfiles = async function () {
                 const newData = getFromLocalStorage(newKey, null);
                 if (!newData) {
                     // Migrate
-                    try { if (window.SCAN_LOG_ENABLED) console.log(`[Migration] Migrating ${oldData.length} profiles from ${oldKey} to ${newKey}`); } catch(_) {}
+                    try { if (window.SCAN_LOG_ENABLED) console.log(`[Migration] Migrating ${oldData.length} profiles from ${oldKey} to ${newKey}`); } catch (_) { }
                     saveToLocalStorage(newKey, oldData);
                     migrated++;
                 }
@@ -1465,7 +1496,7 @@ window.migrateOldModalProfiles = async function () {
         }
 
         if (migrated > 0) {
-            try { if (window.SCAN_LOG_ENABLED) console.log(`[Migration] ✅ Migrated ${migrated} profile sets`); } catch(_) {}
+            try { if (window.SCAN_LOG_ENABLED) console.log(`[Migration] ✅ Migrated ${migrated} profile sets`); } catch (_) { }
 
             // Flush all migrations to IndexedDB
             if (window.__IDB_FLUSH_PENDING__) {
@@ -1476,7 +1507,7 @@ window.migrateOldModalProfiles = async function () {
                 toast.success(`Migrasi ${migrated} set profil berhasil`);
             }
         } else {
-            try { if (window.SCAN_LOG_ENABLED) console.log('[Migration] No profiles to migrate'); } catch(_) {}
+            try { if (window.SCAN_LOG_ENABLED) console.log('[Migration] No profiles to migrate'); } catch (_) { }
         }
     } catch (e) {
         console.error('[Migration] Error migrating profiles:', e);

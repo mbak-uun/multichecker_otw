@@ -14,7 +14,7 @@
  * - setFilterChain: Set single-chain filter settings
  */
 
-(function() {
+(function () {
     'use strict';
 
     // =================================================================================
@@ -27,7 +27,7 @@
             const f = getFromLocalStorage(getActiveFilterKey(), {}) || {};
             const v = parseFloat(f.pnl);
             return isFinite(v) && v >= 0 ? v : 0;
-        } catch(_) { return 0; }
+        } catch (_) { return 0; }
     }
 
     function setPNLFilter(value) {
@@ -40,11 +40,26 @@
 
     function getFilterMulti() {
         const f = getFromLocalStorage('FILTER_MULTICHAIN', null);
-        if (f && typeof f === 'object') return { chains: f.chains || [], cex: f.cex || [], dex: (f.dex || []).map(x => String(x).toLowerCase()) };
-        return { chains: [], cex: [], dex: [] };
+        if (f && typeof f === 'object') {
+            // ✅ FIX: Track whether filter properties actually exist in storage
+            // _hasFilters = true means user has explicitly set filters (even if empty)
+            // _hasFilters = false means filter properties never existed (first load)
+            const hasChains = Array.isArray(f.chains);
+            const hasCex = Array.isArray(f.cex);
+            const hasDex = Array.isArray(f.dex);
+            const _hasFilters = hasChains || hasCex || hasDex;
+
+            return {
+                chains: f.chains || [],
+                cex: f.cex || [],
+                dex: (f.dex || []).map(x => String(x).toLowerCase()),
+                _hasFilters  // ← New flag to distinguish "not set" vs "explicitly empty"
+            };
+        }
+        return { chains: [], cex: [], dex: [], _hasFilters: false };
     }
 
-    function setFilterMulti(val){
+    function setFilterMulti(val) {
         // Merge with existing filter so other keys (e.g., sort, pnl) remain intact
         const prev = getFromLocalStorage('FILTER_MULTICHAIN', {}) || {};
         const next = { ...prev };
@@ -57,14 +72,18 @@
         if (val && Object.prototype.hasOwnProperty.call(val, 'dex')) {
             next.dex = (val.dex || []).map(x => String(x).toLowerCase());
         }
+        // ✅ FIX: Mark filter as initialized to prevent auto-reset in setTokensMulti
+        next._filterInitialized = true;
         saveToLocalStorage('FILTER_MULTICHAIN', next);
+        // Debug logging
+        try { if (window.SCAN_LOG_ENABLED) console.log('[FILTER DEBUG] setFilterMulti saved:', { chains: (next.chains || []).length, cex: (next.cex || []).length, dex: (next.dex || []).length }); } catch (_) { }
     }
 
-    function getFilterChain(chain){
+    function getFilterChain(chain) {
         const chainKey = String(chain).toLowerCase();
         const key = `FILTER_${String(chainKey).toUpperCase()}`;
         let f = getFromLocalStorage(key, null);
-        if (!f || typeof f !== 'object'){
+        if (!f || typeof f !== 'object') {
             // REFACTORED: no try/catch; use optional chaining
             const legacyName = (window.CONFIG_CHAINS?.[chainKey]?.Nama_Chain || '').toString().toUpperCase();
             if (legacyName) {
@@ -76,11 +95,26 @@
                 }
             }
         }
-        if (f && typeof f==='object') return { cex: (f.cex||[]).map(String), pair: (f.pair||[]).map(x=>String(x).toUpperCase()), dex: (f.dex||[]).map(x=>String(x).toLowerCase()) };
-        return { cex: [], pair: [], dex: [] };
+        if (f && typeof f === 'object') {
+            // ✅ FIX: Track whether filter properties actually exist in storage
+            // _hasFilters = true means user has explicitly set filters (even if empty)
+            // _hasFilters = false means filter properties never existed (first load)
+            const hasCex = Array.isArray(f.cex);
+            const hasPair = Array.isArray(f.pair);
+            const hasDex = Array.isArray(f.dex);
+            const _hasFilters = hasCex || hasPair || hasDex;
+
+            return {
+                cex: (f.cex || []).map(String),
+                pair: (f.pair || []).map(x => String(x).toUpperCase()),
+                dex: (f.dex || []).map(x => String(x).toLowerCase()),
+                _hasFilters  // ← New flag to distinguish "not set" vs "explicitly empty"
+            };
+        }
+        return { cex: [], pair: [], dex: [], _hasFilters: false };
     }
 
-    function setFilterChain(chain, val){
+    function setFilterChain(chain, val) {
         const key = `FILTER_${String(chain).toUpperCase()}`;
         const prev = getFromLocalStorage(key, {}) || {};
         const next = { ...prev };
@@ -93,7 +127,11 @@
         if (val && Object.prototype.hasOwnProperty.call(val, 'dex')) {
             next.dex = (val.dex || []).map(x => String(x).toLowerCase());
         }
+        // ✅ FIX: Mark filter as initialized to prevent auto-reset in setTokensChain
+        next._filterInitialized = true;
         saveToLocalStorage(key, next);
+        // Debug logging
+        try { if (window.SCAN_LOG_ENABLED) console.log(`[FILTER DEBUG] setFilterChain(${chain}) saved:`, { cex: (next.cex || []).length, pair: (next.pair || []).length, dex: (next.dex || []).length }); } catch (_) { }
     }
 
     // =================================================================================
