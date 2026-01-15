@@ -2,7 +2,7 @@
 const CONFIG_APP = {
     APP: {
         NAME: "MARKETWATCH-DEV",
-        VERSION: "2026.01.14",
+        VERSION: "2026.01.15",
         SCAN_LIMIT: false,
         AUTORUN: true,
         AUTO_VOLUME: true,   // Set false untuk menyembunyikan & menonaktifkan fitur auto volume
