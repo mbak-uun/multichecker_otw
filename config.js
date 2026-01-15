@@ -2,7 +2,7 @@
 const CONFIG_APP = {
     APP: {
         NAME: "MARKETWATCH-DEV",
-        VERSION: "2026.01.15",
+        VERSION: "2026.01.14",
         SCAN_LIMIT: false,
         AUTORUN: true,
         AUTO_VOLUME: true,   // Set false untuk menyembunyikan & menonaktifkan fitur auto volume
@@ -710,13 +710,14 @@ const CONFIG_DEXS = {
         warna: "#0b7e18ff", // hijau tosca KyberSwap
         builder: ({ chainName, tokenAddress, pairAddress }) =>
             `https://kyberswap.com/swap/${chainName}/${tokenAddress}-to-${pairAddress}`,
-        // ⚡ ROTATION STRATEGY: Alternate between official API and filtered aggregators
+        // ⚡ FALLBACK STRATEGY: Use LIFI-Kyber only when Kyber API fails
+        // Reason: LIFI is used by many DEXes, avoid overloading it with rotation
         fetchdex: {
             primary: {
                 tokentopair: 'kyber',          // CEX→DEX: Official KyberSwap API
                 pairtotoken: 'kyber'           // DEX→CEX: Official KyberSwap API
             },
-            alternative: {  // ✅ ADDED: LIFI-Kyber to reduce load on KyberSwap API
+            alternative: {  // ⚠️ FALLBACK: Only used when primary fails (error 429/500/timeout)
                 tokentopair: 'lifi-kyber',     // CEX→DEX: LIFI filtered to KyberSwap
                 pairtotoken: 'lifi-kyber'      // DEX→CEX: LIFI filtered to KyberSwap
             }
@@ -827,11 +828,11 @@ const CONFIG_DEXS = {
         fetchdex: {
             primary: {
                 tokentopair: 'delta-matcha',   // CEX→DEX: 1Delta proxy (fast, free, no API key)
-                pairtotoken: 'swoop-matcha'          // DEX→CEX: Direct 0x API (requires API key)
+                pairtotoken: 'matcha'          // DEX→CEX: Direct 0x API (requires API key)
             },
-            alternative: {  // ← RENAMED from 'alternative'
+            secondary: {  // ← RENAMED from 'alternative'
                 tokentopair: 'matcha',   // CEX→DEX: SWOOP aggregator (8s timeout)
-                pairtotoken: 'matcha'    // DEX→CEX: SWOOP aggregator (backup)
+                pairtotoken: 'swoop-matcha'    // DEX→CEX: SWOOP aggregator (backup)
             }
         }
         // ✅ allowFallback removed - managed globally
@@ -859,14 +860,16 @@ const CONFIG_DEXS = {
         // SECONDARY ROTATION (if primary fails):
         // - tokentopair: swoop-odos = SWOOP aggregator filtered to ODOS
         // - pairtotoken: lifi-odos = LIFI aggregator filtered to ODOS
+        // ⚡ ROTATION STRATEGY: Round-robin between ODOS variants
+        // Benefits: hinkal-odos is faster, odos3 is official - alternate for best balance
         fetchdex: {
             primary: {
                 tokentopair: 'odos3',        // CEX→DEX: Official ODOS v3 API
                 pairtotoken: 'hinkal-odos'   // DEX→CEX: Hinkal ODOS Proxy (faster + privacy)
             },
-            alternative: {  // ← RENAMED from 'alternative'
-                tokentopair: 'swoop-odos',   // CEX→DEX: SWOOP filtered (rotation)
-                pairtotoken: 'lifi-odos'     // DEX→CEX: LIFI filtered (rotation)
+            secondary: {  // 🔄 ROTATION: Alternate with primary (round-robin)
+                tokentopair: 'lifi-odos',    // CEX→DEX: LIFI filtered to ODOS
+                pairtotoken: 'swoop-odos'    // DEX→CEX: SWOOP filtered to ODOS
             }
         }
         // ✅ allowFallback removed - managed globally
