@@ -828,11 +828,11 @@ const CONFIG_DEXS = {
         fetchdex: {
             primary: {
                 tokentopair: 'delta-matcha',   // CEX→DEX: 1Delta proxy (fast, free, no API key)
-                pairtotoken: 'matcha'          // DEX→CEX: Direct 0x API (requires API key)
+                pairtotoken: 'swoop-matcha'          // DEX→CEX: Direct 0x API (requires API key)
             },
             secondary: {  // ← RENAMED from 'alternative'
                 tokentopair: 'matcha',   // CEX→DEX: SWOOP aggregator (8s timeout)
-                pairtotoken: 'swoop-matcha'    // DEX→CEX: SWOOP aggregator (backup)
+                pairtotoken: 'matcha'    // DEX→CEX: SWOOP aggregator (backup)
             }
         }
         // ✅ allowFallback removed - managed globally
