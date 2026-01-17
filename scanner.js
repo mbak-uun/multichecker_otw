@@ -942,13 +942,13 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                         dex, token.chain, CONFIG_CHAINS[token.chain.toLowerCase()].Kode_Chain,
                                         direction,
                                         // ✅ FIX: Calculate actual CEX volume for AUTO VOL validation
-                                        // TokenToPair: uses volumes_buyToken (CEX buy depth)
-                                        // PairToToken: uses volumes_sellToken (CEX sell depth)
+                                        // TokenToPair: You BUY token on CEX → need ASK liquidity (volumes_sellToken)
+                                        // PairToToken: You SELL token on CEX → need BID liquidity (volumes_buyToken)
                                         (() => {
                                             try {
                                                 const volArray = isKiri
-                                                    ? (DataCEX.volumes_buyToken || [])
-                                                    : (DataCEX.volumes_sellToken || []);
+                                                    ? (DataCEX.volumes_sellToken || [])  // ASK = people selling, you buy
+                                                    : (DataCEX.volumes_buyToken || []);   // BID = people buying, you sell
                                                 return volArray.reduce((sum, v) => sum + (parseFloat(v?.volume) || 0), 0);
                                             } catch (_) { return 0; }
                                         })(),
