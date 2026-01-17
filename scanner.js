@@ -940,7 +940,19 @@ async function startScanner(tokensToScan, settings, tableBodyId) {
                                         isKiri ? token.symbol_in : token.symbol_out, isKiri ? token.symbol_out : token.symbol_in,
                                         isKiri ? DataCEX.feeWDToken : DataCEX.feeWDPair,
                                         dex, token.chain, CONFIG_CHAINS[token.chain.toLowerCase()].Kode_Chain,
-                                        direction, 0, finalDexRes
+                                        direction,
+                                        // ✅ FIX: Calculate actual CEX volume for AUTO VOL validation
+                                        // TokenToPair: uses volumes_buyToken (CEX buy depth)
+                                        // PairToToken: uses volumes_sellToken (CEX sell depth)
+                                        (() => {
+                                            try {
+                                                const volArray = isKiri
+                                                    ? (DataCEX.volumes_buyToken || [])
+                                                    : (DataCEX.volumes_sellToken || []);
+                                                return volArray.reduce((sum, v) => sum + (parseFloat(v?.volume) || 0), 0);
+                                            } catch (_) { return 0; }
+                                        })(),
+                                        finalDexRes
                                     );
 
 
